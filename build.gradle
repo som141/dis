@@ -1,0 +1,50 @@
+plugins {
+    id 'java'
+    // Shadow plugin
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
+}
+
+group = 'sp1'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+    maven { url "https://maven.lavalink.dev/releases" }
+    maven { url "https://jitpack.io" }
+}
+
+dependencies {
+    // Lavalink-devs fork or arbjerg fork 중 하나만 선택
+    implementation "dev.arbjerg:lavaplayer:2.2.2"
+    // Youtube-source
+    implementation "dev.lavalink.youtube:common:1.13.3"
+    implementation "dev.lavalink.youtube:v2:1.1.0"
+
+    implementation "net.dv8tion:JDA:5.6.1"
+    implementation "org.slf4j:slf4j-api:2.0.13"
+    implementation "ch.qos.logback:logback-classic:1.5.6"
+
+    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+// fat-JAR 만들기
+shadowJar {
+    archiveBaseName.set('TBot')   // 결과물 이름: TBot.jar
+    archiveVersion.set('')        // 버전 없이
+    mergeServiceFiles()           // SPI 병합
+    manifest {
+        attributes 'Main-Class': 'sp1.Main'
+    }
+}
+
+// `./gradlew build` 해도 shadowJar까지 자동 생성되게
+tasks.build {
+    dependsOn tasks.shadowJar
+}
