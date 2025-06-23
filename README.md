@@ -59,7 +59,7 @@
 
 ### 요구 사항
 
-* Java 17 이상
+* Java 21 이상
 * Discord 봇 토큰
 * Maven 또는 Gradle
 
