@@ -15,7 +15,7 @@ build/
 out/
 !**/src/main/**/out/
 !**/src/test/**/out/
-/main/java/sp1/evm/
+/src/main/java/sp1/LoL/evm/
 ### Eclipse ###
 .apt_generated
 .classpath
