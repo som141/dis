@@ -68,7 +68,14 @@ public class Listeners extends ListenerAdapter {
 
             case "!extract":
                 removeList(event);
+
+            case "!Gsuck":
+                Gsuck(event);
         }
+    }
+
+    private void Gsuck(MessageReceivedEvent event) {
+
     }
 
     private void removeList(MessageReceivedEvent event) {
