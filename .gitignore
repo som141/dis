@@ -41,4 +41,3 @@ bin/
 ### Mac OS ###
 .DS_Store
 src/main/java/sp1/evm.java
-src/main/java/sp1/audio/evm.java
