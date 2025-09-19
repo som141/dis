@@ -11,6 +11,7 @@ import org.jetbrains.annotations.NotNull;
 import sp1.audio.PlayerManager;
 import sp1.audio.GuildMusicManager;
 
+import java.nio.file.Paths;
 import java.util.List;
 
 public class Listeners extends ListenerAdapter {
@@ -43,7 +44,8 @@ public class Listeners extends ListenerAdapter {
 
             case "!play":
             case "노래":
-                if (parts.length < 2) {
+                event.getMessage().delete().queue();
+                if (parts.length <2) {
                     event.getChannel().sendMessage("❗ 사용법: `!play <검색어 또는 URL>`").queue();
                 } else {
                     playMusic(event, parts[1]);
@@ -70,12 +72,18 @@ public class Listeners extends ListenerAdapter {
                 removeList(event);
 
             case "!gsuck":
-                playGsuck(event);
-                break;    // break 추가
+                event.getMessage().delete().queue();
+                playLocal(event,"gsuck.mp3");
+                break;
+
+            case "!smbj":
+                event.getMessage().delete().queue();
+                playLocal(event,"smbj.mp3");
+                break;
         }
     }
 
-    private void playGsuck(MessageReceivedEvent event) {
+    private void playLocal(MessageReceivedEvent event,String s) {
         Member author = event.getMember();
         Guild guild = event.getGuild();
         TextChannel textChannel = (TextChannel) event.getChannel();
@@ -91,8 +99,8 @@ public class Listeners extends ListenerAdapter {
         }
 
 
-        // 로컬 파일 경로를 trackURL로 넘겨 큐에 추가
-        PlayerManager.getINSTANCE().loadAndPlay(textChannel, "Gsuck.mp3", author);
+        String localPath = Paths.get("src/main/resources/"+s).toAbsolutePath().toString();
+        PlayerManager.getINSTANCE().loadAndPlay(textChannel, localPath, author);
     }
 
     private void removeList(MessageReceivedEvent event) {

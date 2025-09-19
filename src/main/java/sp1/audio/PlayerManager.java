@@ -60,10 +60,8 @@ public class PlayerManager {
             public void trackLoaded(AudioTrack audioTrack) {
                 // 트랙 대기열 추가
                 musicManager.scheduler.queue(audioTrack);
-                textChannel.sendMessageFormat("재생 중인 곡: `%s` (by `%s`)",
-                        audioTrack.getInfo().title,
-                        audioTrack.getInfo().author
-                ).queue();
+
+
             }
 
             @Override
@@ -74,11 +72,7 @@ public class PlayerManager {
                         : audioPlaylist.getTracks().get(0);
 
                 musicManager.scheduler.queue(firstTrack);
-                textChannel.sendMessageFormat(
-                        "재생 중인 곡: `%s` (by `%s`)",
-                        firstTrack.getInfo().title,
-                        firstTrack.getInfo().author
-                ).queue();
+
             }
 
             @Override
