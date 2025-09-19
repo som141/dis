@@ -15,7 +15,7 @@ import java.nio.file.Paths;
 import java.util.List;
 
 public class Listeners extends ListenerAdapter {
-
+    private static final String PIZZA_IMAGE ="https://images.unsplash.com/photo-1548365328-9f547fb0953d";
     @Override
     public void onMessageReceived(@NotNull MessageReceivedEvent event) {
         // 봇 자체 메시지 무시
@@ -45,7 +45,7 @@ public class Listeners extends ListenerAdapter {
             case "!play":
             case "노래":
                 event.getMessage().delete().queue();
-                if (parts.length <2) {
+                if (parts.length < 2) {
                     event.getChannel().sendMessage("❗ 사용법: `!play <검색어 또는 URL>`").queue();
                 } else {
                     playMusic(event, parts[1]);
@@ -80,9 +80,45 @@ public class Listeners extends ListenerAdapter {
                 event.getMessage().delete().queue();
                 playLocal(event,"smbj.mp3");
                 break;
+
+            case "!pause":
+                pauseMusic(event);
+                break;
+            case "!resume":
+                resumeMusic(event);
+                break;
+            case "!pizza":
+                printPizza(event);
         }
     }
 
+    private void printPizza(MessageReceivedEvent event) {
+        event.getChannel().sendMessageEmbeds(new net.dv8tion.jda.api.EmbedBuilder().setTitle("Edou").setImage(PIZZA_IMAGE).build()).queue();
+    }
+
+    private void pauseMusic(MessageReceivedEvent event) {
+        GuildMusicManager gm = PlayerManager.getINSTANCE().getMusicManager(event.getGuild());
+        if (gm.audioPlayer.getPlayingTrack() == null) {
+            event.getChannel().sendMessage("⏸️ 재생 중인 곡이 없습니다.").queue();
+        } else if (gm.audioPlayer.isPaused()) {
+            event.getChannel().sendMessage("⚠️ 이미 일시 정지 상태입니다.").queue();
+        } else {
+            gm.audioPlayer.setPaused(true);
+            event.getChannel().sendMessage("⏸️ 곡을 일시 정지했습니다.").queue();
+        }
+    }
+
+    private void resumeMusic(MessageReceivedEvent event) {
+        GuildMusicManager gm = PlayerManager.getINSTANCE().getMusicManager(event.getGuild());
+        if (gm.audioPlayer.getPlayingTrack() == null) {
+            event.getChannel().sendMessage("▶️ 재생할 곡이 없습니다.").queue();
+        } else if (!gm.audioPlayer.isPaused()) {
+            event.getChannel().sendMessage("⚠️ 현재 재생 중입니다.").queue();
+        } else {
+            gm.audioPlayer.setPaused(false);
+            event.getChannel().sendMessage("▶️ 재생을 재개했습니다.").queue();
+        }
+    }
     private void playLocal(MessageReceivedEvent event,String s) {
         Member author = event.getMember();
         Guild guild = event.getGuild();
