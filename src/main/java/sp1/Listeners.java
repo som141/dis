@@ -69,13 +69,30 @@ public class Listeners extends ListenerAdapter {
             case "!extract":
                 removeList(event);
 
-            case "!Gsuck":
-                Gsuck(event);
+            case "!gsuck":
+                playGsuck(event);
+                break;    // break 추가
         }
     }
 
-    private void Gsuck(MessageReceivedEvent event) {
+    private void playGsuck(MessageReceivedEvent event) {
+        Member author = event.getMember();
+        Guild guild = event.getGuild();
+        TextChannel textChannel = (TextChannel) event.getChannel();
 
+        if (author == null || author.getVoiceState() == null || !author.getVoiceState().inAudioChannel()) {
+            textChannel.sendMessage("⚠️ 먼저 음성 채널에 들어가세요!").queue();
+            return;
+        }
+        AudioManager am = guild.getAudioManager();
+        if (!guild.getSelfMember().getVoiceState().inAudioChannel()) {
+            VoiceChannel vc = (VoiceChannel) author.getVoiceState().getChannel();
+            am.openAudioConnection(vc);
+        }
+
+
+        // 로컬 파일 경로를 trackURL로 넘겨 큐에 추가
+        PlayerManager.getINSTANCE().loadAndPlay(textChannel, "Gsuck.mp3", author);
     }
 
     private void removeList(MessageReceivedEvent event) {
