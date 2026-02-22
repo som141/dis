@@ -20,7 +20,7 @@ public class Listeners extends ListenerAdapter {
     @Override
     public void onMessageReceived(@NotNull MessageReceivedEvent event) {
 
-        // 봇 자체 메시지 무시
+        // 봇 자체 메시지 무시11
 
         if (event.getAuthor().isBot()) return;
 
