@@ -19,7 +19,9 @@ public class Listeners extends ListenerAdapter {
     private static final String PIZZA_IMAGE ="https://images.unsplash.com/photo-1548365328-9f547fb0953d";
     @Override
     public void onMessageReceived(@NotNull MessageReceivedEvent event) {
+
         // 봇 자체 메시지 무시
+
         if (event.getAuthor().isBot()) return;
 
         String content = event.getMessage().getContentRaw().trim();
@@ -27,8 +29,6 @@ public class Listeners extends ListenerAdapter {
 
         String[] parts = content.split("\\s+", 2);
         String cmd = parts[0].toLowerCase();
-        Guild guild = event.getGuild();
-        Member member = event.getMember();
 
         switch (cmd) {
             case "!join":
@@ -74,11 +74,9 @@ public class Listeners extends ListenerAdapter {
                 skipMusic(event);
                 break;
 
-
             case "!list":
                 printList(event);
                 break;
-
 
             case "!extract":
                 removeList(event);
