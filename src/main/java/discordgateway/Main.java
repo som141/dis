@@ -1,4 +1,4 @@
-package sp1;
+package discordgateway;
 
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
@@ -16,6 +16,6 @@ public class Main {
                 .addEventListeners(new Listeners())
                 .build()
                 .awaitReady();
-        System.out.println("봇 가동 완료!");
+        System.out.println("bot start let's go!");
     }
 }

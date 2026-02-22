@@ -1,4 +1,4 @@
-package sp1.audio;
+package discordgateway.audio;
 
 import com.sedmelluq.discord.lavaplayer.player.AudioConfiguration;
 import com.sedmelluq.discord.lavaplayer.player.AudioLoadResultHandler;

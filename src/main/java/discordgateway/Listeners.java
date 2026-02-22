@@ -1,4 +1,4 @@
-package sp1;
+package discordgateway;
 
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.Guild;
@@ -8,8 +8,8 @@ import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.managers.AudioManager;
 import org.jetbrains.annotations.NotNull;
-import sp1.audio.PlayerManager;
-import sp1.audio.GuildMusicManager;
+import discordgateway.audio.PlayerManager;
+import discordgateway.audio.GuildMusicManager;
 
 import java.net.URI;
 import java.net.URISyntaxException;

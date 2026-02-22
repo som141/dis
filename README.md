@@ -18,18 +18,18 @@
 
 ## 프로젝트 구조
 
-### 메인 클래스 (`sp1.Main`)
+### 메인 클래스 (`discordgateway.Main`)
 
 * JDA 초기화
 * Discord API에 연결 및 봇 실행
 
-### 리스너 클래스 (`sp1.Listeners`)
+### 리스너 클래스 (`discordgateway.Listeners`)
 
 * 사용자의 메시지를 처리하여 명령을 인식
 * 각 명령에 따라 적절한 기능 호출
 * 명령별 예외 처리 및 사용자 피드백 제공
 
-### 오디오 기능 패키지 (`sp1.audio`)
+### 오디오 기능 패키지 (`discordgateway.audio`)
 
 #### PlayerManager
 
