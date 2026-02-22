@@ -16,6 +16,6 @@ public class Main {
                 .addEventListeners(new Listeners())
                 .build()
                 .awaitReady();
-        System.out.println("bot start let's go!");
+        System.out.println("bot start!");
     }
 }
