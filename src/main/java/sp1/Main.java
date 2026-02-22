@@ -6,8 +6,9 @@ import net.dv8tion.jda.api.requests.GatewayIntent;
 
 public class Main {
     public static void main(String[] args) throws Exception {
+        String token = System.getenv("token");
         JDA jda = JDABuilder.createDefault(
-                        evm.getToken(),
+                        token,
                         GatewayIntent.GUILD_MESSAGES,
                         GatewayIntent.MESSAGE_CONTENT,
                         GatewayIntent.GUILD_VOICE_STATES

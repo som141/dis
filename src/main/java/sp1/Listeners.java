@@ -11,7 +11,8 @@ import org.jetbrains.annotations.NotNull;
 import sp1.audio.PlayerManager;
 import sp1.audio.GuildMusicManager;
 
-import java.nio.file.Paths;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.List;
 
 public class Listeners extends ListenerAdapter {
@@ -46,11 +47,22 @@ public class Listeners extends ListenerAdapter {
             case "노래":
                 event.getMessage().delete().queue();
                 if (parts.length < 2) {
-                    event.getChannel().sendMessage("❗ 사용법: `!play <검색어 또는 URL>`").queue();
+                    event.getChannel().sendMessage("❗ 사용법: `!play [-l] <검색어 또는 URL>`").queue();
                 } else {
-                    playMusic(event, parts[1]);
+                    boolean autoPlay = false;
+                    String arg = parts[1];
+
+                    // "-l" 옵션 처리: "!play -l <url or 검색어>"
+                    if (arg.startsWith("-l")) {
+                        autoPlay = true;
+                        // "-l" 문자열만 제거하고 앞뒤 공백 정리
+                        arg = arg.replaceFirst("-l", "").trim();
+                    }
+
+                    playMusic(event, arg, autoPlay);
                 }
                 break;
+
 
             case "!stop":
             case "정지":
@@ -135,7 +147,7 @@ public class Listeners extends ListenerAdapter {
         }
 
 
-        String localPath = Paths.get("src/main/resources/"+s).toAbsolutePath().toString();
+        String localPath = "resources/"+s;//이거 리소스파일 위치 절대 path로 적절히 넣어주셈
         PlayerManager.getINSTANCE().loadAndPlay(textChannel, localPath, author);
     }
 
@@ -173,7 +185,7 @@ public class Listeners extends ListenerAdapter {
         event.getChannel().sendMessage("👋 음성 채널에서 퇴장했습니다.").queue();
     }
 
-    private void playMusic(MessageReceivedEvent event, String query) {
+    private void playMusic(MessageReceivedEvent event, String query, boolean autoPlay) {
         Member author = event.getMember();
         Guild guild = event.getGuild();
         TextChannel textChannel = (TextChannel) event.getChannel();
@@ -190,8 +202,15 @@ public class Listeners extends ListenerAdapter {
 
         // URL 또는 검색 모드
         String trackUrl = query.startsWith("http") ? query : "ytsearch:" + query;
+
+        // ✅ 길드 뮤직 매니저 가져와서 자동재생 플래그 설정
+        GuildMusicManager gm = PlayerManager.getINSTANCE().getMusicManager(guild);
+        gm.scheduler.setAutoPlay(autoPlay);   // 또는 gm.getScheduler().setAutoPlay(autoPlay);
+
+        // ✅ 실제 재생 요청
         PlayerManager.getINSTANCE().loadAndPlay(textChannel, trackUrl, author);
     }
+
 
     private void stopMusic(MessageReceivedEvent event) {
         GuildMusicManager gm = PlayerManager.getINSTANCE().getMusicManager(event.getGuild());
@@ -207,5 +226,45 @@ public class Listeners extends ListenerAdapter {
         gm.scheduler.nextTrack();
         event.getChannel().sendMessage("⏭️ 다음 곡으로 건너뜁니다.").queue();
     }
+    private String toMixUrl(String url) {
+        String videoId = extractVideoId(url);
+        if (videoId == null) {
+            // VIDEO ID를 못 뽑으면 그냥 원래 URL 사용
+            return url;
+        }
+        // 유튜브 Mix(추천 재생목록) 형태: watch?v=VIDEO_ID&list=RDVIDEO_ID
+        return "https://www.youtube.com/watch?v=" + videoId + "&list=RD" + videoId;
+    }
 
+    private String extractVideoId(String url) {
+        try {
+            URI uri = new URI(url);
+            String host = uri.getHost();
+            if (host == null) return null;
+
+            // 예: https://youtu.be/VIDEO_ID
+            if (host.contains("youtu.be")) {
+                String path = uri.getPath(); // "/VIDEO_ID"
+                if (path != null && path.length() > 1) {
+                    return path.substring(1);
+                }
+            }
+
+            // 예: https://www.youtube.com/watch?v=VIDEO_ID&...
+            if (host.contains("youtube.com")) {
+                String query = uri.getQuery(); // v=VIDEO_ID&...
+                if (query == null) return null;
+                String[] params = query.split("&");
+                for (String param : params) {
+                    String[] pair = param.split("=");
+                    if (pair.length == 2 && pair[0].equals("v")) {
+                        return pair[1];
+                    }
+                }
+            }
+        } catch (URISyntaxException e) {
+            return null;
+        }
+        return null;
+    }
 }

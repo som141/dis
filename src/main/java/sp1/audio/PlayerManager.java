@@ -55,24 +55,24 @@ public class PlayerManager {
 
     public void loadAndPlay(TextChannel textChannel, String trackURL, Member client) {
         final GuildMusicManager musicManager = this.getMusicManager(textChannel.getGuild());
+
         this.audioPlayerManager.loadItemOrdered(musicManager, trackURL, new AudioLoadResultHandler() {
             @Override
             public void trackLoaded(AudioTrack audioTrack) {
-                // 트랙 대기열 추가
-                musicManager.scheduler.queue(audioTrack);
-
-
+                // ✅ 이제는 queue할 때 채널도 같이 준다
+                musicManager.scheduler.queue(audioTrack, textChannel);
+                textChannel.sendMessage("▶️ 재생: " + audioTrack.getInfo().title).queue();
             }
 
             @Override
             public void playlistLoaded(AudioPlaylist audioPlaylist) {
-                // 플레이리스트 처리
+                // 여기는 일단 첫 곡만 재생 (원하면 여기도 전체 큐에 넣도록 바꿀 수 있음)
                 AudioTrack firstTrack = audioPlaylist.getSelectedTrack() != null
                         ? audioPlaylist.getSelectedTrack()
                         : audioPlaylist.getTracks().get(0);
 
-                musicManager.scheduler.queue(firstTrack);
-
+                musicManager.scheduler.queue(firstTrack, textChannel);
+                textChannel.sendMessage("▶️ 재생 (플레이리스트): " + firstTrack.getInfo().title).queue();
             }
 
             @Override

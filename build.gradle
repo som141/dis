@@ -36,7 +36,7 @@ java {
 
 // fat-JAR 만들기
 shadowJar {
-    archiveBaseName.set('TBot')   // 결과물 이름: TBot.jar
+    archiveBaseName.set('TBot1')   // 결과물 이름: TBot.jar
     archiveVersion.set('')        // 버전 없이
     mergeServiceFiles()           // SPI 병합
     manifest {
