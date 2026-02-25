@@ -5,8 +5,9 @@ import discordgateway.audio.PlayerManager;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
-import net.dv8tion.jda.api.entities.channel.middleman.AudioChannel;
+import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import net.dv8tion.jda.api.entities.channel.middleman.AudioChannel;
 import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.session.ReadyEvent;
@@ -17,7 +18,6 @@ import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.managers.AudioManager;
-
 import org.jetbrains.annotations.NotNull;
 
 import java.time.Duration;
@@ -25,16 +25,18 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Slash command support for JDA (gateway interactions).
+ * JDA 5.6.1-safe slash command listener
  *
- * Requirement:
- * - If you previously set an Interactions Endpoint URL (webhook interactions),
- *   you must unset it to receive interaction events via gateway in JDA.
+ * Key fixes:
+ * - Do NOT call event.getMember().getVoiceState() (detached entity issue)
+ * - Use guild.retrieveMemberVoiceStateById(userId)
+ * - Guild cache lookup may be null, so fallback to event.getGuild()
  */
 public class Listeners extends ListenerAdapter {
 
@@ -58,7 +60,7 @@ public class Listeners extends ListenerAdapter {
     private static final String OPT_AUTOPLAY = "autoplay";
     private static final String OPT_SFX_NAME = "name";
 
-    // Autocomplete cache: typedText(lower) -> cached choices
+    // Autocomplete cache
     private static final Duration AUTOCOMPLETE_TTL = Duration.ofSeconds(30);
     private final ConcurrentHashMap<String, CachedChoices> autoCache = new ConcurrentHashMap<>();
 
@@ -67,13 +69,13 @@ public class Listeners extends ListenerAdapter {
     @Override
     public void onReady(@NotNull ReadyEvent event) {
         System.out.println("onReady fired!");
-        // Build command definitions (option UI shown while typing in Discord client)
+
         OptionData playQuery = new OptionData(OptionType.STRING, OPT_QUERY, "검색어 또는 URL", true)
-                .setAutoComplete(true); // enables autocomplete interactions
+                .setAutoComplete(true);
+
         OptionData playAuto = new OptionData(OptionType.BOOLEAN, OPT_AUTOPLAY, "곡이 끝나면 자동 추천 재생", false);
 
         OptionData sfxName = new OptionData(OptionType.STRING, OPT_SFX_NAME, "재생할 효과음", true)
-                // fixed small set -> use choices (not autocomplete)
                 .addChoice("gsuck", "gsuck.mp3")
                 .addChoice("smbj", "smbj.mp3");
 
@@ -91,7 +93,7 @@ public class Listeners extends ListenerAdapter {
                 Commands.slash(CMD_PIZZA,  "피자 이미지를 출력합니다")
         );
 
-        // Dev guild 등록(즉시 반영) vs Global 등록(최대 1시간 전파 가능)
+        // Dev guild (fast update) -> fallback global
         String devGuildId = System.getenv("DISCORD_DEV_GUILD_ID");
         if (devGuildId != null && !devGuildId.isBlank()) {
             Guild guild = event.getJDA().getGuildById(devGuildId);
@@ -100,30 +102,41 @@ public class Listeners extends ListenerAdapter {
                 return;
             }
         }
+
         event.getJDA().updateCommands().addCommands(commands).queue();
     }
 
     @Override
     public void onSlashCommandInteraction(@NotNull SlashCommandInteractionEvent event) {
-        // Basic safety
         if (!event.isFromGuild()) {
             event.reply("이 봇은 서버(길드) 채널에서만 동작합니다.").setEphemeral(true).queue();
             return;
         }
 
-        switch (event.getName()) {
-            case CMD_JOIN -> handleJoin(event);
-            case CMD_LEAVE -> handleLeave(event);
-            case CMD_PLAY -> handlePlay(event);
-            case CMD_STOP -> handleStop(event);
-            case CMD_SKIP -> handleSkip(event);
-            case CMD_QUEUE -> handleQueue(event);
-            case CMD_CLEAR -> handleClear(event);
-            case CMD_PAUSE -> handlePause(event);
-            case CMD_RESUME -> handleResume(event);
-            case CMD_SFX -> handleSfx(event);
-            case CMD_PIZZA -> handlePizza(event);
-            default -> event.reply("알 수 없는 커맨드입니다.").setEphemeral(true).queue();
+        try {
+            switch (event.getName()) {
+                case CMD_JOIN -> handleJoin(event);
+                case CMD_LEAVE -> handleLeave(event);
+                case CMD_PLAY -> handlePlay(event);
+                case CMD_STOP -> handleStop(event);
+                case CMD_SKIP -> handleSkip(event);
+                case CMD_QUEUE -> handleQueue(event);
+                case CMD_CLEAR -> handleClear(event);
+                case CMD_PAUSE -> handlePause(event);
+                case CMD_RESUME -> handleResume(event);
+                case CMD_SFX -> handleSfx(event);
+                case CMD_PIZZA -> handlePizza(event);
+                default -> event.reply("알 수 없는 커맨드입니다.").setEphemeral(true).queue();
+            }
+        } catch (Exception e) {
+            if (!event.isAcknowledged()) {
+                event.reply("❌ 명령 처리 중 오류가 발생했습니다: " + e.getMessage())
+                        .setEphemeral(true)
+                        .queue();
+            } else {
+                event.getHook().editOriginal("❌ 명령 처리 중 오류가 발생했습니다: " + e.getMessage()).queue();
+            }
+            e.printStackTrace();
         }
     }
 
@@ -133,12 +146,9 @@ public class Listeners extends ListenerAdapter {
             event.replyChoices(Collections.emptyList()).queue();
             return;
         }
-        if (!Objects.equals(event.getName(), CMD_PLAY)) {
-            return;
-        }
-        if (!Objects.equals(event.getFocusedOption().getName(), OPT_QUERY)) {
-            return;
-        }
+
+        if (!Objects.equals(event.getName(), CMD_PLAY)) return;
+        if (!Objects.equals(event.getFocusedOption().getName(), OPT_QUERY)) return;
 
         String typed = Objects.toString(event.getFocusedOption().getValue(), "").trim();
         if (typed.length() < 3) {
@@ -146,7 +156,7 @@ public class Listeners extends ListenerAdapter {
             return;
         }
 
-        // 1) Fast path: cache hit
+        // Cache hit
         String cacheKey = typed.toLowerCase();
         CachedChoices cached = autoCache.get(cacheKey);
         long now = System.currentTimeMillis();
@@ -155,13 +165,12 @@ public class Listeners extends ListenerAdapter {
             return;
         }
 
-        // 2) Slow path: run a YouTube search through PlayerManager (LavaPlayer "ytsearch:")
-        //    Must respond quickly; do NOT defer. (Most libraries warn about 3s window.)
+        // Async search (Discord timeout window)
         AtomicBoolean replied = new AtomicBoolean(false);
 
         PlayerManager.getINSTANCE()
-                .searchYouTubeChoices(typed, 15) // keep it small for speed
-                .orTimeout(2500, TimeUnit.MILLISECONDS) // leave time budget
+                .searchYouTubeChoices(typed, 15)
+                .orTimeout(2500, TimeUnit.MILLISECONDS)
                 .whenComplete((choices, err) -> {
                     if (!replied.compareAndSet(false, true)) return;
 
@@ -169,146 +178,168 @@ public class Listeners extends ListenerAdapter {
                     if (err != null || choices == null) {
                         result = Collections.emptyList();
                     } else {
-                        result = choices;
+                        List<Command.Choice> sanitized = new ArrayList<>();
+                        for (Command.Choice c : choices) {
+                            String name = trimToMax(c.getName(), 100);
+                            String value = trimToMax(c.getAsString(), 100);
+                            sanitized.add(new Command.Choice(name, value));
+                            if (sanitized.size() >= 25) break;
+                        }
+                        result = sanitized;
                         autoCache.put(cacheKey, new CachedChoices(System.currentTimeMillis(), result));
                     }
-                    event.replyChoices(result).queue();
+
+                    event.replyChoices(result).queue(
+                            null,
+                            fail -> {
+                                // timeout/unknown interaction -> ignore
+                            }
+                    );
                 });
     }
 
-    private void handleJoin(SlashCommandInteractionEvent event) {
-        Member member = event.getMember();
-        Guild guild = event.getGuild();
-        if (member == null || guild == null) {
-            event.reply("멤버/길드 정보를 가져오지 못했습니다.").setEphemeral(true).queue();
-            return;
-        }
+    // =========================
+    // Command handlers
+    // =========================
 
-        String err = ensureConnectedToMemberVoice(guild, member);
-        if (err != null) {
-            event.reply(err).setEphemeral(true).queue();
-        } else {
-            event.reply("✅ 음성 채널에 입장했습니다.").queue();
-        }
+    private void handleJoin(SlashCommandInteractionEvent event) {
+        Guild guild = requireUsableGuild(event);
+        if (guild == null) return;
+
+        event.deferReply(true).queue();
+
+        retrieveInvokerVoiceChannel(guild, event.getUser().getIdLong())
+                .whenComplete((audioChannel, err) -> {
+                    if (err != null || audioChannel == null) {
+                        safeEditOriginal(event, "⚠️ 먼저 음성 채널에 들어가세요!");
+                        return;
+                    }
+
+                    try {
+                        connectBotToChannel(guild, audioChannel);
+                        safeEditOriginal(event, "✅ 음성 채널에 입장했습니다.");
+                    } catch (Exception e) {
+                        safeEditOriginal(event, "❌ 음성 채널 입장 중 오류: " + e.getMessage());
+                        e.printStackTrace();
+                    }
+                });
     }
 
     private void handleLeave(SlashCommandInteractionEvent event) {
-        Guild guild = event.getGuild();
-        if (guild == null) {
-            event.reply("길드 정보를 가져오지 못했습니다.").setEphemeral(true).queue();
-            return;
-        }
+        Guild guild = requireUsableGuild(event);
+        if (guild == null) return;
 
         AudioManager am = guild.getAudioManager();
         if (!am.isConnected()) {
             event.reply("⚠️ 봇이 음성 채널에 들어와 있지 않습니다.").setEphemeral(true).queue();
             return;
         }
+
         am.closeAudioConnection();
         event.reply("👋 음성 채널에서 퇴장했습니다.").queue();
     }
 
     private void handlePlay(SlashCommandInteractionEvent event) {
-        Member member = event.getMember();
-        Guild guild = event.getGuild();
-        TextChannel textChannel = event.getChannel().asTextChannel(); // slash in guild text channel
+        Guild guild = requireUsableGuild(event);
+        if (guild == null) return;
 
-        if (member == null || guild == null) {
-            event.reply("멤버/길드 정보를 가져오지 못했습니다.").setEphemeral(true).queue();
-            return;
-        }
+        TextChannel textChannel = requireUsableTextChannel(event, guild);
+        if (textChannel == null) return;
 
         String query = getStringOption(event, OPT_QUERY, "");
         boolean autoPlay = getBoolOption(event, OPT_AUTOPLAY, false);
 
         if (query.isBlank()) {
-            event.reply("❗ 사용법: `/play query:<검색어 또는 URL> autoplay:<true|false>`").setEphemeral(true).queue();
+            event.reply("❗ 사용법: `/play query:<검색어 또는 URL> autoplay:<true|false>`")
+                    .setEphemeral(true)
+                    .queue();
             return;
         }
 
-        String err = ensureConnectedToMemberVoice(guild, member);
-        if (err != null) {
-            event.reply(err).setEphemeral(true).queue();
-            return;
-        }
+        event.deferReply(true).queue();
 
-        // Must ACK within 3 seconds; if you do extra work, defer.
-        event.deferReply(true).queue(); // ephemeral "thinking"
+        retrieveInvokerVoiceChannel(guild, event.getUser().getIdLong())
+                .whenComplete((audioChannel, err) -> {
+                    if (err != null || audioChannel == null) {
+                        safeEditOriginal(event, "⚠️ 먼저 음성 채널에 들어가세요!");
+                        return;
+                    }
 
-        String trackUrl = query.startsWith("http") ? query : "ytsearch:" + query;
+                    try {
+                        connectBotToChannel(guild, audioChannel);
 
-        GuildMusicManager gm = PlayerManager.getINSTANCE().getMusicManager(guild);
-        gm.scheduler.setAutoPlay(autoPlay);
+                        String trackUrl = (query.startsWith("http://") || query.startsWith("https://"))
+                                ? query
+                                : "ytsearch:" + query;
 
-        PlayerManager.getINSTANCE().loadAndPlay(textChannel, trackUrl, member);
+                        GuildMusicManager gm = PlayerManager.getINSTANCE().getMusicManager(guild);
+                        gm.scheduler.setAutoPlay(autoPlay);
 
-        event.getHook().editOriginal("✅ 재생 요청을 처리했습니다.").queue();
+                        // PlayerManager currently doesn't use member for voice-state access (safe enough to pass through)
+                        Member interactionMember = event.getMember();
+                        PlayerManager.getINSTANCE().loadAndPlay(textChannel, trackUrl, interactionMember);
+
+                        safeEditOriginal(event, "✅ 재생 요청을 처리했습니다.");
+                    } catch (Exception e) {
+                        safeEditOriginal(event, "❌ 재생 요청 처리 중 오류: " + e.getMessage());
+                        e.printStackTrace();
+                    }
+                });
     }
 
     private void handleStop(SlashCommandInteractionEvent event) {
-        Guild guild = event.getGuild();
-        if (guild == null) {
-            event.reply("길드 정보를 가져오지 못했습니다.").setEphemeral(true).queue();
-            return;
-        }
+        Guild guild = requireUsableGuild(event);
+        if (guild == null) return;
 
         GuildMusicManager gm = PlayerManager.getINSTANCE().getMusicManager(guild);
         gm.audioPlayer.stopTrack();
         gm.scheduler.clearQueue();
+
         event.reply("⏹️ 재생을 중지하고 큐를 비웠습니다.").queue();
     }
 
     private void handleSkip(SlashCommandInteractionEvent event) {
-        Guild guild = event.getGuild();
-        if (guild == null) {
-            event.reply("길드 정보를 가져오지 못했습니다.").setEphemeral(true).queue();
-            return;
-        }
+        Guild guild = requireUsableGuild(event);
+        if (guild == null) return;
 
         GuildMusicManager gm = PlayerManager.getINSTANCE().getMusicManager(guild);
         gm.scheduler.nextTrack();
+
         event.reply("⏭️ 다음 곡으로 건너뜁니다.").queue();
     }
 
     private void handleQueue(SlashCommandInteractionEvent event) {
-        Guild guild = event.getGuild();
-        if (guild == null) {
-            event.reply("길드 정보를 가져오지 못했습니다.").setEphemeral(true).queue();
-            return;
-        }
+        Guild guild = requireUsableGuild(event);
+        if (guild == null) return;
 
         GuildMusicManager gm = PlayerManager.getINSTANCE().getMusicManager(guild);
         List<String> list = gm.scheduler.showList();
+
         if (list.isEmpty()) {
             event.reply("📭 현재 대기열이 비어 있습니다.").setEphemeral(true).queue();
             return;
         }
 
-        // Keep it short (Discord 메시지 길이 제한 고려)
         String content = String.join("\n", list.stream().limit(30).toList());
         event.reply("🎶 현재 대기열:\n" + content).setEphemeral(true).queue();
     }
 
     private void handleClear(SlashCommandInteractionEvent event) {
-        Guild guild = event.getGuild();
-        if (guild == null) {
-            event.reply("길드 정보를 가져오지 못했습니다.").setEphemeral(true).queue();
-            return;
-        }
+        Guild guild = requireUsableGuild(event);
+        if (guild == null) return;
 
         GuildMusicManager gm = PlayerManager.getINSTANCE().getMusicManager(guild);
         gm.scheduler.clearQueue();
+
         event.reply("🧹 대기열을 비웠습니다.").queue();
     }
 
     private void handlePause(SlashCommandInteractionEvent event) {
-        Guild guild = event.getGuild();
-        if (guild == null) {
-            event.reply("길드 정보를 가져오지 못했습니다.").setEphemeral(true).queue();
-            return;
-        }
+        Guild guild = requireUsableGuild(event);
+        if (guild == null) return;
 
         GuildMusicManager gm = PlayerManager.getINSTANCE().getMusicManager(guild);
+
         if (gm.audioPlayer.getPlayingTrack() == null) {
             event.reply("⏸️ 재생 중인 곡이 없습니다.").setEphemeral(true).queue();
         } else if (gm.audioPlayer.isPaused()) {
@@ -320,13 +351,11 @@ public class Listeners extends ListenerAdapter {
     }
 
     private void handleResume(SlashCommandInteractionEvent event) {
-        Guild guild = event.getGuild();
-        if (guild == null) {
-            event.reply("길드 정보를 가져오지 못했습니다.").setEphemeral(true).queue();
-            return;
-        }
+        Guild guild = requireUsableGuild(event);
+        if (guild == null) return;
 
         GuildMusicManager gm = PlayerManager.getINSTANCE().getMusicManager(guild);
+
         if (gm.audioPlayer.getPlayingTrack() == null) {
             event.reply("▶️ 재생할 곡이 없습니다.").setEphemeral(true).queue();
         } else if (!gm.audioPlayer.isPaused()) {
@@ -338,14 +367,11 @@ public class Listeners extends ListenerAdapter {
     }
 
     private void handleSfx(SlashCommandInteractionEvent event) {
-        Member member = event.getMember();
-        Guild guild = event.getGuild();
-        TextChannel textChannel = event.getChannel().asTextChannel();
+        Guild guild = requireUsableGuild(event);
+        if (guild == null) return;
 
-        if (member == null || guild == null) {
-            event.reply("멤버/길드 정보를 가져오지 못했습니다.").setEphemeral(true).queue();
-            return;
-        }
+        TextChannel textChannel = requireUsableTextChannel(event, guild);
+        if (textChannel == null) return;
 
         String file = getStringOption(event, OPT_SFX_NAME, "");
         if (file.isBlank()) {
@@ -353,35 +379,145 @@ public class Listeners extends ListenerAdapter {
             return;
         }
 
-        String err = ensureConnectedToMemberVoice(guild, member);
-        if (err != null) {
-            event.reply(err).setEphemeral(true).queue();
-            return;
-        }
+        event.deferReply(true).queue();
 
-        String localPath = "resources/" + file; // TODO: 실제 리소스 경로에 맞게 조정 필요
-        PlayerManager.getINSTANCE().loadAndPlay(textChannel, localPath, member);
-        event.reply("🔊 효과음을 재생합니다: `" + file + "`").setEphemeral(true).queue();
+        retrieveInvokerVoiceChannel(guild, event.getUser().getIdLong())
+                .whenComplete((audioChannel, err) -> {
+                    if (err != null || audioChannel == null) {
+                        safeEditOriginal(event, "⚠️ 먼저 음성 채널에 들어가세요!");
+                        return;
+                    }
+
+                    try {
+                        connectBotToChannel(guild, audioChannel);
+
+                        String localPath = "resources/" + file; // adjust if needed
+                        Member interactionMember = event.getMember();
+                        PlayerManager.getINSTANCE().loadAndPlay(textChannel, localPath, interactionMember);
+
+                        safeEditOriginal(event, "🔊 효과음을 재생합니다: `" + file + "`");
+                    } catch (Exception e) {
+                        safeEditOriginal(event, "❌ 효과음 재생 중 오류: " + e.getMessage());
+                        e.printStackTrace();
+                    }
+                });
     }
 
     private void handlePizza(SlashCommandInteractionEvent event) {
-        event.replyEmbeds(new EmbedBuilder().setTitle("Edou").setImage(PIZZA_IMAGE).build()).queue();
+        event.replyEmbeds(
+                new EmbedBuilder()
+                        .setTitle("Edou")
+                        .setImage(PIZZA_IMAGE)
+                        .build()
+        ).queue();
     }
 
-    private String ensureConnectedToMemberVoice(Guild guild, Member member) {
-        if (member.getVoiceState() == null || !member.getVoiceState().inAudioChannel()) {
-            return "⚠️ 먼저 음성 채널에 들어가세요!";
-        }
-        AudioChannel audio = member.getVoiceState().getChannel();
-        if (audio == null) {
-            return "⚠️ 음성 채널 정보를 찾지 못했습니다.";
+    // =========================
+    // Helpers
+    // =========================
+
+    /**
+     * Guild cache may be null in some situations.
+     * Try cache first, then fallback to event.getGuild().
+     */
+    private Guild requireUsableGuild(SlashCommandInteractionEvent event) {
+        if (!event.isFromGuild() || event.getGuild() == null) {
+            event.reply("이 명령어는 서버에서만 사용할 수 있습니다.")
+                    .setEphemeral(true)
+                    .queue();
+            return null;
         }
 
-        AudioManager am = guild.getAudioManager();
-        if (!guild.getSelfMember().getVoiceState().inAudioChannel()) {
-            am.openAudioConnection(audio);
+        Guild cached = event.getJDA().getGuildById(event.getGuild().getIdLong());
+        return (cached != null) ? cached : event.getGuild();
+    }
+
+    /**
+     * Get a TextChannel safely.
+     * Try JDA cache first, then fallback to interaction channel cast.
+     */
+    private TextChannel requireUsableTextChannel(SlashCommandInteractionEvent event, Guild guild) {
+        if (event.getChannelType() != ChannelType.TEXT) {
+            event.reply("이 명령어는 일반 텍스트 채널에서만 사용할 수 있습니다.")
+                    .setEphemeral(true)
+                    .queue();
+            return null;
         }
-        return null;
+
+        // 1) Try global JDA cache
+        TextChannel tc = event.getJDA().getTextChannelById(event.getChannelIdLong());
+        if (tc != null) return tc;
+
+        // 2) Try guild cache (may still be null depending on cache state)
+        try {
+            tc = guild.getTextChannelById(event.getChannelIdLong());
+            if (tc != null) return tc;
+        } catch (Exception ignored) {
+            // ignore and try interaction channel fallback below
+        }
+
+        // 3) Fallback to interaction channel object
+        try {
+            return event.getChannel().asTextChannel();
+        } catch (Exception e) {
+            event.reply("❌ 텍스트 채널 정보를 가져오지 못했습니다.")
+                    .setEphemeral(true)
+                    .queue();
+            return null;
+        }
+    }
+
+    /**
+     * JDA 5.6.1-safe voice-state lookup for slash commands (avoids detached member issue)
+     */
+    private CompletableFuture<AudioChannel> retrieveInvokerVoiceChannel(Guild guild, long userId) {
+        CompletableFuture<AudioChannel> future = new CompletableFuture<>();
+
+        guild.retrieveMemberVoiceStateById(userId).queue(
+                voiceState -> {
+                    if (voiceState == null || !voiceState.inAudioChannel()) {
+                        future.completeExceptionally(new IllegalStateException("User is not in a voice channel"));
+                        return;
+                    }
+
+                    AudioChannel channel = voiceState.getChannel();
+                    if (channel == null) {
+                        future.completeExceptionally(new IllegalStateException("Voice channel not found"));
+                        return;
+                    }
+
+                    future.complete(channel);
+                },
+                future::completeExceptionally
+        );
+
+        return future;
+    }
+
+    /**
+     * Simple and safe: openAudioConnection connects or moves bot.
+     * (No selfMember voice-state check -> avoids detached issues)
+     */
+    private void connectBotToChannel(Guild guild, AudioChannel target) {
+        guild.getAudioManager().openAudioConnection(target);
+    }
+
+    private void safeEditOriginal(SlashCommandInteractionEvent event, String message) {
+        if (event.isAcknowledged()) {
+            event.getHook().editOriginal(message).queue(
+                    null,
+                    err -> {
+                        // ignore timeout/deleted interaction/etc
+                    }
+            );
+        } else {
+            event.reply(message).setEphemeral(true).queue(
+                    null,
+                    err -> {
+                        // ignore reply failure
+                    }
+            );
+        }
     }
 
     private String getStringOption(SlashCommandInteractionEvent event, String name, String def) {
@@ -392,5 +528,10 @@ public class Listeners extends ListenerAdapter {
     private boolean getBoolOption(SlashCommandInteractionEvent event, String name, boolean def) {
         OptionMapping opt = event.getOption(name);
         return opt != null ? opt.getAsBoolean() : def;
+    }
+
+    private String trimToMax(String s, int max) {
+        if (s == null) return "";
+        return s.length() <= max ? s : s.substring(0, max - 1) + "…";
     }
 }
