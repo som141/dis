@@ -12,7 +12,10 @@ import dev.lavalink.youtube.YoutubeAudioSourceManager;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
-
+import net.dv8tion.jda.api.interactions.commands.Command;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -20,6 +23,53 @@ public class PlayerManager {
     private static PlayerManager INSTANCE;
     private final Map<Long, GuildMusicManager> musicManagers;
     private final AudioPlayerManager audioPlayerManager;
+
+    // in discordgateway.audio.PlayerManager
+
+
+    public CompletableFuture<List<Command.Choice>> searchYouTubeChoices(String query, int limit) {
+        CompletableFuture<List<Command.Choice>> future = new CompletableFuture<>();
+
+        if (query == null || query.isBlank()) {
+            future.complete(List.of());
+            return future;
+        }
+
+        String identifier = "ytsearch:" + query;
+        int cap = Math.max(1, Math.min(limit, 25)); // Discord max 25 choices
+
+        this.audioPlayerManager.loadItem(identifier, new AudioLoadResultHandler() {
+            @Override
+            public void trackLoaded(AudioTrack track) {
+                var info = track.getInfo();
+                future.complete(List.of(new Command.Choice(info.title + " - " + info.author, info.uri)));
+            }
+
+            @Override
+            public void playlistLoaded(AudioPlaylist playlist) {
+                List<Command.Choice> out = new ArrayList<>();
+                for (AudioTrack t : playlist.getTracks()) {
+                    if (out.size() >= cap) break;
+                    var info = t.getInfo();
+                    // name(표시) <= 100 chars 권장, value(실제 값)도 적절히 짧게 유지
+                    out.add(new Command.Choice(info.title + " - " + info.author, info.uri));
+                }
+                future.complete(out);
+            }
+
+            @Override
+            public void noMatches() {
+                future.complete(List.of());
+            }
+
+            @Override
+            public void loadFailed(FriendlyException e) {
+                future.complete(List.of()); // autocomplete에선 조용히 실패 처리 권장
+            }
+        });
+
+        return future;
+    }
 
     private PlayerManager() {
         this.musicManagers = new HashMap<>();

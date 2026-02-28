@@ -10,8 +10,7 @@ import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrackEndReason;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -19,7 +18,11 @@ public class TrackScheduler extends AudioEventAdapter {
     private final AudioPlayer audioPlayer;
     private final AudioPlayerManager playerManager;
     private final BlockingQueue<AudioTrack> queue;
-
+    // TrackScheduler 클래스 멤버 변수로 추가
+    private final Deque<String> recentTrackIds = new ArrayDeque<>();
+    private final Set<String> recentIdSet = new HashSet<>();
+    private static final int RECENT_HISTORY_LIMIT = 20;
+    private final Random random = new Random();
     // ✅ 자동재생 관련 상태
     private boolean autoPlay = false;
     private AudioTrack lastTrack;
