@@ -4,7 +4,10 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
+import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
+import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.requests.GatewayIntent;
+import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -26,6 +29,22 @@ public class Main {
                 )
                 // 기존 Listeners를 ACTIVE일 때만 동작하도록 래핑
                 .addEventListeners(new ActiveOnlyListener(new Listeners()))
+                .addEventListeners(new ListenerAdapter() {
+                    @Override
+                    public void onMessageReceived(@NotNull MessageReceivedEvent event) {
+                        if (event.getAuthor().isBot()) return;
+
+                        // 1) 메시지 이벤트가 들어오는지 로그로 확인
+                        System.out.println("[DBG MSG] channel=" + event.getChannel().getId()
+                                + " author=" + event.getAuthor().getName()
+                                + " raw='" + event.getMessage().getContentRaw() + "'");
+
+                        // 2) ping -> pong 강제 응답
+                        if ("ping".equalsIgnoreCase(event.getMessage().getContentRaw().trim())) {
+                            event.getChannel().sendMessage("pong").queue();
+                        }
+                    }
+                })
                 .build();
 
         // 2) health server는 먼저 띄워두되, ready 여부는 awaitReady 이후 true로
