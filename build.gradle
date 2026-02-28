@@ -46,7 +46,7 @@ shadowJar {
     archiveVersion.set('')        // 버전 없이
     mergeServiceFiles()           // SPI 병합
     manifest {
-        attributes 'Main-Class': 'sp1.Main'
+        attributes 'Main-Class': 'discordgateway.Main'
     }
 }
 
