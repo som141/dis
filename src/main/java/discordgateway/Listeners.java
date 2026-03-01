@@ -40,7 +40,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class Listeners extends ListenerAdapter {
 
-    private static final String PIZZA_IMAGE = "https://images.unsplash.com/photo-1548365328-9f547fb0953d";
+    private static final String PIZZA_IMAGE = "https://i.namu.wiki/i/fnE10XPWcq13FQcHrKhGdFBC4gJbwvQIm2uBHVfjR0b5CBEoS7d72f4wCapkmtS6mwQPhDO6L1-VsAfP_nvR0vaedr4eg8mN-eOfPVbR3EGdlIAJhi6qEtgAkbLCZUfjewnMR18sLcz_u_-wsSGrsA.webp";
 
     // Slash command names
     private static final String CMD_JOIN   = "join";
