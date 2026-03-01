@@ -12,6 +12,8 @@ import dev.lavalink.youtube.YoutubeAudioSourceManager;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
+import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.interactions.commands.Command;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,7 +28,20 @@ public class PlayerManager {
 
     // in discordgateway.audio.PlayerManager
 
+    public void loadAndPlayEphemeral(SlashCommandInteractionEvent event, String trackUrl, Member member) {
+        InteractionHook hook = event.getHook(); // deferReply(true) 했으니 사용 가능
 
+        // ✅ 여기서부터는 기존 loadAndPlay 로직을 가져오되,
+        // textChannel.sendMessage(...) 하던 부분을 전부 hook.sendMessage(...) 로 바꾸면 됨.
+
+        // 예시: "큐에 추가" 메시지
+        hook.sendMessage("✅ 요청을 처리했습니다: " + trackUrl)
+                .setEphemeral(true)
+                .queue();
+
+        // 만약 Embed로 곡정보 보여주던 코드가 있었다면:
+        // hook.sendMessageEmbeds(embed).setEphemeral(true).queue();
+    }
     public CompletableFuture<List<Command.Choice>> searchYouTubeChoices(String query, int limit) {
         CompletableFuture<List<Command.Choice>> future = new CompletableFuture<>();
 

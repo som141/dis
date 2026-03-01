@@ -277,8 +277,9 @@ public class Listeners extends ListenerAdapter {
 
                         // PlayerManager currently doesn't use member for voice-state access (safe enough to pass through)
                         Member interactionMember = event.getMember();
-                        PlayerManager.getINSTANCE().loadAndPlay(textChannel, trackUrl, interactionMember);
-
+//                        PlayerManager.getINSTANCE().loadAndPlay(textChannel, trackUrl, interactionMember);
+                    // handlePlay 내부 (event.deferReply(true) 이후)
+                        PlayerManager.getINSTANCE().loadAndPlayEphemeral(event, trackUrl, interactionMember);
                         safeEditOriginal(event, "✅ 재생 요청을 처리했습니다.");
                     } catch (Exception e) {
                         safeEditOriginal(event, "❌ 재생 요청 처리 중 오류: " + e.getMessage());
@@ -295,7 +296,7 @@ public class Listeners extends ListenerAdapter {
         gm.audioPlayer.stopTrack();
         gm.scheduler.clearQueue();
 
-        event.reply("⏹️ 재생을 중지하고 큐를 비웠습니다.").queue();
+        event.reply("⏹️ 재생을 중지하고 큐를 비웠습니다.").setEphemeral(true).queue();
     }
 
     private void handleSkip(SlashCommandInteractionEvent event) {
@@ -305,7 +306,7 @@ public class Listeners extends ListenerAdapter {
         GuildMusicManager gm = PlayerManager.getINSTANCE().getMusicManager(guild);
         gm.scheduler.nextTrack();
 
-        event.reply("⏭️ 다음 곡으로 건너뜁니다.").queue();
+        event.reply("⏭️ 다음 곡으로 건너뜁니다.").setEphemeral(true).queue();
     }
 
     private void handleQueue(SlashCommandInteractionEvent event) {
@@ -341,12 +342,12 @@ public class Listeners extends ListenerAdapter {
         GuildMusicManager gm = PlayerManager.getINSTANCE().getMusicManager(guild);
 
         if (gm.audioPlayer.getPlayingTrack() == null) {
-            event.reply("⏸️ 재생 중인 곡이 없습니다.").setEphemeral(true).queue();
+            event.reply("⏸️ 재생 중인 곡이 없습니다.").setEphemeral(true).setEphemeral(true).queue();
         } else if (gm.audioPlayer.isPaused()) {
-            event.reply("⚠️ 이미 일시 정지 상태입니다.").setEphemeral(true).queue();
+            event.reply("⚠️ 이미 일시 정지 상태입니다.").setEphemeral(true).setEphemeral(true).queue();
         } else {
             gm.audioPlayer.setPaused(true);
-            event.reply("⏸️ 곡을 일시 정지했습니다.").queue();
+            event.reply("⏸️ 곡을 일시 정지했습니다.").setEphemeral(true).queue();
         }
     }
 
@@ -357,12 +358,12 @@ public class Listeners extends ListenerAdapter {
         GuildMusicManager gm = PlayerManager.getINSTANCE().getMusicManager(guild);
 
         if (gm.audioPlayer.getPlayingTrack() == null) {
-            event.reply("▶️ 재생할 곡이 없습니다.").setEphemeral(true).queue();
+            event.reply("▶️ 재생할 곡이 없습니다.").setEphemeral(true).setEphemeral(true).queue();
         } else if (!gm.audioPlayer.isPaused()) {
-            event.reply("⚠️ 현재 재생 중입니다.").setEphemeral(true).queue();
+            event.reply("⚠️ 현재 재생 중입니다.").setEphemeral(true).setEphemeral(true).queue();
         } else {
             gm.audioPlayer.setPaused(false);
-            event.reply("▶️ 재생을 재개했습니다.").queue();
+            event.reply("▶️ 재생을 재개했습니다.").setEphemeral(true).queue();
         }
     }
 
@@ -375,7 +376,7 @@ public class Listeners extends ListenerAdapter {
 
         String file = getStringOption(event, OPT_SFX_NAME, "");
         if (file.isBlank()) {
-            event.reply("효과음 이름이 비어 있습니다.").setEphemeral(true).queue();
+            event.reply("효과음 이름이 비어 있습니다.").setEphemeral(true).setEphemeral(true).queue();
             return;
         }
 
