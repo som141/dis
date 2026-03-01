@@ -277,9 +277,8 @@ public class Listeners extends ListenerAdapter {
 
                         // PlayerManager currently doesn't use member for voice-state access (safe enough to pass through)
                         Member interactionMember = event.getMember();
-//                        PlayerManager.getINSTANCE().loadAndPlay(textChannel, trackUrl, interactionMember);
-                    // handlePlay 내부 (event.deferReply(true) 이후)
-                        PlayerManager.getINSTANCE().loadAndPlayEphemeral(event, trackUrl, interactionMember);
+                        PlayerManager.getINSTANCE().loadAndPlay(textChannel, trackUrl, interactionMember);
+
                         safeEditOriginal(event, "✅ 재생 요청을 처리했습니다.");
                     } catch (Exception e) {
                         safeEditOriginal(event, "❌ 재생 요청 처리 중 오류: " + e.getMessage());
