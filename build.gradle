@@ -1,6 +1,5 @@
 plugins {
     id 'java'
-    // Shadow plugin
     id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
@@ -14,21 +13,13 @@ repositories {
 }
 
 dependencies {
-    // Lavalink-devs fork or arbjerg fork 중 하나만 선택
     implementation "dev.arbjerg:lavaplayer:2.2.4"
-    // Youtube-source
     implementation "dev.lavalink.youtube:common:1.13.5"
     implementation "dev.lavalink.youtube:v2:1.13.5"
 
     implementation "net.dv8tion:JDA:5.6.1"
     implementation "org.slf4j:slf4j-api:2.0.13"
     implementation "ch.qos.logback:logback-classic:1.5.6"
-
-    // RabbitMQ Java client
-    implementation("com.rabbitmq:amqp-client:5.21.0")
-
-    // JSON (DTO serialize/deserialize)
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.17.2")
 
     testImplementation platform('org.junit:junit-bom:5.10.0')
     testImplementation 'org.junit.jupiter:junit-jupiter'
@@ -40,17 +31,15 @@ java {
     }
 }
 
-// fat-JAR 만들기
 shadowJar {
-    archiveBaseName.set('TBot1')   // 결과물 이름: TBot.jar
-    archiveVersion.set('')        // 버전 없이
-    mergeServiceFiles()           // SPI 병합
+    archiveBaseName.set('TBot1')
+    archiveVersion.set('')
+    mergeServiceFiles()
     manifest {
         attributes 'Main-Class': 'discordgateway.Main'
     }
 }
 
-// `./gradlew build` 해도 shadowJar까지 자동 생성되게
 tasks.build {
     dependsOn tasks.shadowJar
 }
