@@ -211,21 +211,38 @@ public class Listeners extends ListenerAdapter {
         Guild guild = requireUsableGuild(event);
         if (guild == null) return;
 
-        event.deferReply(true).queue();
+        System.out.println("[JOIN] command received");
+
+        event.deferReply(true).queue(
+                ok -> System.out.println("[JOIN] defer ok"),
+                err -> {
+                    System.err.println("[JOIN] defer failed");
+                    err.printStackTrace();
+                }
+        );
 
         retrieveInvokerVoiceChannel(guild, event.getUser().getIdLong())
                 .whenComplete((audioChannel, err) -> {
-                    if (err != null || audioChannel == null) {
+                    if (err != null) {
+                        System.err.println("[JOIN] voice lookup failed");
+                        err.printStackTrace();
                         safeEditOriginal(event, "⚠️ 먼저 음성 채널에 들어가세요!");
                         return;
                     }
 
+                    System.out.println("[JOIN] target channel = " + audioChannel.getName());
+
                     try {
-                        connectBotToChannel(guild, audioChannel);
-                        safeEditOriginal(event, "✅ 음성 채널에 입장했습니다.");
+                        AudioManager am = guild.getAudioManager();
+                        am.setSelfDeafened(true);
+                        am.openAudioConnection(audioChannel);
+
+                        System.out.println("[JOIN] openAudioConnection called");
+                        safeEditOriginal(event, "⏳ 음성 채널 연결 시도 중...");
                     } catch (Exception e) {
-                        safeEditOriginal(event, "❌ 음성 채널 입장 중 오류: " + e.getMessage());
+                        System.err.println("[JOIN] openAudioConnection exception");
                         e.printStackTrace();
+                        safeEditOriginal(event, "❌ 연결 시도 중 예외: " + e.getMessage());
                     }
                 });
     }
@@ -537,16 +554,18 @@ public class Listeners extends ListenerAdapter {
     private void safeEditOriginal(SlashCommandInteractionEvent event, String message) {
         if (event.isAcknowledged()) {
             event.getHook().editOriginal(message).queue(
-                    null,
+                    success -> System.out.println("[editOriginal success] " + message),
                     err -> {
-                        // ignore timeout/deleted interaction/etc
+                        System.err.println("[editOriginal failed] " + message);
+                        err.printStackTrace();
                     }
             );
         } else {
             event.reply(message).setEphemeral(true).queue(
-                    null,
+                    success -> System.out.println("[reply success] " + message),
                     err -> {
-                        // ignore reply failure
+                        System.err.println("[reply failed] " + message);
+                        err.printStackTrace();
                     }
             );
         }

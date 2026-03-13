@@ -2,8 +2,11 @@ package discordgateway;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+import moe.kyokobot.libdave.NativeDaveFactory;
+import moe.kyokobot.libdave.jda.LDJDADaveSessionFactory;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
+import net.dv8tion.jda.api.audio.AudioModuleConfig;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 
 import java.io.IOException;
@@ -25,10 +28,17 @@ public class Main {
 
         HttpServer healthServer = startHealthServer(healthPort);
 
+        var daveFactory = new NativeDaveFactory();
+        var daveSessionFactory = new LDJDADaveSessionFactory(daveFactory);
+
+        AudioModuleConfig audioModuleConfig = new AudioModuleConfig()
+                .withDaveSessionFactory(daveSessionFactory);
+
         JDA jda = JDABuilder.createDefault(
                         token,
                         GatewayIntent.GUILD_VOICE_STATES
                 )
+                .setAudioModuleConfig(audioModuleConfig)
                 .addEventListeners(new Listeners())
                 .build();
 

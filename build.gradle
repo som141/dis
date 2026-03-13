@@ -23,7 +23,10 @@ dependencies {
 
     // DAVE (E2EE voice) for JDA
     implementation "moe.kyokobot.libdave:adapter-jda:0.1.2"
-    runtimeOnly  "moe.kyokobot.libdave:impl-jni:0.1.2"
+    implementation "moe.kyokobot.libdave:impl-jni:0.1.2"
+
+    // Windows x64 기준
+    runtimeOnly  "moe.kyokobot.libdave:natives-win-x86-64:0.1.2"
 
     // Logging
     implementation "org.slf4j:slf4j-api:2.0.13"
