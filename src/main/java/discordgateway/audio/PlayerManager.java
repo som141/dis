@@ -10,38 +10,40 @@ import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import dev.lavalink.youtube.YoutubeAudioSourceManager;
 import net.dv8tion.jda.api.entities.Guild;
-import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
-import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
-import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.interactions.commands.Command;
+
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class PlayerManager {
-    private static PlayerManager INSTANCE;
-    private final Map<Long, GuildMusicManager> musicManagers;
+
+    private static final PlayerManager INSTANCE = new PlayerManager();
+
+    private final Map<Long, GuildMusicManager> musicManagers = new ConcurrentHashMap<>();
     private final AudioPlayerManager audioPlayerManager;
 
-    // in discordgateway.audio.PlayerManager
+    private PlayerManager() {
+        this.audioPlayerManager = new DefaultAudioPlayerManager();
 
-    public void loadAndPlayEphemeral(SlashCommandInteractionEvent event, String trackUrl, Member member) {
-        InteractionHook hook = event.getHook(); // deferReply(true) 했으니 사용 가능
+        audioPlayerManager.getConfiguration().setOpusEncodingQuality(AudioConfiguration.OPUS_QUALITY_MAX);
+        audioPlayerManager.getConfiguration().setResamplingQuality(AudioConfiguration.ResamplingQuality.HIGH);
+        audioPlayerManager.getConfiguration().setFilterHotSwapEnabled(true);
 
-        // ✅ 여기서부터는 기존 loadAndPlay 로직을 가져오되,
-        // textChannel.sendMessage(...) 하던 부분을 전부 hook.sendMessage(...) 로 바꾸면 됨.
+        YoutubeAudioSourceManager youtube = new YoutubeAudioSourceManager(true);
+        this.audioPlayerManager.registerSourceManager(youtube);
 
-        // 예시: "큐에 추가" 메시지
-        hook.sendMessage("✅ 요청을 처리했습니다: " + trackUrl)
-                .setEphemeral(true)
-                .queue();
-
-        // 만약 Embed로 곡정보 보여주던 코드가 있었다면:
-        // hook.sendMessageEmbeds(embed).setEphemeral(true).queue();
+        AudioSourceManagers.registerRemoteSources(this.audioPlayerManager);
+        AudioSourceManagers.registerLocalSource(this.audioPlayerManager);
     }
+
+    public static PlayerManager getINSTANCE() {
+        return INSTANCE;
+    }
+
     public CompletableFuture<List<Command.Choice>> searchYouTubeChoices(String query, int limit) {
         CompletableFuture<List<Command.Choice>> future = new CompletableFuture<>();
 
@@ -51,7 +53,7 @@ public class PlayerManager {
         }
 
         String identifier = "ytsearch:" + query;
-        int cap = Math.max(1, Math.min(limit, 25)); // Discord max 25 choices
+        int cap = Math.max(1, Math.min(limit, 25));
 
         this.audioPlayerManager.loadItem(identifier, new AudioLoadResultHandler() {
             @Override
@@ -66,7 +68,6 @@ public class PlayerManager {
                 for (AudioTrack t : playlist.getTracks()) {
                     if (out.size() >= cap) break;
                     var info = t.getInfo();
-                    // name(표시) <= 100 chars 권장, value(실제 값)도 적절히 짧게 유지
                     out.add(new Command.Choice(info.title + " - " + info.author, info.uri));
                 }
                 future.complete(out);
@@ -79,59 +80,38 @@ public class PlayerManager {
 
             @Override
             public void loadFailed(FriendlyException e) {
-                future.complete(List.of()); // autocomplete에선 조용히 실패 처리 권장
+                future.complete(List.of());
             }
         });
 
         return future;
     }
 
-    private PlayerManager() {
-        this.musicManagers = new HashMap<>();
-        this.audioPlayerManager = new DefaultAudioPlayerManager();
-
-        audioPlayerManager.getConfiguration().setOpusEncodingQuality(AudioConfiguration.OPUS_QUALITY_MAX);
-        audioPlayerManager.getConfiguration().setResamplingQuality(AudioConfiguration.ResamplingQuality.HIGH);
-        audioPlayerManager.getConfiguration().setFilterHotSwapEnabled(true);
-
-
-        YoutubeAudioSourceManager youtube = new YoutubeAudioSourceManager(true);
-        this.audioPlayerManager.registerSourceManager(youtube);
-
-
-        AudioSourceManagers.registerRemoteSources(this.audioPlayerManager);
-        AudioSourceManagers.registerLocalSource(this.audioPlayerManager);
-    }
-
-    public static PlayerManager getINSTANCE() {
-        if(INSTANCE == null) {
-            INSTANCE = new PlayerManager();
-        }
-        return INSTANCE;
-    }
-
     public GuildMusicManager getMusicManager(Guild guild) {
-        return this.musicManagers.computeIfAbsent(guild.getIdLong(), (guildId) -> {
+        return this.musicManagers.computeIfAbsent(guild.getIdLong(), guildId -> {
             final GuildMusicManager guildMusicManager = new GuildMusicManager(this.audioPlayerManager);
             guild.getAudioManager().setSendingHandler(guildMusicManager.getSendHandler());
             return guildMusicManager;
         });
     }
 
-    public void loadAndPlay(TextChannel textChannel, String trackURL, Member client) {
+    public void loadAndPlay(TextChannel textChannel, String trackURL) {
         final GuildMusicManager musicManager = this.getMusicManager(textChannel.getGuild());
 
         this.audioPlayerManager.loadItemOrdered(musicManager, trackURL, new AudioLoadResultHandler() {
             @Override
             public void trackLoaded(AudioTrack audioTrack) {
-                // ✅ 이제는 queue할 때 채널도 같이 준다
                 musicManager.scheduler.queue(audioTrack, textChannel);
                 textChannel.sendMessage("▶️ 재생: " + audioTrack.getInfo().title).queue();
             }
 
             @Override
             public void playlistLoaded(AudioPlaylist audioPlaylist) {
-                // 여기는 일단 첫 곡만 재생 (원하면 여기도 전체 큐에 넣도록 바꿀 수 있음)
+                if (audioPlaylist.getTracks().isEmpty()) {
+                    textChannel.sendMessage("플레이리스트가 비어 있습니다.").queue();
+                    return;
+                }
+
                 AudioTrack firstTrack = audioPlaylist.getSelectedTrack() != null
                         ? audioPlaylist.getSelectedTrack()
                         : audioPlaylist.getTracks().get(0);
@@ -147,9 +127,8 @@ public class PlayerManager {
 
             @Override
             public void loadFailed(FriendlyException e) {
-                textChannel.sendMessage("재생할 수 없습니다. " +  e.getMessage()).queue();
+                textChannel.sendMessage("재생할 수 없습니다. " + e.getMessage()).queue();
             }
         });
     }
-
 }

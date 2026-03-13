@@ -10,7 +10,8 @@ import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrackEndReason;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 
-import java.util.*;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -18,12 +19,7 @@ public class TrackScheduler extends AudioEventAdapter {
     private final AudioPlayer audioPlayer;
     private final AudioPlayerManager playerManager;
     private final BlockingQueue<AudioTrack> queue;
-    // TrackScheduler 클래스 멤버 변수로 추가
-    private final Deque<String> recentTrackIds = new ArrayDeque<>();
-    private final Set<String> recentIdSet = new HashSet<>();
-    private static final int RECENT_HISTORY_LIMIT = 20;
-    private final Random random = new Random();
-    // ✅ 자동재생 관련 상태
+
     private boolean autoPlay = false;
     private AudioTrack lastTrack;
     private TextChannel lastChannel;
@@ -31,10 +27,9 @@ public class TrackScheduler extends AudioEventAdapter {
     public TrackScheduler(AudioPlayer audioPlayer, AudioPlayerManager playerManager) {
         this.audioPlayer = audioPlayer;
         this.playerManager = playerManager;
-        this.queue = new LinkedBlockingQueue<>();
+        this.queue = new LinkedBlockingQueue<>(100);
     }
 
-    // ✅ Listeners 쪽에서 -l 옵션으로 켜고 끄는 플래그
     public void setAutoPlay(boolean autoPlay) {
         this.autoPlay = autoPlay;
     }
@@ -43,20 +38,20 @@ public class TrackScheduler extends AudioEventAdapter {
         return autoPlay;
     }
 
-    // ✅ 텍스트 채널까지 같이 받아서 마지막 채널 기억
-    public void queue(AudioTrack track, TextChannel channel) {
+    public boolean queue(AudioTrack track, TextChannel channel) {
         if (!this.audioPlayer.startTrack(track, true)) {
-            this.queue.offer(track);
+            boolean offered = this.queue.offer(track);
+            if (!offered) return false;
         }
         this.lastTrack = track;
         if (channel != null) {
             this.lastChannel = channel;
         }
+        return true;
     }
 
-    // 옛 코드 호환용 (채널 필요 없을 때)
-    public void queue(AudioTrack track) {
-        queue(track, null);
+    public boolean queue(AudioTrack track) {
+        return queue(track, null);
     }
 
     @Override
@@ -65,7 +60,6 @@ public class TrackScheduler extends AudioEventAdapter {
             return;
         }
 
-        // 1) 먼저 큐에 다음 곡이 있으면 그거부터 재생
         AudioTrack next = this.queue.poll();
         if (next != null) {
             this.lastTrack = next;
@@ -73,7 +67,6 @@ public class TrackScheduler extends AudioEventAdapter {
             return;
         }
 
-        // 2) 큐가 비어 있고, autoPlay가 켜져 있고, 마지막 곡 정보가 있으면 → 추천곡 1개 뽑기
         if (autoPlay && lastTrack != null) {
             String query = "ytsearch:" + lastTrack.getInfo().title + " " + lastTrack.getInfo().author;
 
@@ -89,11 +82,20 @@ public class TrackScheduler extends AudioEventAdapter {
 
                 @Override
                 public void playlistLoaded(AudioPlaylist playlist) {
+                    if (playlist.getTracks().isEmpty()) {
+                        if (lastChannel != null) {
+                            lastChannel.sendMessage("❌ 자동재생할 추천 곡이 비어 있습니다.").queue();
+                        }
+                        return;
+                    }
+
                     AudioTrack first = playlist.getSelectedTrack() != null
                             ? playlist.getSelectedTrack()
                             : playlist.getTracks().get(0);
+
                     lastTrack = first;
                     audioPlayer.startTrack(first, false);
+
                     if (lastChannel != null) {
                         lastChannel.sendMessage("▶️ 자동 추천 재생(플레이리스트): " + first.getInfo().title).queue();
                     }
@@ -122,6 +124,10 @@ public class TrackScheduler extends AudioEventAdapter {
             result.add(at.getInfo().title + " - " + at.getInfo().author);
         }
         return result;
+    }
+
+    public boolean hasNextTrack() {
+        return !this.queue.isEmpty();
     }
 
     public void nextTrack() {
