@@ -19,7 +19,11 @@ import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.managers.AudioManager;
 import org.jetbrains.annotations.NotNull;
-
+import net.dv8tion.jda.api.audio.hooks.ConnectionListener;
+import net.dv8tion.jda.api.audio.hooks.ConnectionStatus;
+import net.dv8tion.jda.api.entities.Member;
+import net.dv8tion.jda.api.Permission;
+import org.jetbrains.annotations.NotNull;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -65,6 +69,7 @@ public class Listeners extends ListenerAdapter {
     private final ConcurrentHashMap<String, CachedChoices> autoCache = new ConcurrentHashMap<>();
 
     private record CachedChoices(long createdAtMillis, List<Command.Choice> choices) {}
+
 
     @Override
     public void onReady(@NotNull ReadyEvent event) {
@@ -499,7 +504,34 @@ public class Listeners extends ListenerAdapter {
      * (No selfMember voice-state check -> avoids detached issues)
      */
     private void connectBotToChannel(Guild guild, AudioChannel target) {
-        guild.getAudioManager().openAudioConnection(target);
+        AudioManager am = guild.getAudioManager();
+
+        am.setConnectionListener(new ConnectionListener() {
+            @Override
+            public void onStatusChange(@NotNull ConnectionStatus status) {
+                System.out.println("[VOICE] guild=" + guild.getId()
+                        + ", channel=" + target.getId()
+                        + ", status=" + status);
+            }
+        });
+
+        // 원인 확인 전까지는 자동 재연결을 잠깐 꺼서
+        // "첫 실패 원인"만 보이게 하는 게 좋음
+        am.setAutoReconnect(false);
+
+        if (am.isConnected()
+                && am.getConnectedChannel() != null
+                && am.getConnectedChannel().getIdLong() == target.getIdLong()) {
+            System.out.println("[VOICE] already connected to target");
+            return;
+        }
+
+        Member self = guild.getSelfMember();
+        if (!self.hasPermission(target, Permission.VOICE_CONNECT)) {
+            throw new IllegalStateException("봇에 VOICE_CONNECT 권한이 없습니다.");
+        }
+
+        am.openAudioConnection(target);
     }
 
     private void safeEditOriginal(SlashCommandInteractionEvent event, String message) {
