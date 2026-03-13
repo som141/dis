@@ -277,7 +277,7 @@ public class Listeners extends ListenerAdapter {
 
                         // PlayerManager currently doesn't use member for voice-state access (safe enough to pass through)
                         Member interactionMember = event.getMember();
-                        PlayerManager.getINSTANCE().loadAndPlay(textChannel, trackUrl, interactionMember);
+                        PlayerManager.getINSTANCE().loadAndPlay(textChannel, trackUrl);
 
                         safeEditOriginal(event, "✅ 재생 요청을 처리했습니다.");
                     } catch (Exception e) {
@@ -393,7 +393,7 @@ public class Listeners extends ListenerAdapter {
 
                         String localPath = "resources/" + file; // adjust if needed
                         Member interactionMember = event.getMember();
-                        PlayerManager.getINSTANCE().loadAndPlay(textChannel, localPath, interactionMember);
+                        PlayerManager.getINSTANCE().loadAndPlay(textChannel, localPath);
 
                         safeEditOriginal(event, "🔊 효과음을 재생합니다: `" + file + "`");
                     } catch (Exception e) {
