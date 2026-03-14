@@ -14,6 +14,7 @@ import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.interactions.commands.Command;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -33,15 +34,26 @@ public class PlayerManager {
         audioPlayerManager.getConfiguration().setResamplingQuality(AudioConfiguration.ResamplingQuality.HIGH);
         audioPlayerManager.getConfiguration().setFilterHotSwapEnabled(true);
 
+        // youtube-source의 공식 YouTube source manager
         YoutubeAudioSourceManager youtube = new YoutubeAudioSourceManager(true);
         this.audioPlayerManager.registerSourceManager(youtube);
 
-        AudioSourceManagers.registerRemoteSources(this.audioPlayerManager);
+        // Lavaplayer의 deprecated built-in YouTube source는 제외
+        AudioSourceManagers.registerRemoteSources(
+                this.audioPlayerManager,
+                com.sedmelluq.discord.lavaplayer.source.youtube.YoutubeAudioSourceManager.class
+        );
+
+        // 로컬 파일 소스 등록
         AudioSourceManagers.registerLocalSource(this.audioPlayerManager);
     }
-
     public static PlayerManager getINSTANCE() {
         return INSTANCE;
+    }
+
+    private String trimToMax(String s, int max) {
+        if (s == null) return "";
+        return s.length() <= max ? s : s.substring(0, max - 1) + "…";
     }
 
     public CompletableFuture<List<Command.Choice>> searchYouTubeChoices(String query, int limit) {
@@ -58,19 +70,33 @@ public class PlayerManager {
         this.audioPlayerManager.loadItem(identifier, new AudioLoadResultHandler() {
             @Override
             public void trackLoaded(AudioTrack track) {
-                var info = track.getInfo();
-                future.complete(List.of(new Command.Choice(info.title + " - " + info.author, info.uri)));
+                try {
+                    var info = track.getInfo();
+                    String name = trimToMax(info.title + " - " + info.author, 100);
+                    String value = trimToMax(info.uri, 100);
+                    future.complete(List.of(new Command.Choice(name, value)));
+                } catch (Exception e) {
+                    future.complete(List.of());
+                }
             }
 
             @Override
             public void playlistLoaded(AudioPlaylist playlist) {
-                List<Command.Choice> out = new ArrayList<>();
-                for (AudioTrack t : playlist.getTracks()) {
-                    if (out.size() >= cap) break;
-                    var info = t.getInfo();
-                    out.add(new Command.Choice(info.title + " - " + info.author, info.uri));
+                try {
+                    List<Command.Choice> out = new ArrayList<>();
+                    for (AudioTrack t : playlist.getTracks()) {
+                        if (out.size() >= cap) break;
+
+                        var info = t.getInfo();
+                        String name = trimToMax(info.title + " - " + info.author, 100);
+                        String value = trimToMax(info.uri, 100);
+
+                        out.add(new Command.Choice(name, value));
+                    }
+                    future.complete(out);
+                } catch (Exception e) {
+                    future.complete(List.of());
                 }
-                future.complete(out);
             }
 
             @Override

@@ -3,8 +3,10 @@ package discordgateway;
 import discordgateway.audio.GuildMusicManager;
 import discordgateway.audio.PlayerManager;
 import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.Permission;
+import net.dv8tion.jda.api.audio.hooks.ConnectionListener;
+import net.dv8tion.jda.api.audio.hooks.ConnectionStatus;
 import net.dv8tion.jda.api.entities.Guild;
-import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.channel.middleman.AudioChannel;
@@ -19,11 +21,7 @@ import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import net.dv8tion.jda.api.managers.AudioManager;
 import org.jetbrains.annotations.NotNull;
-import net.dv8tion.jda.api.audio.hooks.ConnectionListener;
-import net.dv8tion.jda.api.audio.hooks.ConnectionStatus;
-import net.dv8tion.jda.api.entities.Member;
-import net.dv8tion.jda.api.Permission;
-import org.jetbrains.annotations.NotNull;
+
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -34,17 +32,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/**
- * JDA 5.6.1-safe slash command listener
- *
- * Key fixes:
- * - Do NOT call event.getMember().getVoiceState() (detached entity issue)
- * - Use guild.retrieveMemberVoiceStateById(userId)
- * - Guild cache lookup may be null, so fallback to event.getGuild()
- */
 public class Listeners extends ListenerAdapter {
 
-    private static final String PIZZA_IMAGE = "https://i.namu.wiki/i/fnE10XPWcq13FQcHrKhGdFBC4gJbwvQIm2uBHVfjR0b5CBEoS7d72f4wCapkmtS6mwQPhDO6L1-VsAfP_nvR0vaedr4eg8mN-eOfPVbR3EGdlIAJhi6qEtgAkbLCZUfjewnMR18sLcz_u_-wsSGrsA.webp";
+    private static final String PIZZA_IMAGE =
+            "https://i.namu.wiki/i/fnE10XPWcq13FQcHrKhGdFBC4gJbwvQIm2uBHVfjR0b5CBEoS7d72f4wCapkmtS6mwQPhDO6L1-VsAfP_nvR0vaedr4eg8mN-eOfPVbR3EGdlIAJhi6qEtgAkbLCZUfjewnMR18sLcz_u_-wsSGrsA.webp";
 
     // Slash command names
     private static final String CMD_JOIN   = "join";
@@ -69,7 +60,6 @@ public class Listeners extends ListenerAdapter {
     private final ConcurrentHashMap<String, CachedChoices> autoCache = new ConcurrentHashMap<>();
 
     private record CachedChoices(long createdAtMillis, List<Command.Choice> choices) {}
-
 
     @Override
     public void onReady(@NotNull ReadyEvent event) {
@@ -98,7 +88,6 @@ public class Listeners extends ListenerAdapter {
                 Commands.slash(CMD_PIZZA,  "피자 이미지를 출력합니다")
         );
 
-        // Dev guild (fast update) -> fallback global
         String devGuildId = System.getenv("DISCORD_DEV_GUILD_ID");
         if (devGuildId != null && !devGuildId.isBlank()) {
             Guild guild = event.getJDA().getGuildById(devGuildId);
@@ -161,7 +150,6 @@ public class Listeners extends ListenerAdapter {
             return;
         }
 
-        // Cache hit
         String cacheKey = typed.toLowerCase();
         CachedChoices cached = autoCache.get(cacheKey);
         long now = System.currentTimeMillis();
@@ -170,7 +158,6 @@ public class Listeners extends ListenerAdapter {
             return;
         }
 
-        // Async search (Discord timeout window)
         AtomicBoolean replied = new AtomicBoolean(false);
 
         PlayerManager.getINSTANCE()
@@ -197,7 +184,7 @@ public class Listeners extends ListenerAdapter {
                     event.replyChoices(result).queue(
                             null,
                             fail -> {
-                                // timeout/unknown interaction -> ignore
+                                // ignore timeout / unknown interaction
                             }
                     );
                 });
@@ -223,9 +210,9 @@ public class Listeners extends ListenerAdapter {
 
         retrieveInvokerVoiceChannel(guild, event.getUser().getIdLong())
                 .whenComplete((audioChannel, err) -> {
-                    if (err != null) {
+                    if (err != null || audioChannel == null) {
                         System.err.println("[JOIN] voice lookup failed");
-                        err.printStackTrace();
+                        if (err != null) err.printStackTrace();
                         safeEditOriginal(event, "⚠️ 먼저 음성 채널에 들어가세요!");
                         return;
                     }
@@ -234,6 +221,45 @@ public class Listeners extends ListenerAdapter {
 
                     try {
                         AudioManager am = guild.getAudioManager();
+
+                        AudioChannel connected = am.getConnectedChannel();
+                        if (connected != null && connected.getIdLong() == audioChannel.getIdLong()) {
+                            safeEditOriginal(event, "✅ 이미 해당 음성 채널에 연결되어 있습니다.");
+                            return;
+                        }
+
+                        if (!guild.getSelfMember().hasPermission(audioChannel, Permission.VOICE_CONNECT)) {
+                            safeEditOriginal(event, "❌ 봇에 VOICE_CONNECT 권한이 없습니다.");
+                            return;
+                        }
+
+                        am.setConnectionListener(new ConnectionListener() {
+                            @Override
+                            public void onStatusChange(@NotNull ConnectionStatus status) {
+                                System.out.println("[JOIN STATUS] guild=" + guild.getId()
+                                        + ", channel=" + audioChannel.getId()
+                                        + ", status=" + status);
+
+                                switch (status) {
+                                    case CONNECTED -> {
+                                        safeEditOriginal(event, "✅ 음성 채널에 입장했습니다.");
+                                        am.setConnectionListener(null);
+                                    }
+                                    case ERROR_LOST_CONNECTION, ERROR_CANNOT_RESUME -> {
+                                        safeEditOriginal(event, "❌ 음성 채널 연결에 실패했습니다: " + status);
+                                        am.setConnectionListener(null);
+                                    }
+                                    case DISCONNECTED_CHANNEL_DELETED, DISCONNECTED_REMOVED_FROM_GUILD -> {
+                                        safeEditOriginal(event, "❌ 음성 채널 연결이 종료되었습니다: " + status);
+                                        am.setConnectionListener(null);
+                                    }
+                                    default -> {
+                                        // connecting / authenticating 등은 그냥 대기
+                                    }
+                                }
+                            }
+                        });
+
                         am.setSelfDeafened(true);
                         am.openAudioConnection(audioChannel);
 
@@ -252,7 +278,8 @@ public class Listeners extends ListenerAdapter {
         if (guild == null) return;
 
         AudioManager am = guild.getAudioManager();
-        if (!am.isConnected()) {
+        AudioChannel connected = am.getConnectedChannel();
+        if (connected == null) {
             event.reply("⚠️ 봇이 음성 채널에 들어와 있지 않습니다.").setEphemeral(true).queue();
             return;
         }
@@ -297,11 +324,9 @@ public class Listeners extends ListenerAdapter {
                         GuildMusicManager gm = PlayerManager.getINSTANCE().getMusicManager(guild);
                         gm.scheduler.setAutoPlay(autoPlay);
 
-                        // PlayerManager currently doesn't use member for voice-state access (safe enough to pass through)
-                        Member interactionMember = event.getMember();
                         PlayerManager.getINSTANCE().loadAndPlay(textChannel, trackUrl);
 
-                        safeEditOriginal(event, "✅ 재생 요청을 처리했습니다.");
+                        safeEditOriginal(event, "⏳ 재생 요청을 접수했습니다.");
                     } catch (Exception e) {
                         safeEditOriginal(event, "❌ 재생 요청 처리 중 오류: " + e.getMessage());
                         e.printStackTrace();
@@ -363,9 +388,9 @@ public class Listeners extends ListenerAdapter {
         GuildMusicManager gm = PlayerManager.getINSTANCE().getMusicManager(guild);
 
         if (gm.audioPlayer.getPlayingTrack() == null) {
-            event.reply("⏸️ 재생 중인 곡이 없습니다.").setEphemeral(true).setEphemeral(true).queue();
+            event.reply("⏸️ 재생 중인 곡이 없습니다.").setEphemeral(true).queue();
         } else if (gm.audioPlayer.isPaused()) {
-            event.reply("⚠️ 이미 일시 정지 상태입니다.").setEphemeral(true).setEphemeral(true).queue();
+            event.reply("⚠️ 이미 일시 정지 상태입니다.").setEphemeral(true).queue();
         } else {
             gm.audioPlayer.setPaused(true);
             event.reply("⏸️ 곡을 일시 정지했습니다.").setEphemeral(true).queue();
@@ -379,9 +404,9 @@ public class Listeners extends ListenerAdapter {
         GuildMusicManager gm = PlayerManager.getINSTANCE().getMusicManager(guild);
 
         if (gm.audioPlayer.getPlayingTrack() == null) {
-            event.reply("▶️ 재생할 곡이 없습니다.").setEphemeral(true).setEphemeral(true).queue();
+            event.reply("▶️ 재생할 곡이 없습니다.").setEphemeral(true).queue();
         } else if (!gm.audioPlayer.isPaused()) {
-            event.reply("⚠️ 현재 재생 중입니다.").setEphemeral(true).setEphemeral(true).queue();
+            event.reply("⚠️ 현재 재생 중입니다.").setEphemeral(true).queue();
         } else {
             gm.audioPlayer.setPaused(false);
             event.reply("▶️ 재생을 재개했습니다.").setEphemeral(true).queue();
@@ -397,7 +422,7 @@ public class Listeners extends ListenerAdapter {
 
         String file = getStringOption(event, OPT_SFX_NAME, "");
         if (file.isBlank()) {
-            event.reply("효과음 이름이 비어 있습니다.").setEphemeral(true).setEphemeral(true).queue();
+            event.reply("효과음 이름이 비어 있습니다.").setEphemeral(true).queue();
             return;
         }
 
@@ -413,8 +438,7 @@ public class Listeners extends ListenerAdapter {
                     try {
                         connectBotToChannel(guild, audioChannel);
 
-                        String localPath = "resources/" + file; // adjust if needed
-                        Member interactionMember = event.getMember();
+                        String localPath = "resources/" + file;
                         PlayerManager.getINSTANCE().loadAndPlay(textChannel, localPath);
 
                         safeEditOriginal(event, "🔊 효과음을 재생합니다: `" + file + "`");
@@ -438,10 +462,6 @@ public class Listeners extends ListenerAdapter {
     // Helpers
     // =========================
 
-    /**
-     * Guild cache may be null in some situations.
-     * Try cache first, then fallback to event.getGuild().
-     */
     private Guild requireUsableGuild(SlashCommandInteractionEvent event) {
         if (!event.isFromGuild() || event.getGuild() == null) {
             event.reply("이 명령어는 서버에서만 사용할 수 있습니다.")
@@ -454,10 +474,6 @@ public class Listeners extends ListenerAdapter {
         return (cached != null) ? cached : event.getGuild();
     }
 
-    /**
-     * Get a TextChannel safely.
-     * Try JDA cache first, then fallback to interaction channel cast.
-     */
     private TextChannel requireUsableTextChannel(SlashCommandInteractionEvent event, Guild guild) {
         if (event.getChannelType() != ChannelType.TEXT) {
             event.reply("이 명령어는 일반 텍스트 채널에서만 사용할 수 있습니다.")
@@ -466,19 +482,15 @@ public class Listeners extends ListenerAdapter {
             return null;
         }
 
-        // 1) Try global JDA cache
         TextChannel tc = event.getJDA().getTextChannelById(event.getChannelIdLong());
         if (tc != null) return tc;
 
-        // 2) Try guild cache (may still be null depending on cache state)
         try {
             tc = guild.getTextChannelById(event.getChannelIdLong());
             if (tc != null) return tc;
         } catch (Exception ignored) {
-            // ignore and try interaction channel fallback below
         }
 
-        // 3) Fallback to interaction channel object
         try {
             return event.getChannel().asTextChannel();
         } catch (Exception e) {
@@ -489,9 +501,6 @@ public class Listeners extends ListenerAdapter {
         }
     }
 
-    /**
-     * JDA 5.6.1-safe voice-state lookup for slash commands (avoids detached member issue)
-     */
     private CompletableFuture<AudioChannel> retrieveInvokerVoiceChannel(Guild guild, long userId) {
         CompletableFuture<AudioChannel> future = new CompletableFuture<>();
 
@@ -516,39 +525,22 @@ public class Listeners extends ListenerAdapter {
         return future;
     }
 
-    /**
-     * Simple and safe: openAudioConnection connects or moves bot.
-     * (No selfMember voice-state check -> avoids detached issues)
-     */
-    private void connectBotToChannel(Guild guild, AudioChannel target) {
+    private boolean connectBotToChannel(Guild guild, AudioChannel target) {
         AudioManager am = guild.getAudioManager();
 
-        am.setConnectionListener(new ConnectionListener() {
-            @Override
-            public void onStatusChange(@NotNull ConnectionStatus status) {
-                System.out.println("[VOICE] guild=" + guild.getId()
-                        + ", channel=" + target.getId()
-                        + ", status=" + status);
-            }
-        });
-
-        // 원인 확인 전까지는 자동 재연결을 잠깐 꺼서
-        // "첫 실패 원인"만 보이게 하는 게 좋음
-        am.setAutoReconnect(false);
-
-        if (am.isConnected()
-                && am.getConnectedChannel() != null
-                && am.getConnectedChannel().getIdLong() == target.getIdLong()) {
+        AudioChannel connected = am.getConnectedChannel();
+        if (connected != null && connected.getIdLong() == target.getIdLong()) {
             System.out.println("[VOICE] already connected to target");
-            return;
+            return true;
         }
 
-        Member self = guild.getSelfMember();
-        if (!self.hasPermission(target, Permission.VOICE_CONNECT)) {
+        if (!guild.getSelfMember().hasPermission(target, Permission.VOICE_CONNECT)) {
             throw new IllegalStateException("봇에 VOICE_CONNECT 권한이 없습니다.");
         }
 
+        am.setSelfDeafened(true);
         am.openAudioConnection(target);
+        return false;
     }
 
     private void safeEditOriginal(SlashCommandInteractionEvent event, String message) {
