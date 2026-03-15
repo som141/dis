@@ -48,9 +48,14 @@ jobs:
       - name: Create env file
         env:
           TOKEN: ${{ secrets.TOKEN }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
         run: |
           mkdir -p out
-          printf "TOKEN=%s\n" "${TOKEN}" > out/.env.cicd
+          {
+            printf "TOKEN=%s\n" "${TOKEN}"
+            printf "YOUTUBE_REFRESH_TOKEN=%s\n" "${YOUTUBE_REFRESH_TOKEN}"
+            printf "YOUTUBE_OAUTH_INIT=false\n"
+          } > out/.env.cicd
 
       - name: Prepare SSH
         env:
