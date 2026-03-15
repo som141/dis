@@ -9,19 +9,21 @@ import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
 import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import dev.lavalink.youtube.YoutubeAudioSourceManager;
+import dev.lavalink.youtube.clients.*;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.interactions.commands.Command;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class PlayerManager {
-
+    private static final Logger log = LoggerFactory.getLogger(PlayerManager.class);
     private static final PlayerManager INSTANCE = new PlayerManager();
 
     private final Map<Long, GuildMusicManager> musicManagers = new ConcurrentHashMap<>();
@@ -34,18 +36,58 @@ public class PlayerManager {
         audioPlayerManager.getConfiguration().setResamplingQuality(AudioConfiguration.ResamplingQuality.HIGH);
         audioPlayerManager.getConfiguration().setFilterHotSwapEnabled(true);
 
-        // youtube-source의 공식 YouTube source manager
-        YoutubeAudioSourceManager youtube = new YoutubeAudioSourceManager(true);
+        // youtube-source 공식 YouTube source manager
+// 핵심: OAuth 효과를 보려면 TV client를 포함시키는 쪽이 좋다.
+        YoutubeAudioSourceManager youtube = new YoutubeAudioSourceManager(
+                true,
+                new Music(),
+                new Tv(),
+                new Web(),
+                new WebEmbedded(),
+                new AndroidVr()
+        );
+
+// OAuth 설정
+        configureYoutubeOauth(youtube);
+
         this.audioPlayerManager.registerSourceManager(youtube);
 
-        // Lavaplayer의 deprecated built-in YouTube source는 제외
+// Lavaplayer built-in deprecated YouTube source 제외
         AudioSourceManagers.registerRemoteSources(
                 this.audioPlayerManager,
                 com.sedmelluq.discord.lavaplayer.source.youtube.YoutubeAudioSourceManager.class
         );
 
-        // 로컬 파일 소스 등록
+// 로컬 파일 소스 등록
         AudioSourceManagers.registerLocalSource(this.audioPlayerManager);
+    }
+
+    private void configureYoutubeOauth(YoutubeAudioSourceManager youtube) {
+        String refreshToken = readEnvTrimmed("YOUTUBE_REFRESH_TOKEN");
+        boolean oauthInit = Boolean.parseBoolean(
+                System.getenv().getOrDefault("YOUTUBE_OAUTH_INIT", "false")
+        );
+
+        if (refreshToken != null) {
+            youtube.useOauth2(refreshToken, true);
+            log.info("YouTube OAuth enabled with refresh token.");
+            return;
+        }
+
+        if (oauthInit) {
+            youtube.useOauth2(null, false);
+            log.info("YouTube OAuth bootstrap mode enabled. Check console logs for device flow.");
+            return;
+        }
+
+        log.warn("YouTube OAuth disabled. No YOUTUBE_REFRESH_TOKEN found.");
+    }
+
+    private String readEnvTrimmed(String key) {
+        String value = System.getenv(key);
+        if (value == null) return null;
+        value = value.trim();
+        return value.isEmpty() ? null : value;
     }
     public static PlayerManager getINSTANCE() {
         return INSTANCE;
@@ -73,7 +115,7 @@ public class PlayerManager {
                 try {
                     var info = track.getInfo();
                     String name = trimToMax(info.title + " - " + info.author, 100);
-                    String value = trimToMax(info.uri, 100);
+                    String value = "https://www.youtube.com/watch?v=" + track.getIdentifier();
                     future.complete(List.of(new Command.Choice(name, value)));
                 } catch (Exception e) {
                     future.complete(List.of());
@@ -89,7 +131,7 @@ public class PlayerManager {
 
                         var info = t.getInfo();
                         String name = trimToMax(info.title + " - " + info.author, 100);
-                        String value = trimToMax(info.uri, 100);
+                        String value = "https://www.youtube.com/watch?v=" + t.getIdentifier();
 
                         out.add(new Command.Choice(name, value));
                     }
