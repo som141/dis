@@ -17,7 +17,7 @@
 ---
 
 ## 프로젝트 구조
-
+![img.png](img.png)
 ### 메인 클래스 (`discordgateway.Main`)
 
 * JDA 초기화
