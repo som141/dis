@@ -2,6 +2,7 @@ package discordgateway.application;
 
 import discordgateway.domain.GuildPlayerState;
 import discordgateway.domain.GuildStateRepository;
+import discordgateway.domain.PlayerStateRepository;
 import discordgateway.infrastructure.audio.PlaybackGateway;
 import discordgateway.infrastructure.audio.PlaybackSnapshot;
 import discordgateway.infrastructure.audio.VoiceGateway;
@@ -16,15 +17,18 @@ public class MusicApplicationService {
     private final PlaybackGateway playbackGateway;
     private final VoiceGateway voiceGateway;
     private final GuildStateRepository guildStateRepository;
+    private final PlayerStateRepository playerStateRepository;
 
     public MusicApplicationService(
             PlaybackGateway playbackGateway,
             VoiceGateway voiceGateway,
-            GuildStateRepository guildStateRepository
+            GuildStateRepository guildStateRepository,
+            PlayerStateRepository playerStateRepository
     ) {
         this.playbackGateway = playbackGateway;
         this.voiceGateway = voiceGateway;
         this.guildStateRepository = guildStateRepository;
+        this.playerStateRepository = playerStateRepository;
     }
 
     public CompletableFuture<CommandResult> join(Guild guild, long userId) {
@@ -50,6 +54,7 @@ public class MusicApplicationService {
 
         voiceGateway.disconnect(guild);
         guildStateRepository.remove(guild.getIdLong());
+        playerStateRepository.remove(guild.getIdLong());
         return CommandResult.publicMessage("👋 음성 채널에서 퇴장했습니다.");
     }
 
@@ -71,7 +76,6 @@ public class MusicApplicationService {
                     voiceGateway.connect(guild, audioChannel);
 
                     GuildPlayerState state = guildStateRepository.getOrCreate(guild.getIdLong());
-                    state.setAutoPlay(autoPlay);
                     state.setConnectedVoiceChannelId(audioChannel.getIdLong());
                     guildStateRepository.save(state);
 

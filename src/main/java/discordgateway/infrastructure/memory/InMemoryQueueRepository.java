@@ -28,6 +28,12 @@ public class InMemoryQueueRepository implements QueueRepository {
     }
 
     @Override
+    public boolean hasEntries(long guildId) {
+        Deque<QueueEntry> deque = store.get(guildId);
+        return deque != null && !deque.isEmpty();
+    }
+
+    @Override
     public List<QueueEntry> list(long guildId, int limit) {
         Deque<QueueEntry> deque = store.get(guildId);
         if (deque == null || deque.isEmpty()) {

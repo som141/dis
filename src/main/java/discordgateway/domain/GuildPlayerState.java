@@ -2,7 +2,6 @@ package discordgateway.domain;
 
 public class GuildPlayerState {
     private final long guildId;
-    private boolean autoPlay;
     private Long connectedVoiceChannelId;
 
     public GuildPlayerState(long guildId) {
@@ -11,14 +10,6 @@ public class GuildPlayerState {
 
     public long getGuildId() {
         return guildId;
-    }
-
-    public boolean isAutoPlay() {
-        return autoPlay;
-    }
-
-    public void setAutoPlay(boolean autoPlay) {
-        this.autoPlay = autoPlay;
     }
 
     public Long getConnectedVoiceChannelId() {

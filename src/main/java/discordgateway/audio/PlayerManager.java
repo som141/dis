@@ -14,6 +14,8 @@ import dev.lavalink.youtube.clients.Music;
 import dev.lavalink.youtube.clients.Tv;
 import dev.lavalink.youtube.clients.Web;
 import dev.lavalink.youtube.clients.WebEmbedded;
+import discordgateway.domain.GuildPlaybackLockManager;
+import discordgateway.domain.PlayerStateRepository;
 import discordgateway.domain.QueueRepository;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
@@ -36,6 +38,8 @@ public class PlayerManager {
     private final AudioPlayerManager audioPlayerManager;
 
     private volatile QueueRepository queueRepository;
+    private volatile PlayerStateRepository playerStateRepository;
+    private volatile GuildPlaybackLockManager playbackLockManager;
 
     private PlayerManager() {
         this.audioPlayerManager = new DefaultAudioPlayerManager();
@@ -65,6 +69,14 @@ public class PlayerManager {
 
     public void setQueueRepository(QueueRepository queueRepository) {
         this.queueRepository = Objects.requireNonNull(queueRepository);
+    }
+
+    public void setPlayerStateRepository(PlayerStateRepository playerStateRepository) {
+        this.playerStateRepository = Objects.requireNonNull(playerStateRepository);
+    }
+
+    public void setPlaybackLockManager(GuildPlaybackLockManager playbackLockManager) {
+        this.playbackLockManager = Objects.requireNonNull(playbackLockManager);
     }
 
     private void configureYoutubeOauth(YoutubeAudioSourceManager youtube) {
@@ -161,12 +173,26 @@ public class PlayerManager {
 
     public GuildMusicManager getMusicManager(Guild guild) {
         QueueRepository repo = this.queueRepository;
+        PlayerStateRepository stateRepository = this.playerStateRepository;
+        GuildPlaybackLockManager lockManager = this.playbackLockManager;
         if (repo == null) {
             throw new IllegalStateException("QueueRepository is not configured.");
         }
+        if (stateRepository == null) {
+            throw new IllegalStateException("PlayerStateRepository is not configured.");
+        }
+        if (lockManager == null) {
+            throw new IllegalStateException("GuildPlaybackLockManager is not configured.");
+        }
 
         return this.musicManagers.computeIfAbsent(guild.getIdLong(), guildId -> {
-            GuildMusicManager guildMusicManager = new GuildMusicManager(guildId, this.audioPlayerManager, repo);
+            GuildMusicManager guildMusicManager = new GuildMusicManager(
+                    guildId,
+                    this.audioPlayerManager,
+                    repo,
+                    stateRepository,
+                    lockManager
+            );
             guild.getAudioManager().setSendingHandler(guildMusicManager.getSendHandler());
             return guildMusicManager;
         });

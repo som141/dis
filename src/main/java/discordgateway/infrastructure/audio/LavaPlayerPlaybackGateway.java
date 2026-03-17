@@ -2,6 +2,8 @@ package discordgateway.infrastructure.audio;
 
 import discordgateway.audio.GuildMusicManager;
 import discordgateway.audio.PlayerManager;
+import discordgateway.domain.GuildPlaybackLockManager;
+import discordgateway.domain.PlayerStateRepository;
 import discordgateway.domain.QueueRepository;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
@@ -15,10 +17,16 @@ public class LavaPlayerPlaybackGateway implements PlaybackGateway {
     private final PlayerManager playerManager;
     private final QueueRepository queueRepository;
 
-    public LavaPlayerPlaybackGateway(QueueRepository queueRepository) {
+    public LavaPlayerPlaybackGateway(
+            QueueRepository queueRepository,
+            PlayerStateRepository playerStateRepository,
+            GuildPlaybackLockManager playbackLockManager
+    ) {
         this.playerManager = PlayerManager.getINSTANCE();
         this.queueRepository = queueRepository;
         this.playerManager.setQueueRepository(queueRepository);
+        this.playerManager.setPlayerStateRepository(playerStateRepository);
+        this.playerManager.setPlaybackLockManager(playbackLockManager);
     }
 
     @Override
@@ -44,9 +52,7 @@ public class LavaPlayerPlaybackGateway implements PlaybackGateway {
 
     @Override
     public void stop(Guild guild) {
-        GuildMusicManager musicManager = playerManager.getMusicManager(guild);
-        musicManager.audioPlayer.stopTrack();
-        musicManager.getScheduler().clearQueue();
+        playerManager.getMusicManager(guild).getScheduler().stop();
     }
 
     @Override
@@ -81,11 +87,11 @@ public class LavaPlayerPlaybackGateway implements PlaybackGateway {
 
     @Override
     public void pause(Guild guild) {
-        playerManager.getMusicManager(guild).audioPlayer.setPaused(true);
+        playerManager.getMusicManager(guild).getScheduler().pause();
     }
 
     @Override
     public void resume(Guild guild) {
-        playerManager.getMusicManager(guild).audioPlayer.setPaused(false);
+        playerManager.getMusicManager(guild).getScheduler().resume();
     }
 }
