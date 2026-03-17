@@ -1,0 +1,12 @@
+app:
+  role: audio-node
+  state-store: redis
+  queue-store: redis
+  player-state-store: redis
+  command-dedup-store: redis
+  event-outbox-store: redis
+  node-name: ${APP_NODE_NAME:audio-node-1}
+
+messaging:
+  command-transport: rabbitmq
+  event-transport: rabbitmq

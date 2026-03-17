@@ -2,6 +2,8 @@ package discordgateway.audio;
 
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayerManager;
+import discordgateway.application.event.MusicEventFactory;
+import discordgateway.application.event.MusicEventPublisher;
 import discordgateway.domain.GuildPlaybackLockManager;
 import discordgateway.domain.PlayerStateRepository;
 import discordgateway.domain.QueueRepository;
@@ -17,7 +19,10 @@ public class GuildMusicManager {
             AudioPlayerManager manager,
             QueueRepository queueRepository,
             PlayerStateRepository playerStateRepository,
-            GuildPlaybackLockManager playbackLockManager
+            GuildPlaybackLockManager playbackLockManager,
+            MusicEventPublisher musicEventPublisher,
+            MusicEventFactory musicEventFactory,
+            String nodeName
     ) {
         this.audioPlayer = manager.createPlayer();
         this.scheduler = new TrackScheduler(
@@ -26,7 +31,10 @@ public class GuildMusicManager {
                 manager,
                 queueRepository,
                 playerStateRepository,
-                playbackLockManager
+                playbackLockManager,
+                musicEventPublisher,
+                musicEventFactory,
+                nodeName
         );
         this.audioPlayer.addListener(this.scheduler);
         this.sendHandler = new AudioPlayerSendHandler(this.audioPlayer);

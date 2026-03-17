@@ -8,6 +8,11 @@ import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
 import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrackEndReason;
+import discordgateway.application.MusicCommandTrace;
+import discordgateway.application.MusicCommandTraceContext;
+import discordgateway.application.event.MusicEvent;
+import discordgateway.application.event.MusicEventFactory;
+import discordgateway.application.event.MusicEventPublisher;
 import discordgateway.domain.GuildPlaybackLockManager;
 import discordgateway.domain.PlayerState;
 import discordgateway.domain.PlayerStateRepository;
@@ -17,6 +22,7 @@ import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicLong;
@@ -24,8 +30,6 @@ import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
 
 public class TrackScheduler extends AudioEventAdapter {
-
-    private static final String DEFAULT_OWNER_NODE = resolveOwnerNode();
     private static final int LOCK_RETRY_ATTEMPTS = 10;
     private static final long LOCK_RETRY_DELAY_NANOS = 25_000_000L;
 
@@ -35,6 +39,9 @@ public class TrackScheduler extends AudioEventAdapter {
     private final QueueRepository queueRepository;
     private final PlayerStateRepository playerStateRepository;
     private final GuildPlaybackLockManager playbackLockManager;
+    private final MusicEventPublisher musicEventPublisher;
+    private final MusicEventFactory musicEventFactory;
+    private final String ownerNode;
     private final ConcurrentHashMap<String, ConcurrentLinkedDeque<AudioTrack>> bufferedTracks;
     private final AtomicLong transitionVersion;
 
@@ -49,7 +56,10 @@ public class TrackScheduler extends AudioEventAdapter {
             AudioPlayerManager playerManager,
             QueueRepository queueRepository,
             PlayerStateRepository playerStateRepository,
-            GuildPlaybackLockManager playbackLockManager
+            GuildPlaybackLockManager playbackLockManager,
+            MusicEventPublisher musicEventPublisher,
+            MusicEventFactory musicEventFactory,
+            String ownerNode
     ) {
         this.guildId = guildId;
         this.audioPlayer = audioPlayer;
@@ -57,13 +67,20 @@ public class TrackScheduler extends AudioEventAdapter {
         this.queueRepository = queueRepository;
         this.playerStateRepository = playerStateRepository;
         this.playbackLockManager = playbackLockManager;
+        this.musicEventPublisher = musicEventPublisher;
+        this.musicEventFactory = musicEventFactory;
+        this.ownerNode = ownerNode;
         this.bufferedTracks = new ConcurrentHashMap<>();
         this.transitionVersion = new AtomicLong();
     }
 
     public void setAutoPlay(boolean autoPlay) {
+        boolean changed = this.autoPlay != autoPlay;
         this.autoPlay = autoPlay;
         updatePlayerState(state -> state.setAutoPlay(autoPlay));
+        if (changed) {
+            musicEventPublisher.publish(musicEventFactory.autoPlayChanged(guildId, autoPlay));
+        }
     }
 
     public boolean isAutoPlay() {
@@ -82,11 +99,11 @@ public class TrackScheduler extends AudioEventAdapter {
 
         if (shouldAttemptImmediateStart() && this.audioPlayer.startTrack(track, true)) {
             this.lastTrack = track;
-            markTrackStarted(track);
+            markTrackStarted(track, MusicEvent.TransitionSource.COMMAND, null);
             return false;
         }
 
-        enqueueTrack(track);
+        enqueueTrack(track, MusicEvent.TransitionSource.COMMAND);
         return true;
     }
 
@@ -100,6 +117,12 @@ public class TrackScheduler extends AudioEventAdapter {
             return;
         }
 
+        publishTrackPlaybackChanged(
+                track,
+                MusicEvent.PlaybackState.FINISHED,
+                MusicEvent.TransitionSource.SYSTEM,
+                endReason.name()
+        );
         advancePlayback(false, true);
     }
 
@@ -117,27 +140,155 @@ public class TrackScheduler extends AudioEventAdapter {
 
     public void clearQueue() {
         transitionVersion.incrementAndGet();
+        boolean hadEntries = queueRepository.hasEntries(guildId);
+        boolean currentTrackPreserved = audioPlayer.getPlayingTrack() != null;
         queueRepository.clear(guildId);
         bufferedTracks.clear();
         clearProcessingOnly();
+        musicEventPublisher.publish(musicEventFactory.queueCleared(guildId, hadEntries, currentTrackPreserved));
     }
 
     public void stop() {
         transitionVersion.incrementAndGet();
+        boolean hadEntries = queueRepository.hasEntries(guildId);
+        AudioTrack currentTrack = audioPlayer.getPlayingTrack();
         queueRepository.clear(guildId);
         bufferedTracks.clear();
         audioPlayer.stopTrack();
         clearNowPlaying();
+        musicEventPublisher.publish(musicEventFactory.queueCleared(guildId, hadEntries, false));
+        publishTrackPlaybackChanged(
+                currentTrack,
+                MusicEvent.PlaybackState.STOPPED,
+                MusicEvent.TransitionSource.COMMAND,
+                "stop-command"
+        );
     }
 
     public void pause() {
         this.audioPlayer.setPaused(true);
         updatePlayerState(state -> state.setPaused(true));
+        publishTrackPlaybackChanged(
+                audioPlayer.getPlayingTrack(),
+                MusicEvent.PlaybackState.PAUSED,
+                MusicEvent.TransitionSource.COMMAND,
+                "pause-command"
+        );
     }
 
     public void resume() {
         this.audioPlayer.setPaused(false);
         updatePlayerState(state -> state.setPaused(false));
+        publishTrackPlaybackChanged(
+                audioPlayer.getPlayingTrack(),
+                MusicEvent.PlaybackState.RESUMED,
+                MusicEvent.TransitionSource.COMMAND,
+                "resume-command"
+        );
+    }
+
+    public CompletableFuture<Boolean> recover(String identifier) {
+        CompletableFuture<Boolean> future = new CompletableFuture<>();
+        MusicCommandTrace trace = MusicCommandTraceContext.current();
+        if (identifier == null || identifier.isBlank()) {
+            future.complete(false);
+            return future;
+        }
+
+        long version = transitionVersion.incrementAndGet();
+        GuildPlaybackLockManager.GuildPlaybackLock lock = acquirePlaybackLock();
+        if (!lock.acquired()) {
+            future.complete(false);
+            return future;
+        }
+
+        audioPlayer.stopTrack();
+        markProcessing(PendingLoadSource.RECOVERY);
+        String loadIdentifier = toLoadIdentifier(identifier);
+
+        playerManager.loadItemOrdered(this, loadIdentifier, new AudioLoadResultHandler() {
+            @Override
+            public void trackLoaded(AudioTrack audioTrack) {
+                MusicCommandTraceContext.runWith(trace, () -> {
+                    if (isTransitionCancelled(version)) {
+                        lock.release();
+                        future.complete(false);
+                        return;
+                    }
+                    startResolvedTrack(lock, version, audioTrack, MusicEvent.TransitionSource.RECOVERY);
+                    future.complete(true);
+                });
+            }
+
+            @Override
+            public void playlistLoaded(AudioPlaylist playlist) {
+                MusicCommandTraceContext.runWith(trace, () -> {
+                    AudioTrack first = firstTrack(playlist);
+                    if (first == null || isTransitionCancelled(version)) {
+                        if (!isTransitionCancelled(version)) {
+                            musicEventPublisher.publish(
+                                    musicEventFactory.trackLoadFailed(
+                                            guildId,
+                                            identifier,
+                                            MusicEvent.TransitionSource.RECOVERY,
+                                            "empty_playlist",
+                                            "Recovery playlist did not contain any tracks."
+                                    )
+                            );
+                            clearNowPlaying();
+                        }
+                        lock.release();
+                        future.complete(false);
+                        return;
+                    }
+
+                    startResolvedTrack(lock, version, first, MusicEvent.TransitionSource.RECOVERY);
+                    future.complete(true);
+                });
+            }
+
+            @Override
+            public void noMatches() {
+                MusicCommandTraceContext.runWith(trace, () -> {
+                    if (!isTransitionCancelled(version)) {
+                        musicEventPublisher.publish(
+                                musicEventFactory.trackLoadFailed(
+                                        guildId,
+                                        identifier,
+                                        MusicEvent.TransitionSource.RECOVERY,
+                                        "no_matches",
+                                        "Recovery target could not be resolved."
+                                )
+                        );
+                        clearNowPlaying();
+                    }
+                    lock.release();
+                    future.complete(false);
+                });
+            }
+
+            @Override
+            public void loadFailed(FriendlyException e) {
+                MusicCommandTraceContext.runWith(trace, () -> {
+                    if (!isTransitionCancelled(version)) {
+                        musicEventPublisher.publish(
+                                musicEventFactory.trackLoadFailed(
+                                        guildId,
+                                        identifier,
+                                        MusicEvent.TransitionSource.RECOVERY,
+                                        "load_failed",
+                                        safeFailureMessage(e)
+                                )
+                        );
+                        clearNowPlaying();
+                    }
+                    lock.release();
+                    future.complete(false);
+                });
+            }
+        });
+
+        return future;
     }
 
     private void advancePlayback(boolean interruptCurrentTrack, boolean allowAutoplay) {
@@ -152,7 +303,14 @@ public class TrackScheduler extends AudioEventAdapter {
 
         QueueEntry nextEntry = queueRepository.poll(guildId);
         if (interruptCurrentTrack) {
+            AudioTrack currentTrack = audioPlayer.getPlayingTrack();
             audioPlayer.stopTrack();
+            publishTrackPlaybackChanged(
+                    currentTrack,
+                    MusicEvent.PlaybackState.STOPPED,
+                    MusicEvent.TransitionSource.COMMAND,
+                    "skip-command"
+            );
         }
 
         continueWithQueueEntry(lock, version, nextEntry, allowAutoplay);
@@ -189,9 +347,10 @@ public class TrackScheduler extends AudioEventAdapter {
             QueueEntry entry,
             boolean allowAutoplay
     ) {
+        MusicCommandTrace trace = MusicCommandTraceContext.current();
         AudioTrack buffered = takeBufferedTrack(entry.identifier());
         if (buffered != null) {
-            startResolvedTrack(lock, version, buffered);
+            startResolvedTrack(lock, version, buffered, MusicEvent.TransitionSource.QUEUE);
             return;
         }
 
@@ -200,81 +359,152 @@ public class TrackScheduler extends AudioEventAdapter {
         playerManager.loadItemOrdered(this, loadIdentifier, new AudioLoadResultHandler() {
             @Override
             public void trackLoaded(AudioTrack audioTrack) {
-                startResolvedTrack(lock, version, audioTrack);
+                MusicCommandTraceContext.runWith(trace, () ->
+                        startResolvedTrack(lock, version, audioTrack, MusicEvent.TransitionSource.QUEUE)
+                );
             }
 
             @Override
             public void playlistLoaded(AudioPlaylist playlist) {
-                AudioTrack first = firstTrack(playlist);
-                if (first == null) {
-                    continueWithQueueEntry(lock, version, queueRepository.poll(guildId), allowAutoplay);
-                    return;
-                }
-                startResolvedTrack(lock, version, first);
+                MusicCommandTraceContext.runWith(trace, () -> {
+                    AudioTrack first = firstTrack(playlist);
+                    if (first == null) {
+                        musicEventPublisher.publish(
+                                musicEventFactory.trackLoadFailed(
+                                        guildId,
+                                        entry.identifier(),
+                                        MusicEvent.TransitionSource.QUEUE,
+                                        "empty_playlist",
+                                        "Queued playlist did not contain any tracks."
+                                )
+                        );
+                        continueWithQueueEntry(lock, version, queueRepository.poll(guildId), allowAutoplay);
+                        return;
+                    }
+                    startResolvedTrack(lock, version, first, MusicEvent.TransitionSource.QUEUE);
+                });
             }
 
             @Override
             public void noMatches() {
-                continueWithQueueEntry(lock, version, queueRepository.poll(guildId), allowAutoplay);
+                MusicCommandTraceContext.runWith(trace, () -> {
+                    musicEventPublisher.publish(
+                            musicEventFactory.trackLoadFailed(
+                                    guildId,
+                                    entry.identifier(),
+                                    MusicEvent.TransitionSource.QUEUE,
+                                    "no_matches",
+                                    "Queued identifier could not be resolved."
+                            )
+                    );
+                    continueWithQueueEntry(lock, version, queueRepository.poll(guildId), allowAutoplay);
+                });
             }
 
             @Override
             public void loadFailed(FriendlyException e) {
-                continueWithQueueEntry(lock, version, queueRepository.poll(guildId), allowAutoplay);
+                MusicCommandTraceContext.runWith(trace, () -> {
+                    musicEventPublisher.publish(
+                            musicEventFactory.trackLoadFailed(
+                                    guildId,
+                                    entry.identifier(),
+                                    MusicEvent.TransitionSource.QUEUE,
+                                    "load_failed",
+                                    safeFailureMessage(e)
+                            )
+                    );
+                    continueWithQueueEntry(lock, version, queueRepository.poll(guildId), allowAutoplay);
+                });
             }
         });
     }
 
     private void startAutoplay(GuildPlaybackLockManager.GuildPlaybackLock lock, long version) {
+        MusicCommandTrace trace = MusicCommandTraceContext.current();
         markProcessing(PendingLoadSource.AUTOPLAY);
         String query = "ytsearch:" + lastTrack.getInfo().title + " " + lastTrack.getInfo().author;
 
         playerManager.loadItemOrdered(this, query, new AudioLoadResultHandler() {
             @Override
             public void trackLoaded(AudioTrack audioTrack) {
-                startResolvedTrack(lock, version, audioTrack);
-                if (lastChannel != null && !isTransitionCancelled(version)) {
-                    lastChannel.sendMessage("🔁 자동 추천 재생: " + audioTrack.getInfo().title).queue();
-                }
+                MusicCommandTraceContext.runWith(trace, () -> {
+                    startResolvedTrack(lock, version, audioTrack, MusicEvent.TransitionSource.AUTOPLAY);
+                    if (lastChannel != null && !isTransitionCancelled(version)) {
+                        lastChannel.sendMessage("🔁 자동 추천 재생: " + audioTrack.getInfo().title).queue();
+                    }
+                });
             }
 
             @Override
             public void playlistLoaded(AudioPlaylist playlist) {
-                AudioTrack first = firstTrack(playlist);
-                if (first == null) {
-                    if (!isTransitionCancelled(version)) {
-                        clearNowPlaying();
+                MusicCommandTraceContext.runWith(trace, () -> {
+                    AudioTrack first = firstTrack(playlist);
+                    if (first == null) {
+                        if (!isTransitionCancelled(version)) {
+                            musicEventPublisher.publish(
+                                    musicEventFactory.trackLoadFailed(
+                                            guildId,
+                                            query,
+                                            MusicEvent.TransitionSource.AUTOPLAY,
+                                            "empty_playlist",
+                                            "Autoplay playlist did not contain any tracks."
+                                    )
+                            );
+                            clearNowPlaying();
+                        }
+                        lock.release();
+                        return;
                     }
-                    lock.release();
-                    return;
-                }
 
-                startResolvedTrack(lock, version, first);
-                if (lastChannel != null && !isTransitionCancelled(version)) {
-                    lastChannel.sendMessage("🔁 자동 추천 재생(플레이리스트): " + first.getInfo().title).queue();
-                }
+                    startResolvedTrack(lock, version, first, MusicEvent.TransitionSource.AUTOPLAY);
+                    if (lastChannel != null && !isTransitionCancelled(version)) {
+                        lastChannel.sendMessage("🔁 자동 추천 재생(플레이리스트): " + first.getInfo().title).queue();
+                    }
+                });
             }
 
             @Override
             public void noMatches() {
-                if (!isTransitionCancelled(version)) {
-                    clearNowPlaying();
-                    if (lastChannel != null) {
-                        lastChannel.sendMessage("⚠️ 자동 추천 곡을 찾지 못했습니다.").queue();
+                MusicCommandTraceContext.runWith(trace, () -> {
+                    if (!isTransitionCancelled(version)) {
+                        musicEventPublisher.publish(
+                                musicEventFactory.trackLoadFailed(
+                                        guildId,
+                                        query,
+                                        MusicEvent.TransitionSource.AUTOPLAY,
+                                        "no_matches",
+                                        "Autoplay search did not return a track."
+                                )
+                        );
+                        clearNowPlaying();
+                        if (lastChannel != null) {
+                            lastChannel.sendMessage("⚠️ 자동 추천 곡을 찾지 못했습니다.").queue();
+                        }
                     }
-                }
-                lock.release();
+                    lock.release();
+                });
             }
 
             @Override
             public void loadFailed(FriendlyException e) {
-                if (!isTransitionCancelled(version)) {
-                    clearNowPlaying();
-                    if (lastChannel != null) {
-                        lastChannel.sendMessage("⚠️ 자동 추천 로드 실패: " + e.getMessage()).queue();
+                MusicCommandTraceContext.runWith(trace, () -> {
+                    if (!isTransitionCancelled(version)) {
+                        musicEventPublisher.publish(
+                                musicEventFactory.trackLoadFailed(
+                                        guildId,
+                                        query,
+                                        MusicEvent.TransitionSource.AUTOPLAY,
+                                        "load_failed",
+                                        safeFailureMessage(e)
+                                )
+                        );
+                        clearNowPlaying();
+                        if (lastChannel != null) {
+                            lastChannel.sendMessage("⚠️ 자동 추천 로드 실패: " + e.getMessage()).queue();
+                        }
                     }
-                }
-                lock.release();
+                    lock.release();
+                });
             }
         });
     }
@@ -282,7 +512,8 @@ public class TrackScheduler extends AudioEventAdapter {
     private void startResolvedTrack(
             GuildPlaybackLockManager.GuildPlaybackLock lock,
             long version,
-            AudioTrack track
+            AudioTrack track,
+            MusicEvent.TransitionSource source
     ) {
         if (isTransitionCancelled(version)) {
             lock.release();
@@ -291,11 +522,11 @@ public class TrackScheduler extends AudioEventAdapter {
 
         this.lastTrack = track;
         this.audioPlayer.startTrack(track, false);
-        markTrackStarted(track);
+        markTrackStarted(track, source, null);
         lock.release();
     }
 
-    private void enqueueTrack(AudioTrack track) {
+    private void enqueueTrack(AudioTrack track, MusicEvent.TransitionSource source) {
         queueRepository.push(
                 guildId,
                 new QueueEntry(
@@ -306,6 +537,15 @@ public class TrackScheduler extends AudioEventAdapter {
                 )
         );
         bufferTrack(track);
+        musicEventPublisher.publish(
+                musicEventFactory.trackQueued(
+                        guildId,
+                        toQueueIdentifier(track),
+                        track.getInfo().title,
+                        track.getInfo().author,
+                        source
+                )
+        );
     }
 
     private void bufferTrack(AudioTrack track) {
@@ -361,14 +601,19 @@ public class TrackScheduler extends AudioEventAdapter {
         return playbackLockManager.tryAcquire(guildId);
     }
 
-    private void markTrackStarted(AudioTrack track) {
+    private void markTrackStarted(
+            AudioTrack track,
+            MusicEvent.TransitionSource source,
+            String detail
+    ) {
         pendingLoadSource = PendingLoadSource.NONE;
         updatePlayerState(state -> {
             state.setNowPlaying(toQueueIdentifier(track));
             state.setPaused(false);
-            state.setOwnerNode(DEFAULT_OWNER_NODE);
+            state.setOwnerNode(ownerNode);
             state.setProcessingFlag(false);
         });
+        publishTrackPlaybackChanged(track, MusicEvent.PlaybackState.STARTED, source, detail);
     }
 
     private void clearNowPlaying() {
@@ -376,7 +621,7 @@ public class TrackScheduler extends AudioEventAdapter {
         updatePlayerState(state -> {
             state.setNowPlaying(null);
             state.setPaused(false);
-            state.setOwnerNode(DEFAULT_OWNER_NODE);
+            state.setOwnerNode(ownerNode);
             state.setProcessingFlag(false);
         });
     }
@@ -384,7 +629,7 @@ public class TrackScheduler extends AudioEventAdapter {
     private void clearProcessingOnly() {
         pendingLoadSource = PendingLoadSource.NONE;
         updatePlayerState(state -> {
-            state.setOwnerNode(DEFAULT_OWNER_NODE);
+            state.setOwnerNode(ownerNode);
             state.setProcessingFlag(false);
         });
     }
@@ -392,7 +637,7 @@ public class TrackScheduler extends AudioEventAdapter {
     private void markProcessing(PendingLoadSource source) {
         pendingLoadSource = source;
         updatePlayerState(state -> {
-            state.setOwnerNode(DEFAULT_OWNER_NODE);
+            state.setOwnerNode(ownerNode);
             state.setProcessingFlag(true);
         });
     }
@@ -401,7 +646,7 @@ public class TrackScheduler extends AudioEventAdapter {
         PlayerState state = playerStateRepository.getOrCreate(guildId);
         state.setAutoPlay(autoPlay);
         if (state.getOwnerNode() == null || state.getOwnerNode().isBlank()) {
-            state.setOwnerNode(DEFAULT_OWNER_NODE);
+            state.setOwnerNode(ownerNode);
         }
         updater.accept(state);
         playerStateRepository.save(state);
@@ -443,25 +688,40 @@ public class TrackScheduler extends AudioEventAdapter {
         return identifier;
     }
 
-    private static String resolveOwnerNode() {
-        String[] keys = {"APP_NODE_NAME", "HOSTNAME", "COMPUTERNAME"};
-        for (String key : keys) {
-            String value = System.getenv(key);
-            if (value == null) {
-                continue;
-            }
+    private void publishTrackPlaybackChanged(
+            AudioTrack track,
+            MusicEvent.PlaybackState state,
+            MusicEvent.TransitionSource source,
+            String detail
+    ) {
+        String identifier = track != null ? toQueueIdentifier(track) : null;
+        String title = track != null ? track.getInfo().title : null;
+        String author = track != null ? track.getInfo().author : null;
 
-            String trimmed = value.trim();
-            if (!trimmed.isEmpty()) {
-                return trimmed;
-            }
+        musicEventPublisher.publish(
+                musicEventFactory.trackPlaybackChanged(
+                        guildId,
+                        state,
+                        identifier,
+                        title,
+                        author,
+                        source,
+                        detail
+                )
+        );
+    }
+
+    private String safeFailureMessage(FriendlyException e) {
+        if (e == null || e.getMessage() == null || e.getMessage().isBlank()) {
+            return "Unknown load failure";
         }
-        return "discord-gateway";
+        return e.getMessage();
     }
 
     private enum PendingLoadSource {
         NONE,
         QUEUE,
-        AUTOPLAY
+        AUTOPLAY,
+        RECOVERY
     }
 }
