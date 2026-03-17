@@ -13,7 +13,6 @@ public class RedisGuildStateRepository implements GuildStateRepository {
     private static final String KEY_PREFIX = "bot:guild:";
     private static final String KEY_SUFFIX = ":player";
 
-    private static final String FIELD_AUTOPLAY = "autoPlay";
     private static final String FIELD_CONNECTED_VOICE_CHANNEL_ID = "connectedVoiceChannelId";
 
     private final JedisPool jedisPool;
@@ -34,8 +33,6 @@ public class RedisGuildStateRepository implements GuildStateRepository {
                 return state;
             }
 
-            state.setAutoPlay(Boolean.parseBoolean(values.getOrDefault(FIELD_AUTOPLAY, "false")));
-
             String connectedChannelId = values.get(FIELD_CONNECTED_VOICE_CHANNEL_ID);
             if (connectedChannelId != null && !connectedChannelId.isBlank()) {
                 try {
@@ -55,13 +52,14 @@ public class RedisGuildStateRepository implements GuildStateRepository {
             String key = key(state.getGuildId());
 
             Map<String, String> values = new HashMap<>();
-            values.put(FIELD_AUTOPLAY, Boolean.toString(state.isAutoPlay()));
 
             if (state.getConnectedVoiceChannelId() != null) {
                 values.put(FIELD_CONNECTED_VOICE_CHANNEL_ID, Long.toString(state.getConnectedVoiceChannelId()));
             }
 
-            jedis.hset(key, values);
+            if (!values.isEmpty()) {
+                jedis.hset(key, values);
+            }
 
             if (state.getConnectedVoiceChannelId() == null) {
                 jedis.hdel(key, FIELD_CONNECTED_VOICE_CHANNEL_ID);

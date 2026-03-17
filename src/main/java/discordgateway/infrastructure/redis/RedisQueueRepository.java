@@ -37,6 +37,13 @@ public class RedisQueueRepository implements QueueRepository {
     }
 
     @Override
+    public boolean hasEntries(long guildId) {
+        try (Jedis jedis = jedisPool.getResource()) {
+            return jedis.llen(key(guildId)) > 0;
+        }
+    }
+
+    @Override
     public List<QueueEntry> list(long guildId, int limit) {
         try (Jedis jedis = jedisPool.getResource()) {
             List<String> rawList = jedis.lrange(key(guildId), 0, Math.max(0, limit - 1));

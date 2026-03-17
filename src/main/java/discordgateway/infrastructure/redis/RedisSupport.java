@@ -1,5 +1,6 @@
 package discordgateway.infrastructure.redis;
 
+import discordgateway.bootstrap.RedisConnectionProperties;
 import redis.clients.jedis.DefaultJedisClientConfig;
 import redis.clients.jedis.HostAndPort;
 import redis.clients.jedis.Jedis;
@@ -9,12 +10,12 @@ public class RedisSupport implements AutoCloseable {
 
     private final JedisPool jedisPool;
 
-    public RedisSupport() {
-        String host = System.getenv().getOrDefault("REDIS_HOST", "localhost");
-        int port = Integer.parseInt(System.getenv().getOrDefault("REDIS_PORT", "6379"));
-        String password = emptyToNull(System.getenv("REDIS_PASSWORD"));
-        int database = Integer.parseInt(System.getenv().getOrDefault("REDIS_DB", "0"));
-        int timeoutMillis = Integer.parseInt(System.getenv().getOrDefault("REDIS_TIMEOUT_MILLIS", "2000"));
+    public RedisSupport(RedisConnectionProperties properties) {
+        String host = properties.getHost();
+        int port = properties.getPort();
+        String password = emptyToNull(properties.getPassword());
+        int database = properties.getDb();
+        int timeoutMillis = properties.getTimeoutMillis();
 
         DefaultJedisClientConfig config = DefaultJedisClientConfig.builder()
                 .password(password)

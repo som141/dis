@@ -1,6 +1,5 @@
 package discordgateway.infrastructure.audio;
 
-import discordgateway.audio.GuildMusicManager;
 import discordgateway.audio.PlayerManager;
 import discordgateway.domain.QueueRepository;
 import net.dv8tion.jda.api.entities.Guild;
@@ -15,10 +14,9 @@ public class LavaPlayerPlaybackGateway implements PlaybackGateway {
     private final PlayerManager playerManager;
     private final QueueRepository queueRepository;
 
-    public LavaPlayerPlaybackGateway(QueueRepository queueRepository) {
-        this.playerManager = PlayerManager.getINSTANCE();
+    public LavaPlayerPlaybackGateway(PlayerManager playerManager, QueueRepository queueRepository) {
+        this.playerManager = playerManager;
         this.queueRepository = queueRepository;
-        this.playerManager.setQueueRepository(queueRepository);
     }
 
     @Override
@@ -28,8 +26,7 @@ public class LavaPlayerPlaybackGateway implements PlaybackGateway {
 
     @Override
     public void setAutoPlay(Guild guild, boolean autoPlay) {
-        GuildMusicManager musicManager = playerManager.getMusicManager(guild);
-        musicManager.getScheduler().setAutoPlay(autoPlay);
+        playerManager.getMusicManager(guild).getScheduler().setAutoPlay(autoPlay);
     }
 
     @Override
@@ -44,9 +41,7 @@ public class LavaPlayerPlaybackGateway implements PlaybackGateway {
 
     @Override
     public void stop(Guild guild) {
-        GuildMusicManager musicManager = playerManager.getMusicManager(guild);
-        musicManager.audioPlayer.stopTrack();
-        musicManager.getScheduler().clearQueue();
+        playerManager.getMusicManager(guild).getScheduler().stop();
     }
 
     @Override
@@ -69,7 +64,7 @@ public class LavaPlayerPlaybackGateway implements PlaybackGateway {
 
     @Override
     public PlaybackSnapshot snapshot(Guild guild) {
-        GuildMusicManager musicManager = playerManager.getMusicManager(guild);
+        var musicManager = playerManager.getMusicManager(guild);
         var currentTrack = musicManager.audioPlayer.getPlayingTrack();
 
         return new PlaybackSnapshot(
@@ -81,11 +76,16 @@ public class LavaPlayerPlaybackGateway implements PlaybackGateway {
 
     @Override
     public void pause(Guild guild) {
-        playerManager.getMusicManager(guild).audioPlayer.setPaused(true);
+        playerManager.getMusicManager(guild).getScheduler().pause();
     }
 
     @Override
     public void resume(Guild guild) {
-        playerManager.getMusicManager(guild).audioPlayer.setPaused(false);
+        playerManager.getMusicManager(guild).getScheduler().resume();
+    }
+
+    @Override
+    public CompletableFuture<Boolean> recover(Guild guild, String identifier) {
+        return playerManager.getMusicManager(guild).getScheduler().recover(identifier);
     }
 }

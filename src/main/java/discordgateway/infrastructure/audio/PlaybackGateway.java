@@ -19,4 +19,5 @@ public interface PlaybackGateway {
     PlaybackSnapshot snapshot(Guild guild);
     void pause(Guild guild);
     void resume(Guild guild);
+    CompletableFuture<Boolean> recover(Guild guild, String identifier);
 }

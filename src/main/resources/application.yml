@@ -1,0 +1,49 @@
+app:
+  role: all
+
+server:
+  port: ${HEALTH_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always
+
+messaging:
+  command-transport: in-process
+  event-transport: spring
+  rpc-timeout-ms: 10000
+  command-exchange: music.command.exchange
+  command-queue: music.command.queue
+  command-routing-key: music.command
+  command-dead-letter-exchange: music.command.dlx
+  command-dead-letter-queue: music.command.dlq
+  command-dead-letter-routing-key: music.command.dead
+  command-dedup-ttl-ms: 300000
+  event-exchange: music.event.exchange
+  event-routing-key-prefix: guild
+  event-publish-confirm-timeout-ms: 5000
+  event-outbox-flush-interval-ms: 5000
+  event-outbox-claim-ttl-ms: 30000
+  event-outbox-retry-delay-ms: 10000
+  event-outbox-batch-size: 50
+
+spring:
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    listener:
+      simple:
+        default-requeue-rejected: false
+    template:
+      mandatory: true

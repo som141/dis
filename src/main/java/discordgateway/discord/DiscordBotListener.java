@@ -9,7 +9,6 @@ import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
-import net.dv8tion.jda.api.events.session.ReadyEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import org.jetbrains.annotations.NotNull;
@@ -29,22 +28,6 @@ public class DiscordBotListener extends ListenerAdapter {
     ) {
         this.musicApplicationService = musicApplicationService;
         this.playAutocompleteService = playAutocompleteService;
-    }
-
-    @Override
-    public void onReady(@NotNull ReadyEvent event) {
-        System.out.println("onReady fired!");
-
-        String devGuildId = System.getenv("DISCORD_DEV_GUILD_ID");
-        if (devGuildId != null && !devGuildId.isBlank()) {
-            Guild guild = event.getJDA().getGuildById(devGuildId);
-            if (guild != null) {
-                guild.updateCommands().addCommands(DiscordCommandCatalog.commands()).queue();
-                return;
-            }
-        }
-
-        event.getJDA().updateCommands().addCommands(DiscordCommandCatalog.commands()).queue();
     }
 
     @Override

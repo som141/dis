@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      APP_NAME: dis-bot
+      APP_IMAGE_NAME: discord-bot
       DEPLOY_DIR: /home/ubuntu/dis-bot
 
     steps:
@@ -34,27 +34,35 @@ jobs:
       - name: Build with Gradle
         run: |
           chmod +x ./gradlew
-          ./gradlew clean test shadowJar --no-daemon
+          ./gradlew clean compileJava compileTestJava bootJar --no-daemon
 
       - name: Build Docker image
         run: |
-          docker build -t "${APP_NAME}:${{ github.sha }}" .
+          docker build -t "${APP_IMAGE_NAME}:${{ github.sha }}" .
 
       - name: Save Docker image to tar.gz
         run: |
           mkdir -p out
-          docker save "${APP_NAME}:${{ github.sha }}" | gzip > "out/${APP_NAME}-${{ github.sha }}.tar.gz"
+          docker save "${APP_IMAGE_NAME}:${{ github.sha }}" | gzip > "out/${APP_IMAGE_NAME}-${{ github.sha }}.tar.gz"
 
       - name: Create env file
         env:
-          TOKEN: ${{ secrets.TOKEN }}
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+          DISCORD_DEV_GUILD_ID: ${{ secrets.DISCORD_DEV_GUILD_ID }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          RABBITMQ_USERNAME: ${{ secrets.RABBITMQ_USERNAME }}
+          RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD }}
         run: |
           mkdir -p out
           {
-            printf "TOKEN=%s\n" "${TOKEN}"
+            printf "APP_IMAGE_NAME=%s\n" "${APP_IMAGE_NAME}"
+            printf "APP_IMAGE_TAG=%s\n" "${{ github.sha }}"
+            printf "DISCORD_TOKEN=%s\n" "${DISCORD_TOKEN}"
+            printf "DISCORD_DEV_GUILD_ID=%s\n" "${DISCORD_DEV_GUILD_ID}"
             printf "YOUTUBE_REFRESH_TOKEN=%s\n" "${YOUTUBE_REFRESH_TOKEN}"
             printf "YOUTUBE_OAUTH_INIT=false\n"
+            printf "RABBITMQ_USERNAME=%s\n" "${RABBITMQ_USERNAME}"
+            printf "RABBITMQ_PASSWORD=%s\n" "${RABBITMQ_PASSWORD}"
           } > out/.env.cicd
 
       - name: Prepare SSH
@@ -75,7 +83,7 @@ jobs:
           SSH_PORT: ${{ secrets.SSH_PORT }}
         run: |
           ssh -p "${SSH_PORT}" -i ~/.ssh/id_ed25519 "${SSH_USER}@${SSH_HOST}" \
-            "mkdir -p '${DEPLOY_DIR}/incoming'"
+            "mkdir -p '${DEPLOY_DIR}/incoming' '${DEPLOY_DIR}/releases'"
 
       - name: Upload files
         env:
@@ -84,12 +92,20 @@ jobs:
           SSH_PORT: ${{ secrets.SSH_PORT }}
         run: |
           scp -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \
-            "out/${APP_NAME}-${{ github.sha }}.tar.gz" \
+            "out/${APP_IMAGE_NAME}-${{ github.sha }}.tar.gz" \
             "${SSH_USER}@${SSH_HOST}:${DEPLOY_DIR}/incoming/"
 
           scp -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \
             "out/.env.cicd" \
             "${SSH_USER}@${SSH_HOST}:${DEPLOY_DIR}/incoming/.env.cicd"
+
+          scp -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \
+            "docker-compose.yml" \
+            "${SSH_USER}@${SSH_HOST}:${DEPLOY_DIR}/incoming/docker-compose.yml"
+
+          scp -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \
+            "deploy.sh" \
+            "${SSH_USER}@${SSH_HOST}:${DEPLOY_DIR}/deploy.sh"
 
       - name: Remote deploy
         env:
@@ -98,4 +114,4 @@ jobs:
           SSH_PORT: ${{ secrets.SSH_PORT }}
         run: |
           ssh -p "${SSH_PORT}" -i ~/.ssh/id_ed25519 "${SSH_USER}@${SSH_HOST}" \
-            "bash '${DEPLOY_DIR}/deploy.sh' '${{ github.sha }}'"
+            "chmod +x '${DEPLOY_DIR}/deploy.sh' && DEPLOY_DIR='${DEPLOY_DIR}' bash '${DEPLOY_DIR}/deploy.sh' '${{ github.sha }}'"
