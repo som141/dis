@@ -2,6 +2,8 @@ package discordgateway;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+import discordgateway.bootstrap.ApplicationFactory;
+import discordgateway.discord.DiscordBotListener;
 import moe.kyokobot.libdave.NativeDaveFactory;
 import moe.kyokobot.libdave.jda.LDJDADaveSessionFactory;
 import net.dv8tion.jda.api.JDA;
@@ -34,12 +36,15 @@ public class Main {
         AudioModuleConfig audioModuleConfig = new AudioModuleConfig()
                 .withDaveSessionFactory(daveSessionFactory);
 
+        ApplicationFactory applicationFactory = new ApplicationFactory();
+        DiscordBotListener listener = applicationFactory.createDiscordBotListener();
+
         JDA jda = JDABuilder.createDefault(
                         token,
                         GatewayIntent.GUILD_VOICE_STATES
                 )
                 .setAudioModuleConfig(audioModuleConfig)
-                .addEventListeners(new Listeners())
+                .addEventListeners(listener)
                 .build();
 
         jda.awaitReady();
@@ -55,6 +60,10 @@ public class Main {
             }
             try {
                 jda.shutdown();
+            } catch (Exception ignored) {
+            }
+            try {
+                applicationFactory.close();
             } catch (Exception ignored) {
             }
             try {

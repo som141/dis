@@ -9,7 +9,12 @@ import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
 import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import dev.lavalink.youtube.YoutubeAudioSourceManager;
-import dev.lavalink.youtube.clients.*;
+import dev.lavalink.youtube.clients.AndroidVr;
+import dev.lavalink.youtube.clients.Music;
+import dev.lavalink.youtube.clients.Tv;
+import dev.lavalink.youtube.clients.Web;
+import dev.lavalink.youtube.clients.WebEmbedded;
+import discordgateway.domain.QueueRepository;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.interactions.commands.Command;
@@ -19,6 +24,7 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -29,6 +35,8 @@ public class PlayerManager {
     private final Map<Long, GuildMusicManager> musicManagers = new ConcurrentHashMap<>();
     private final AudioPlayerManager audioPlayerManager;
 
+    private volatile QueueRepository queueRepository;
+
     private PlayerManager() {
         this.audioPlayerManager = new DefaultAudioPlayerManager();
 
@@ -36,8 +44,6 @@ public class PlayerManager {
         audioPlayerManager.getConfiguration().setResamplingQuality(AudioConfiguration.ResamplingQuality.HIGH);
         audioPlayerManager.getConfiguration().setFilterHotSwapEnabled(true);
 
-        // youtube-source 공식 YouTube source manager
-// 핵심: OAuth 효과를 보려면 TV client를 포함시키는 쪽이 좋다.
         YoutubeAudioSourceManager youtube = new YoutubeAudioSourceManager(
                 true,
                 new Music(),
@@ -47,26 +53,23 @@ public class PlayerManager {
                 new AndroidVr()
         );
 
-// OAuth 설정
         configureYoutubeOauth(youtube);
-
         this.audioPlayerManager.registerSourceManager(youtube);
 
-// Lavaplayer built-in deprecated YouTube source 제외
         AudioSourceManagers.registerRemoteSources(
                 this.audioPlayerManager,
                 com.sedmelluq.discord.lavaplayer.source.youtube.YoutubeAudioSourceManager.class
         );
-
-// 로컬 파일 소스 등록
         AudioSourceManagers.registerLocalSource(this.audioPlayerManager);
+    }
+
+    public void setQueueRepository(QueueRepository queueRepository) {
+        this.queueRepository = Objects.requireNonNull(queueRepository);
     }
 
     private void configureYoutubeOauth(YoutubeAudioSourceManager youtube) {
         String refreshToken = readEnvTrimmed("YOUTUBE_REFRESH_TOKEN");
-        boolean oauthInit = Boolean.parseBoolean(
-                System.getenv().getOrDefault("YOUTUBE_OAUTH_INIT", "false")
-        );
+        boolean oauthInit = Boolean.parseBoolean(System.getenv().getOrDefault("YOUTUBE_OAUTH_INIT", "false"));
 
         if (refreshToken != null) {
             youtube.useOauth2(refreshToken, true);
@@ -89,13 +92,14 @@ public class PlayerManager {
         value = value.trim();
         return value.isEmpty() ? null : value;
     }
+
     public static PlayerManager getINSTANCE() {
         return INSTANCE;
     }
 
-    private String trimToMax(String s, int max) {
-        if (s == null) return "";
-        return s.length() <= max ? s : s.substring(0, max - 1) + "…";
+    private String trimToMax(String value, int max) {
+        if (value == null) return "";
+        return value.length() <= max ? value : value.substring(0, max - 1) + "…";
     }
 
     public CompletableFuture<List<Command.Choice>> searchYouTubeChoices(String query, int limit) {
@@ -126,12 +130,12 @@ public class PlayerManager {
             public void playlistLoaded(AudioPlaylist playlist) {
                 try {
                     List<Command.Choice> out = new ArrayList<>();
-                    for (AudioTrack t : playlist.getTracks()) {
+                    for (AudioTrack track : playlist.getTracks()) {
                         if (out.size() >= cap) break;
 
-                        var info = t.getInfo();
+                        var info = track.getInfo();
                         String name = trimToMax(info.title + " - " + info.author, 100);
-                        String value = "https://www.youtube.com/watch?v=" + t.getIdentifier();
+                        String value = "https://www.youtube.com/watch?v=" + track.getIdentifier();
 
                         out.add(new Command.Choice(name, value));
                     }
@@ -156,21 +160,30 @@ public class PlayerManager {
     }
 
     public GuildMusicManager getMusicManager(Guild guild) {
+        QueueRepository repo = this.queueRepository;
+        if (repo == null) {
+            throw new IllegalStateException("QueueRepository is not configured.");
+        }
+
         return this.musicManagers.computeIfAbsent(guild.getIdLong(), guildId -> {
-            final GuildMusicManager guildMusicManager = new GuildMusicManager(this.audioPlayerManager);
+            GuildMusicManager guildMusicManager = new GuildMusicManager(guildId, this.audioPlayerManager, repo);
             guild.getAudioManager().setSendingHandler(guildMusicManager.getSendHandler());
             return guildMusicManager;
         });
     }
 
-    public void loadAndPlay(TextChannel textChannel, String trackURL) {
+    public void loadAndPlay(TextChannel textChannel, String trackUrl) {
         final GuildMusicManager musicManager = this.getMusicManager(textChannel.getGuild());
 
-        this.audioPlayerManager.loadItemOrdered(musicManager, trackURL, new AudioLoadResultHandler() {
+        this.audioPlayerManager.loadItemOrdered(musicManager, trackUrl, new AudioLoadResultHandler() {
             @Override
             public void trackLoaded(AudioTrack audioTrack) {
-                musicManager.scheduler.queue(audioTrack, textChannel);
-                textChannel.sendMessage("▶️ 재생: " + audioTrack.getInfo().title).queue();
+                boolean queued = musicManager.scheduler.queue(audioTrack, textChannel);
+                if (queued) {
+                    textChannel.sendMessage("📥 대기열에 추가: " + audioTrack.getInfo().title).queue();
+                } else {
+                    textChannel.sendMessage("▶️ 재생: " + audioTrack.getInfo().title).queue();
+                }
             }
 
             @Override
@@ -184,13 +197,17 @@ public class PlayerManager {
                         ? audioPlaylist.getSelectedTrack()
                         : audioPlaylist.getTracks().get(0);
 
-                musicManager.scheduler.queue(firstTrack, textChannel);
-                textChannel.sendMessage("▶️ 재생 (플레이리스트): " + firstTrack.getInfo().title).queue();
+                boolean queued = musicManager.scheduler.queue(firstTrack, textChannel);
+                if (queued) {
+                    textChannel.sendMessage("📥 대기열에 추가 (플레이리스트): " + firstTrack.getInfo().title).queue();
+                } else {
+                    textChannel.sendMessage("▶️ 재생 (플레이리스트): " + firstTrack.getInfo().title).queue();
+                }
             }
 
             @Override
             public void noMatches() {
-                textChannel.sendMessage("일치하는 결과가 없습니다. " + trackURL).queue();
+                textChannel.sendMessage("일치하는 결과가 없습니다. " + trackUrl).queue();
             }
 
             @Override

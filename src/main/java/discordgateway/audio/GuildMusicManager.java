@@ -2,6 +2,7 @@ package discordgateway.audio;
 
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayerManager;
+import discordgateway.domain.QueueRepository;
 
 public class GuildMusicManager {
 
@@ -9,9 +10,9 @@ public class GuildMusicManager {
     public final TrackScheduler scheduler;
     private final AudioPlayerSendHandler sendHandler;
 
-    public GuildMusicManager(AudioPlayerManager manager) {
+    public GuildMusicManager(long guildId, AudioPlayerManager manager, QueueRepository queueRepository) {
         this.audioPlayer = manager.createPlayer();
-        this.scheduler = new TrackScheduler(this.audioPlayer, manager); // ✅ AudioPlayerManager도 넘겨줌
+        this.scheduler = new TrackScheduler(guildId, this.audioPlayer, manager, queueRepository);
         this.audioPlayer.addListener(this.scheduler);
         this.sendHandler = new AudioPlayerSendHandler(this.audioPlayer);
     }
@@ -20,7 +21,6 @@ public class GuildMusicManager {
         return this.sendHandler;
     }
 
-    // ✅ 제대로 된 getter
     public TrackScheduler getScheduler() {
         return this.scheduler;
     }

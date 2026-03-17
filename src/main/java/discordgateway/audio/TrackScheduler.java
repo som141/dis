@@ -8,6 +8,8 @@ import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
 import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrackEndReason;
+import discordgateway.domain.QueueEntry;
+import discordgateway.domain.QueueRepository;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 
 import java.util.LinkedList;
@@ -16,17 +18,26 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 public class TrackScheduler extends AudioEventAdapter {
+    private final long guildId;
     private final AudioPlayer audioPlayer;
     private final AudioPlayerManager playerManager;
+    private final QueueRepository queueRepository;
     private final BlockingQueue<AudioTrack> queue;
 
     private boolean autoPlay = false;
     private AudioTrack lastTrack;
     private TextChannel lastChannel;
 
-    public TrackScheduler(AudioPlayer audioPlayer, AudioPlayerManager playerManager) {
+    public TrackScheduler(
+            long guildId,
+            AudioPlayer audioPlayer,
+            AudioPlayerManager playerManager,
+            QueueRepository queueRepository
+    ) {
+        this.guildId = guildId;
         this.audioPlayer = audioPlayer;
         this.playerManager = playerManager;
+        this.queueRepository = queueRepository;
         this.queue = new LinkedBlockingQueue<>(100);
     }
 
@@ -38,16 +49,33 @@ public class TrackScheduler extends AudioEventAdapter {
         return autoPlay;
     }
 
+    /**
+     * @return true if added to waiting queue, false if started immediately
+     */
     public boolean queue(AudioTrack track, TextChannel channel) {
         if (!this.audioPlayer.startTrack(track, true)) {
             boolean offered = this.queue.offer(track);
-            if (!offered) return false;
+            if (!offered) {
+                return false;
+            }
+
+            queueRepository.push(
+                    guildId,
+                    new QueueEntry(
+                            track.getIdentifier(),
+                            track.getInfo().title,
+                            track.getInfo().author,
+                            System.currentTimeMillis()
+                    )
+            );
+            return true;
         }
+
         this.lastTrack = track;
         if (channel != null) {
             this.lastChannel = channel;
         }
-        return true;
+        return false;
     }
 
     public boolean queue(AudioTrack track) {
@@ -62,6 +90,7 @@ public class TrackScheduler extends AudioEventAdapter {
 
         AudioTrack next = this.queue.poll();
         if (next != null) {
+            queueRepository.poll(guildId);
             this.lastTrack = next;
             this.audioPlayer.startTrack(next, false);
             return;
@@ -120,19 +149,16 @@ public class TrackScheduler extends AudioEventAdapter {
 
     public List<String> showList() {
         List<String> result = new LinkedList<>();
-        for (AudioTrack at : queue) {
-            result.add(at.getInfo().title + " - " + at.getInfo().author);
+        for (QueueEntry entry : queueRepository.list(guildId, 30)) {
+            result.add(entry.displayLine());
         }
         return result;
-    }
-
-    public boolean hasNextTrack() {
-        return !this.queue.isEmpty();
     }
 
     public void nextTrack() {
         AudioTrack next = this.queue.poll();
         if (next != null) {
+            queueRepository.poll(guildId);
             this.lastTrack = next;
         }
         this.audioPlayer.startTrack(next, false);
@@ -140,5 +166,6 @@ public class TrackScheduler extends AudioEventAdapter {
 
     public void clearQueue() {
         this.queue.clear();
+        this.queueRepository.clear(guildId);
     }
 }
