@@ -51,12 +51,16 @@ import net.dv8tion.jda.api.requests.GatewayIntent;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.core.env.Environment;
+import org.springframework.context.annotation.Primary;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
@@ -70,6 +74,8 @@ import java.util.List;
         OperationsProperties.class
 })
 public class ApplicationFactory {
+
+    private static final Logger log = LoggerFactory.getLogger(ApplicationFactory.class);
 
     @Bean
     public JdaRuntimeContext jdaRuntimeContext() {
@@ -170,6 +176,7 @@ public class ApplicationFactory {
 
     @Bean
     @ConditionalOnProperty(prefix = "messaging", name = "event-transport", havingValue = "spring", matchIfMissing = true)
+    @Primary
     public MusicEventPublisher musicEventPublisher(SpringMusicEventPublisher springMusicEventPublisher) {
         return springMusicEventPublisher;
     }
@@ -260,6 +267,24 @@ public class ApplicationFactory {
     @Bean
     public PlayAutocompleteService playAutocompleteService(PlaybackGateway playbackGateway) {
         return new PlayAutocompleteService(playbackGateway);
+    }
+
+    @Bean
+    public ApplicationRunner startupConfigurationLogger(
+            AppProperties appProperties,
+            MessagingProperties messagingProperties,
+            MusicCommandBus musicCommandBus,
+            MusicEventPublisher musicEventPublisher
+    ) {
+        return args -> log.info(
+                "startup-config role={} node={} commandTransport={} eventTransport={} commandBus={} eventPublisher={}",
+                appProperties.getRole(),
+                appProperties.getNodeName(),
+                messagingProperties.getCommandTransport(),
+                messagingProperties.getEventTransport(),
+                musicCommandBus.getClass().getSimpleName(),
+                musicEventPublisher.getClass().getSimpleName()
+        );
     }
 
     @Bean
