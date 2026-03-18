@@ -22,7 +22,8 @@
    - `ops/smoke-check.sh`
 5. 서버에서 `deploy.sh <git-sha>`를 실행한다.
 6. 스크립트가 이미지를 `docker load`로 적재한다.
-7. `docker compose up -d --no-build --remove-orphans`로 `gateway`, `audio-node`, `redis`, `rabbitmq`를 갱신한다.
+7. 이전 릴리스가 있으면 먼저 `docker compose down --remove-orphans`로 정리한다.
+8. 고정된 Compose 프로젝트 이름으로 `docker compose up -d --no-build --remove-orphans`를 실행해 `gateway`, `audio-node`, `redis`, `rabbitmq`를 갱신한다.
 
 ## 3. 서버 디렉터리 구조
 
@@ -60,10 +61,16 @@
 - `incoming` 아래의 `docker-compose.yml`, `.env.cicd`, 이미지 압축 파일을 릴리스 디렉터리로 복사한다.
 - `incoming/ops`가 있으면 릴리스 안으로 같이 복사한다.
 - `docker load`로 이미지 태그를 로컬 Docker에 적재한다.
+- 이전 릴리스가 있으면 그 릴리스의 compose 설정으로 먼저 중지한다.
+- 과거 `container_name` 고정 방식으로 띄운 레거시 컨테이너가 남아 있으면 함께 제거한다.
 - `current` 링크를 새 릴리스로 바꾼다.
-- 새 릴리스 디렉터리에서 `docker compose --env-file .env up -d --no-build --remove-orphans`를 실행한다.
+- 새 릴리스 디렉터리에서 고정 Compose 프로젝트 이름으로 `docker compose --env-file .env up -d --no-build --remove-orphans`를 실행한다.
 - 처리 후 `incoming` 파일과 `incoming/ops`를 정리한다.
 - 오래된 릴리스는 최근 5개만 남기고 정리한다.
+
+현재 기본 Compose 프로젝트 이름은 `discord-bot`이다.
+이 값을 고정한 이유는 릴리스 디렉터리 이름이 매번 바뀌더라도 네트워크와 볼륨, 서비스 수명주기를 같은 프로젝트로 관리하기 위해서다.
+또한 과거 `discord-redis`, `discord-rabbitmq`, `discord-gateway`, `discord-audio-node` 같은 고정 이름 컨테이너와 충돌하지 않도록 deploy 스크립트에서 레거시 컨테이너 정리도 수행한다.
 
 ## 5. 필요한 서버 사전 조건
 
@@ -93,6 +100,11 @@ chmod +x /home/ubuntu/dis-bot/deploy.sh
 - `YOUTUBE_REFRESH_TOKEN`
 - `RABBITMQ_USERNAME`
 - `RABBITMQ_PASSWORD`
+
+추가 환경값:
+
+- `COMPOSE_PROJECT_NAME`
+  - 기본값은 `discord-bot`
 
 ## 7. 서버에서 수동 배포하는 방법
 

@@ -18,6 +18,7 @@ jobs:
 
     env:
       APP_IMAGE_NAME: discord-bot
+      COMPOSE_PROJECT_NAME: discord-bot
       DEPLOY_DIR: /home/ubuntu/dis-bot
 
     steps:
@@ -57,6 +58,7 @@ jobs:
           {
             printf "APP_IMAGE_NAME=%s\n" "${APP_IMAGE_NAME}"
             printf "APP_IMAGE_TAG=%s\n" "${{ github.sha }}"
+            printf "COMPOSE_PROJECT_NAME=%s\n" "${COMPOSE_PROJECT_NAME}"
             printf "DISCORD_TOKEN=%s\n" "${DISCORD_TOKEN}"
             printf "DISCORD_DEV_GUILD_ID=%s\n" "${DISCORD_DEV_GUILD_ID}"
             printf "YOUTUBE_REFRESH_TOKEN=%s\n" "${YOUTUBE_REFRESH_TOKEN}"
@@ -122,4 +124,4 @@ jobs:
           SSH_PORT: ${{ secrets.SSH_PORT }}
         run: |
           ssh -p "${SSH_PORT}" -i ~/.ssh/id_ed25519 "${SSH_USER}@${SSH_HOST}" \
-            "chmod +x '${DEPLOY_DIR}/deploy.sh' && DEPLOY_DIR='${DEPLOY_DIR}' bash '${DEPLOY_DIR}/deploy.sh' '${{ github.sha }}'"
+            "chmod +x '${DEPLOY_DIR}/deploy.sh' && DEPLOY_DIR='${DEPLOY_DIR}' COMPOSE_PROJECT_NAME='${COMPOSE_PROJECT_NAME}' bash '${DEPLOY_DIR}/deploy.sh' '${{ github.sha }}'"

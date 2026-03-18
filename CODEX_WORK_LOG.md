@@ -337,7 +337,43 @@
 - Redis 상태를 actuator health에 포함하도록 보강
 - 운영 절차를 별도 런북으로 정리
 
-## 21. 검증
+## 21. Stage 20
+
+### 추가 요소
+
+- `CURRENT_ARCHITECTURE.md`
+
+### 반영 내용
+
+- 현재 배포 토폴로지를 다이어그램으로 정리
+- 명령 흐름, 재생 흐름, 복구 흐름, 이벤트 흐름을 분리해 문서화
+- gateway, audio-node, command bus, worker core, playback engine, Redis, RabbitMQ, 운영 모드, 배포 파이프라인별 특징과 워크로드를 표로 정리
+- 저지연 요청형, 장시간 상태 유지형, 공유 상태 관리형, 운영 보조형 워크로드로 분류해 설명
+
+## 22. Stage 21
+
+### 크게 수정한 요소
+
+- `docker-compose.yml`
+- `deploy.sh`
+- `.github/workflows/cicd-deploy.yml`
+- `.env.example`
+- `ops/replay-command-dlq.sh`
+- `ops/smoke-check.sh`
+- `SERVER_DEPLOY_SCRIPT.md`
+- `OPERATIONS_RUNBOOK.md`
+- `README.md`
+
+### 반영 내용
+
+- 서버 배포 시 Compose 프로젝트 이름을 `discord-bot`으로 고정
+- 릴리스 디렉터리 이름이 바뀌어도 같은 네트워크와 볼륨을 재사용하도록 정리
+- 이전 릴리스가 있으면 새 릴리스 기동 전에 먼저 내리도록 deploy 스크립트 보강
+- `container_name` 고정을 제거해 Compose 기본 수명주기 관리와 충돌하지 않도록 수정
+- 운영 스크립트도 같은 Compose 프로젝트 이름을 사용하도록 정리
+- 예전 `container_name` 기반 레거시 컨테이너가 남아 있어도 다음 배포에서 자동 정리되도록 deploy 스크립트 보강
+
+## 23. 검증
 
 ### 실행한 검증
 
@@ -357,7 +393,7 @@
 - 실제 Discord 환경 검증
   - 운영 환경 필요
 
-## 22. 원본 지시 md 대비 진행률
+## 24. 원본 지시 md 대비 진행률
 
 기준 문서:
 
@@ -368,7 +404,7 @@
 - 원본 문서 기준 큰 단계는 사실상 `7 / 8` 수준까지 진행
 - 비율로 보면 약 `87.5%`
 
-## 23. 원본 문서와 달라진 점
+## 25. 원본 문서와 달라진 점
 
 - 원본 문서는 Stage 3부터 시작한다고 가정했지만 실제 코드에는 Stage 3 수준 작업이 이미 들어가 있었음
 - 원본 문서는 `Gateway -> Worker -> Audio Node` 완전 3프로세스 분리를 직접 목표로 잡았지만 현재 구현은 `Spring Boot 단일 코드베이스 + gateway 역할 + audio-node 역할 + 내부 worker core` 구조
@@ -384,7 +420,7 @@
   - command DLQ 재처리 운영 모드
   - 배포 후 스모크 체크 스크립트
 
-## 24. 현재 기준 남은 핵심 작업
+## 26. 현재 기준 남은 핵심 작업
 
 - 실제 Discord 운영 환경에서 `gateway` / `audio-node` 이중 JDA 세션 검증
 - command DLQ 재처리 빈도와 실패 패턴 관찰 후 운영 절차 보정

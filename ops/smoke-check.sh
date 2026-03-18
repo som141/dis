@@ -4,6 +4,7 @@ set -euo pipefail
 DEPLOY_DIR="${DEPLOY_DIR:-/home/ubuntu/dis-bot}"
 CURRENT_DIR="${DEPLOY_DIR}/current"
 ENV_FILE="${CURRENT_DIR}/.env"
+COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-discord-bot}"
 GATEWAY_HEALTH_URL="${GATEWAY_HEALTH_URL:-http://127.0.0.1:8081/actuator/health}"
 AUDIO_NODE_HEALTH_URL="${AUDIO_NODE_HEALTH_URL:-http://127.0.0.1:8082/actuator/health}"
 
@@ -19,7 +20,7 @@ fi
 
 pushd "${CURRENT_DIR}" >/dev/null
 echo "[1/3] docker compose ps"
-docker compose --env-file .env ps
+docker compose --project-name "${COMPOSE_PROJECT_NAME}" --env-file .env ps
 
 echo "[2/3] gateway health"
 curl -fsS "${GATEWAY_HEALTH_URL}"
