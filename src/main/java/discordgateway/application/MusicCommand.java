@@ -30,7 +30,11 @@ public sealed interface MusicCommand permits
 
     long guildId();
 
-    record Join(long guildId, long userId) implements MusicCommand {
+    record Join(
+            long guildId,
+            long textChannelId,
+            long userId
+    ) implements MusicCommand {
     }
 
     record Leave(long guildId) implements MusicCommand {

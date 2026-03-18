@@ -13,8 +13,12 @@ public class MusicApplicationService {
         this.musicCommandBus = musicCommandBus;
     }
 
-    public CompletableFuture<CommandResult> join(Guild guild, long userId) {
-        return musicCommandBus.dispatch(new MusicCommand.Join(guild.getIdLong(), userId));
+    public CompletableFuture<CommandResult> join(Guild guild, TextChannel textChannel, long userId) {
+        return musicCommandBus.dispatch(new MusicCommand.Join(
+                guild.getIdLong(),
+                textChannel.getIdLong(),
+                userId
+        ));
     }
 
     public CommandResult leave(Guild guild) {
