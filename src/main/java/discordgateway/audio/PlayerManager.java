@@ -9,9 +9,13 @@ import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
 import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import dev.lavalink.youtube.YoutubeAudioSourceManager;
+import dev.lavalink.youtube.YoutubeSourceOptions;
+import dev.lavalink.youtube.clients.AndroidMusic;
 import dev.lavalink.youtube.clients.AndroidVr;
+import dev.lavalink.youtube.clients.MWeb;
 import dev.lavalink.youtube.clients.Music;
 import dev.lavalink.youtube.clients.Tv;
+import dev.lavalink.youtube.clients.TvHtml5Simply;
 import dev.lavalink.youtube.clients.Web;
 import dev.lavalink.youtube.clients.WebEmbedded;
 import discordgateway.application.MusicCommandTrace;
@@ -231,12 +235,23 @@ public class PlayerManager {
         manager.getConfiguration().setResamplingQuality(AudioConfiguration.ResamplingQuality.HIGH);
         manager.getConfiguration().setFilterHotSwapEnabled(true);
 
+        configurePoToken(youTubeProperties);
+
+        YoutubeSourceOptions sourceOptions = new YoutubeSourceOptions()
+                .setAllowSearch(true)
+                .setAllowDirectVideoIds(true)
+                .setAllowDirectPlaylistIds(true);
+        configureRemoteCipher(sourceOptions, youTubeProperties);
+
         YoutubeAudioSourceManager youtube = new YoutubeAudioSourceManager(
-                true,
+                sourceOptions,
                 new Music(),
-                new Tv(),
+                new TvHtml5Simply(),
                 new Web(),
+                new MWeb(),
                 new WebEmbedded(),
+                new Tv(),
+                new AndroidMusic(),
                 new AndroidVr()
         );
 
@@ -268,6 +283,35 @@ public class PlayerManager {
         }
 
         log.warn("YouTube OAuth disabled. No YOUTUBE_REFRESH_TOKEN found.");
+    }
+
+    private void configurePoToken(YouTubeProperties properties) {
+        String poToken = trimToNull(properties.getPoToken());
+        String visitorData = trimToNull(properties.getVisitorData());
+
+        if (poToken == null || visitorData == null) {
+            log.info("YouTube poToken disabled. YOUTUBE_PO_TOKEN or YOUTUBE_VISITOR_DATA not configured.");
+            return;
+        }
+
+        Web.setPoTokenAndVisitorData(poToken, visitorData);
+        WebEmbedded.setPoTokenAndVisitorData(poToken, visitorData);
+        log.info("YouTube poToken enabled for WEB/WEB_EMBEDDED clients.");
+    }
+
+    private void configureRemoteCipher(YoutubeSourceOptions sourceOptions, YouTubeProperties properties) {
+        String remoteCipherUrl = trimToNull(properties.getRemoteCipherUrl());
+        if (remoteCipherUrl == null) {
+            log.info("YouTube remote cipher disabled. YOUTUBE_REMOTE_CIPHER_URL not configured.");
+            return;
+        }
+
+        sourceOptions.setRemoteCipher(
+                remoteCipherUrl,
+                trimToNull(properties.getRemoteCipherPassword()),
+                trimToNull(properties.getRemoteCipherUserAgent())
+        );
+        log.info("YouTube remote cipher enabled. url={}", remoteCipherUrl);
     }
 
     private String trimToMax(String value, int max) {

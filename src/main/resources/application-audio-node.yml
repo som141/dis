@@ -9,4 +9,4 @@ app:
 
 messaging:
   command-transport: rabbitmq
-  event-transport: rabbitmq
+  event-transport: spring
