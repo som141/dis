@@ -1,0 +1,27 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+dependencies {
+    implementation platform('org.springframework.boot:spring-boot-dependencies:3.5.5')
+    implementation project(':modules:common-core')
+}
+
+springBoot {
+    mainClass = 'discordgateway.audionode.AudioNodeApplication'
+}
+
+bootJar {
+    archiveFileName.set('audio-node-app.jar')
+}
+
+jar {
+    enabled = false
+}

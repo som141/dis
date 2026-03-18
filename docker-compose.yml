@@ -31,19 +31,24 @@ services:
   gateway:
     build:
       context: .
-      dockerfile: Dockerfile
-    image: ${APP_IMAGE_NAME:-discord-bot}:${APP_IMAGE_TAG:-local}
+      dockerfile: apps/gateway-app/Dockerfile
+    image: ${GATEWAY_IMAGE_NAME:-discord-gateway}:${GATEWAY_IMAGE_TAG:-local}
     depends_on:
       redis:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
     environment:
-      SPRING_PROFILES_ACTIVE: gateway
+      SPRING_PROFILES_ACTIVE: ""
       DISCORD_TOKEN: ${DISCORD_TOKEN}
       DISCORD_DEV_GUILD_ID: ${DISCORD_DEV_GUILD_ID:-}
       YOUTUBE_REFRESH_TOKEN: ${YOUTUBE_REFRESH_TOKEN:-}
       YOUTUBE_OAUTH_INIT: ${YOUTUBE_OAUTH_INIT:-false}
+      YOUTUBE_PO_TOKEN: ${YOUTUBE_PO_TOKEN:-}
+      YOUTUBE_VISITOR_DATA: ${YOUTUBE_VISITOR_DATA:-}
+      YOUTUBE_REMOTE_CIPHER_URL: ${YOUTUBE_REMOTE_CIPHER_URL:-}
+      YOUTUBE_REMOTE_CIPHER_PASSWORD: ${YOUTUBE_REMOTE_CIPHER_PASSWORD:-}
+      YOUTUBE_REMOTE_CIPHER_USER_AGENT: ${YOUTUBE_REMOTE_CIPHER_USER_AGENT:-}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       RABBITMQ_HOST: rabbitmq
@@ -59,19 +64,24 @@ services:
   audio-node:
     build:
       context: .
-      dockerfile: Dockerfile
-    image: ${APP_IMAGE_NAME:-discord-bot}:${APP_IMAGE_TAG:-local}
+      dockerfile: apps/audio-node-app/Dockerfile
+    image: ${AUDIO_NODE_IMAGE_NAME:-discord-audio-node}:${AUDIO_NODE_IMAGE_TAG:-local}
     depends_on:
       redis:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
     environment:
-      SPRING_PROFILES_ACTIVE: audio-node
+      SPRING_PROFILES_ACTIVE: ""
       DISCORD_TOKEN: ${DISCORD_TOKEN}
       DISCORD_DEV_GUILD_ID: ${DISCORD_DEV_GUILD_ID:-}
       YOUTUBE_REFRESH_TOKEN: ${YOUTUBE_REFRESH_TOKEN:-}
       YOUTUBE_OAUTH_INIT: ${YOUTUBE_OAUTH_INIT:-false}
+      YOUTUBE_PO_TOKEN: ${YOUTUBE_PO_TOKEN:-}
+      YOUTUBE_VISITOR_DATA: ${YOUTUBE_VISITOR_DATA:-}
+      YOUTUBE_REMOTE_CIPHER_URL: ${YOUTUBE_REMOTE_CIPHER_URL:-}
+      YOUTUBE_REMOTE_CIPHER_PASSWORD: ${YOUTUBE_REMOTE_CIPHER_PASSWORD:-}
+      YOUTUBE_REMOTE_CIPHER_USER_AGENT: ${YOUTUBE_REMOTE_CIPHER_USER_AGENT:-}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       RABBITMQ_HOST: rabbitmq

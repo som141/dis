@@ -1,71 +1,36 @@
 plugins {
-    id 'java'
-    id 'org.springframework.boot' version '3.5.5'
+    id 'base'
+    id 'org.springframework.boot' version '3.5.5' apply false
 }
 
 group = 'sp1'
 version = '1.0-SNAPSHOT'
 
-repositories {
-    mavenCentral()
-    maven { url "https://maven.lavalink.dev/releases" }
-    maven { url "https://jitpack.io" }
-}
+allprojects {
+    group = rootProject.group
+    version = rootProject.version
 
-dependencies {
-    implementation platform('org.springframework.boot:spring-boot-dependencies:3.5.5')
-
-    implementation 'org.springframework.boot:spring-boot-starter'
-    implementation 'org.springframework.boot:spring-boot-starter-web'
-    implementation 'org.springframework.boot:spring-boot-starter-actuator'
-    implementation 'org.springframework.boot:spring-boot-starter-amqp'
-
-    // Audio playback
-    implementation "dev.arbjerg:lavaplayer:2.2.4"
-    implementation "dev.lavalink.youtube:common:1.18.0"
-    implementation "dev.lavalink.youtube:v2:1.18.0"
-
-    // Discord / JDA
-    implementation "net.dv8tion:JDA:6.3.1"
-
-    // DAVE (E2EE voice) for JDA
-    implementation "moe.kyokobot.libdave:adapter-jda:0.1.2"
-    implementation "moe.kyokobot.libdave:impl-jni:0.1.2"
-
-    // DAVE native libraries for local Windows runs and Alpine-based deployment images.
-    runtimeOnly "moe.kyokobot.libdave:natives-win-x86-64:0.1.2"
-    runtimeOnly "moe.kyokobot.libdave:natives-linux-musl-x86-64:0.1.2"
-
-    // Logging
-    implementation "org.slf4j:slf4j-api:2.0.13"
-    implementation "ch.qos.logback:logback-classic:1.5.6"
-
-    // Redis
-    implementation 'redis.clients:jedis:5.1.5'
-    annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor:3.5.5'
-
-    testImplementation platform('org.junit:junit-bom:5.10.0')
-    testImplementation 'org.junit.jupiter:junit-jupiter'
-}
-
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+    repositories {
+        mavenCentral()
+        maven { url "https://maven.lavalink.dev/releases" }
+        maven { url "https://jitpack.io" }
     }
 }
 
-tasks.withType(JavaCompile).configureEach {
-    options.encoding = 'UTF-8'
+subprojects {
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.compilerArgs += ['-parameters']
+    }
+
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+    }
 }
 
-tasks.test {
-    useJUnitPlatform()
-}
-
-bootJar {
-    archiveFileName.set('TBot1-all.jar')
-}
-
-jar {
-    enabled = false
+tasks.register('bootJarAll') {
+    dependsOn(
+            ':apps:gateway-app:bootJar',
+            ':apps:audio-node-app:bootJar'
+    )
 }

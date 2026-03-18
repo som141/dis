@@ -34,6 +34,11 @@ bin/
 ### VS Code ###
 .vscode/
 
+# Local runtime secrets
+.env
+.env.local
+.env.*.local
+
 ### Mac OS ###
 .DS_Store
 src/main/java/sp1/evm.java

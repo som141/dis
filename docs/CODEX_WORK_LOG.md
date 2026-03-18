@@ -471,3 +471,61 @@
 - command DLQ 재처리 빈도와 실패 패턴 관찰 후 운영 절차 보정
 - observability 스택 도입 여부 결정
 - 필요하다면 `Gateway -> Worker -> Audio Node` 완전 3프로세스 분리 검토
+
+## 31. Stage 26
+
+### 크게 수정한 요소
+
+- `README.md`
+- `apps/gateway-app/README.md`
+- `apps/audio-node-app/README.md`
+- `modules/common-core/README.md`
+- `docs/README.md`
+- `docs/`
+
+### 반영 내용
+
+- 루트 README를 저장소 인덱스 성격으로 재작성
+- gateway-app, audio-node-app, common-core 각각의 전용 README 추가
+- 상위 분석/운영/배포/기록 문서를 `docs/` 디렉터리로 이동
+- `docs/README.md`를 추가해서 문서 탐색 진입점을 분리
+- 모듈 구조 설명 문서를 `docs/MODULE_STRUCTURE.md` 기준으로 재정리
+
+## 30. Stage 25
+
+### 크게 수정한 요소
+
+- `build.gradle`
+- `settings.gradle`
+- `docker-compose.yml`
+- `deploy.sh`
+- `.github/workflows/cicd-deploy.yml`
+- `.env.example`
+- `README.md`
+- `MODULE_STRUCTURE.md`
+- `apps/gateway-app/**`
+- `apps/audio-node-app/**`
+- `modules/common-core/**`
+
+### 반영 내용
+
+- 단일 모듈 구조를 `modules/common-core`, `apps/gateway-app`, `apps/audio-node-app` 멀티모듈 구조로 전환
+- 공용 도메인, 오디오 엔진, Redis/RabbitMQ 인프라, 공용 Spring 설정을 `common-core`로 이동
+- Discord 명령 진입점과 gateway 전용 서비스를 `gateway-app`으로 이동
+- recovery와 audio-node 전용 서비스를 `audio-node-app`으로 이동
+- 각 앱이 자체 `main class`, 자체 `application.yml`, 자체 `bootJar`를 가지도록 분리
+- 단일 `TBot1-all.jar` 대신 `gateway-app.jar`, `audio-node-app.jar` 생성 구조로 변경
+- 루트 Dockerfile 제거, 앱별 Dockerfile 도입
+- compose를 `gateway 이미지`와 `audio-node 이미지` 각각 빌드/실행하는 구조로 변경
+- 배포 스크립트와 GitHub Actions도 두 이미지 기준으로 적재/배포하도록 수정
+
+### 검증
+
+- `.\gradlew.bat :modules:common-core:compileJava :apps:gateway-app:compileJava :apps:audio-node-app:compileJava :modules:common-core:compileTestJava`
+  - 성공
+- `.\gradlew.bat bootJarAll`
+  - 성공
+- `docker compose up -d --build gateway audio-node`
+  - 성공
+- `docker compose ps`
+  - `gateway`, `audio-node`, `redis`, `rabbitmq` 모두 healthy 확인
