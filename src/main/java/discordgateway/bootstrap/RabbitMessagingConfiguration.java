@@ -28,6 +28,7 @@ import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -125,6 +126,7 @@ public class RabbitMessagingConfiguration {
 
     @Bean
     @ConditionalOnProperty(prefix = "messaging", name = "event-transport", havingValue = "rabbitmq")
+    @Primary
     public MusicEventPublisher rabbitMusicEventPublisher(
             RabbitMusicEventSender rabbitMusicEventSender,
             MusicEventOutboxRepository musicEventOutboxRepository,
