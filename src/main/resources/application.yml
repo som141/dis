@@ -1,6 +1,10 @@
 app:
   role: all
 
+discord:
+  token: ${DISCORD_TOKEN:${TOKEN:}}
+  dev-guild-id: ${DISCORD_DEV_GUILD_ID:}
+
 server:
   port: ${HEALTH_PORT:8080}
 

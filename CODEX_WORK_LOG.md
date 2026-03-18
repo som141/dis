@@ -406,7 +406,19 @@
 - 이전 릴리스 `docker compose down`이 실패해도 레거시 컨테이너 정리와 새 릴리스 기동으로 이어지도록 보강
 - 구형 릴리스 `.env`에 `COMPOSE_PROJECT_NAME`이 없어도 이전 릴리스 정리 단계가 중단되지 않도록 호환 처리
 
-## 25. 검증
+## 25. Stage 24
+
+### 크게 수정한 요소
+
+- `.github/workflows/cicd-deploy.yml`
+- `SERVER_DEPLOY_SCRIPT.md`
+
+### 반영 내용
+
+- GitHub Actions가 `DISCORD_TOKEN` 시크릿이 없더라도 레거시 `TOKEN` 시크릿을 fallback으로 사용할 수 있게 수정
+- 서버 배포 문서에도 `DISCORD_TOKEN` 또는 `TOKEN` 둘 다 허용된다고 명시
+
+## 26. 검증
 
 ### 실행한 검증
 
@@ -426,7 +438,7 @@
 - 실제 Discord 환경 검증
   - 운영 환경 필요
 
-## 26. 원본 지시 md 대비 진행률
+## 27. 원본 지시 md 대비 진행률
 
 기준 문서:
 
@@ -437,7 +449,7 @@
 - 원본 문서 기준 큰 단계는 사실상 `7 / 8` 수준까지 진행
 - 비율로 보면 약 `87.5%`
 
-## 27. 원본 문서와 달라진 점
+## 28. 원본 문서와 달라진 점
 
 - 원본 문서는 Stage 3부터 시작한다고 가정했지만 실제 코드에는 Stage 3 수준 작업이 이미 들어가 있었음
 - 원본 문서는 `Gateway -> Worker -> Audio Node` 완전 3프로세스 분리를 직접 목표로 잡았지만 현재 구현은 `Spring Boot 단일 코드베이스 + gateway 역할 + audio-node 역할 + 내부 worker core` 구조
@@ -453,7 +465,7 @@
   - command DLQ 재처리 운영 모드
   - 배포 후 스모크 체크 스크립트
 
-## 28. 현재 기준 남은 핵심 작업
+## 29. 현재 기준 남은 핵심 작업
 
 - 실제 Discord 운영 환경에서 `gateway` / `audio-node` 이중 JDA 세션 검증
 - command DLQ 재처리 빈도와 실패 패턴 관찰 후 운영 절차 보정
