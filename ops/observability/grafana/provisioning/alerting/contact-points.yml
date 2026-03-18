@@ -1,0 +1,22 @@
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: observability-noop
+    receivers:
+      - uid: observability_noop_primary
+        type: webhook
+        disableResolveMessage: false
+        settings:
+          url: $GRAFANA_ALERT_NOOP_WEBHOOK_URL
+
+  - orgId: 1
+    name: observability-discord
+    receivers:
+      - uid: observability_discord_primary
+        type: discord
+        disableResolveMessage: false
+        settings:
+          url: $GRAFANA_ALERT_DISCORD_WEBHOOK_URL
+          avatar_url: $GRAFANA_ALERT_DISCORD_AVATAR_URL
+          use_discord_username: $GRAFANA_ALERT_DISCORD_USE_USERNAME

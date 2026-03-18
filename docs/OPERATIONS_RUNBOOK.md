@@ -164,4 +164,85 @@ PURGE_BOT_IMAGES=true bash /home/ubuntu/dis-bot/current/ops/cleanup-legacy-deplo
 
 - 실제 Discord 운영 환경에서 이중 JDA 세션을 실배포 검증
 - command DLQ 재처리 운영 빈도와 실패 패턴 관찰
-- observability 스택 추가 여부 결정
+- observability 대시보드 / 알림 규칙 고도화
+
+## 7. 관측성 스택 실행
+
+관측성 스택은 기본 compose에 `observability` profile로 붙어 있다.
+
+실행:
+
+```bash
+docker compose --profile observability up -d prometheus loki alloy redis-exporter grafana
+```
+
+중지:
+
+```bash
+docker compose --profile observability stop prometheus loki alloy redis-exporter grafana
+```
+
+접속:
+
+- Grafana: `http://127.0.0.1:3000`
+- Prometheus: `http://127.0.0.1:9090`
+- Loki: `http://127.0.0.1:3100`
+- Alloy: `http://127.0.0.1:12345`
+
+기본 계정:
+
+- ID: `admin`
+- Password: `.env`의 `GRAFANA_ADMIN_PASSWORD`
+
+기본 scrape 대상:
+
+- `gateway:8080/actuator/prometheus`
+- `audio-node:8080/actuator/prometheus`
+- `redis-exporter:9121/metrics`
+- `rabbitmq:15692/metrics`
+- `prometheus:9090/metrics`
+- `loki:3100/metrics`
+- `alloy:12345/metrics`
+
+## 8. 기본 대시보드와 알림 규칙
+
+기본 대시보드:
+
+- `Discord Bot App Overview`
+- `Discord Bot Infra Overview`
+
+Prometheus 기본 알림 규칙:
+
+- `GatewayDown`
+- `AudioNodeDown`
+- `RedisExporterDown`
+- `RabbitMqExporterDown`
+- `AppHighJvmHeapUsage`
+- `ApplicationErrorLogsDetected`
+- `RabbitMqConsumerMissing`
+- `RabbitMqQueueBacklog`
+- `RabbitMqUnackedBacklog`
+
+현재 상태:
+
+- 규칙은 Prometheus 에 로드된다.
+- 대시보드는 Grafana file provisioning 으로 자동 로드된다.
+- Grafana-managed alert rule 과 contact point 도 provisioning 으로 자동 로드된다.
+- 기본 수신자는 `observability-noop` 이고, 이는 더미 webhook 으로 흘려보내는 안전 기본값이다.
+- 실제 통지 라우팅은 Grafana-managed alert rule 기준이다.
+- Prometheus rule 은 `/rules`, `/alerts` 에서 상태를 보는 용도로 남겨둔 상태다.
+
+확인 경로:
+
+- Prometheus rules: `http://127.0.0.1:9090/rules`
+- Prometheus alerts: `http://127.0.0.1:9090/alerts`
+- Grafana dashboards: `http://127.0.0.1:3000`
+- Grafana alert rules: `http://127.0.0.1:3000/alerting/list`
+
+알림 전송 활성화:
+
+1. `.env` 또는 서버 배포 환경 변수에 아래를 넣는다.
+   - `GRAFANA_ALERT_DEFAULT_RECEIVER=observability-discord`
+   - `GRAFANA_ALERT_DISCORD_WEBHOOK_URL=<실제 Discord webhook URL>`
+2. Grafana 를 재기동한다.
+3. `Alerting -> Contact points` 와 `Alerting -> Notification policies` 에서 적용 상태를 확인한다.

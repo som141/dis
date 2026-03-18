@@ -9,12 +9,28 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
   endpoint:
     health:
       probes:
         enabled: true
       show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name:unknown}
+      node: ${APP_NODE_NAME:unknown}
+
+logging:
+  structured:
+    format:
+      console: ecs
+    ecs:
+      service:
+        environment: ${APP_ENV:local}
+        node-name: ${APP_NODE_NAME:unknown}
+    json:
+      stacktrace:
+        root: first
 
 messaging:
   rpc-timeout-ms: 10000

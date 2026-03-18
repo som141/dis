@@ -25,6 +25,11 @@
 - [OPERATIONS_RUNBOOK.md](OPERATIONS_RUNBOOK.md)
   - 운영 점검, DLQ 재처리, 스모크 체크
 
+## 관측성 스택
+
+- [../ops/observability/README.md](../ops/observability/README.md)
+  - Grafana / Prometheus / Loki / Alloy 스택 실행 방법
+
 ## 작업 기록
 
 - [CODEX_WORK_LOG.md](CODEX_WORK_LOG.md)

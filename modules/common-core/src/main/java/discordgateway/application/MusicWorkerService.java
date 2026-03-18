@@ -99,24 +99,22 @@ public class MusicWorkerService {
         TextChannel textChannel = requireTextChannel(command.guildId(), command.textChannelId());
         MusicCommandTrace trace = MusicCommandTraceContext.current();
 
-        log.info(
-                "join requested guild={} user={} textChannel={}",
-                command.guildId(),
-                command.userId(),
-                command.textChannelId()
-        );
+        log.atInfo()
+                .addKeyValue("guildId", command.guildId())
+                .addKeyValue("userId", command.userId())
+                .addKeyValue("textChannelId", command.textChannelId())
+                .log("join requested");
 
         return voiceGateway.findUserAudioChannel(guild, command.userId())
                 .thenApply(audioChannel -> MusicCommandTraceContext.callWith(trace, () -> {
                     boolean alreadyConnected = voiceGateway.connect(guild, audioChannel);
 
-                    log.info(
-                            "join connect resolved guild={} user={} voiceChannel={} alreadyConnected={}",
-                            command.guildId(),
-                            command.userId(),
-                            audioChannel.getIdLong(),
-                            alreadyConnected
-                    );
+                    log.atInfo()
+                            .addKeyValue("guildId", command.guildId())
+                            .addKeyValue("userId", command.userId())
+                            .addKeyValue("voiceChannelId", audioChannel.getIdLong())
+                            .addKeyValue("alreadyConnected", alreadyConnected)
+                            .log("join connect resolved");
 
                     GuildPlayerState state = guildStateRepository.getOrCreate(guild.getIdLong());
                     state.setConnectedVoiceChannelId(audioChannel.getIdLong());
@@ -168,14 +166,13 @@ public class MusicWorkerService {
         TextChannel textChannel = requireTextChannel(command.guildId(), command.textChannelId());
         MusicCommandTrace trace = MusicCommandTraceContext.current();
 
-        log.info(
-                "play requested guild={} user={} textChannel={} autoPlay={} query={}",
-                command.guildId(),
-                command.userId(),
-                command.textChannelId(),
-                command.autoPlay(),
-                command.query()
-        );
+        log.atInfo()
+                .addKeyValue("guildId", command.guildId())
+                .addKeyValue("userId", command.userId())
+                .addKeyValue("textChannelId", command.textChannelId())
+                .addKeyValue("autoPlay", command.autoPlay())
+                .addKeyValue("query", command.query())
+                .log("play requested");
 
         if (command.query() == null || command.query().isBlank()) {
             return CompletableFuture.completedFuture(
@@ -208,12 +205,11 @@ public class MusicWorkerService {
                             ? command.query()
                             : "ytsearch:" + command.query();
 
-                    log.info(
-                            "play load scheduled guild={} user={} trackUrl={}",
-                            command.guildId(),
-                            command.userId(),
-                            trackUrl
-                    );
+                    log.atInfo()
+                            .addKeyValue("guildId", command.guildId())
+                            .addKeyValue("userId", command.userId())
+                            .addKeyValue("trackUrl", trackUrl)
+                            .log("play load scheduled");
 
                     playbackGateway.loadAndPlay(textChannel, trackUrl);
                     return CommandResult.ephemeral("재생 요청을 접수했습니다. 결과는 채널 메시지로 안내합니다.");
@@ -331,13 +327,12 @@ public class MusicWorkerService {
     private void sendTextChannelMessage(TextChannel textChannel, String message) {
         textChannel.sendMessage(message).queue(
                 null,
-                failure -> log.warn(
-                        "Failed to send follow-up text channel message. guild={} channel={} message={}",
-                        textChannel.getGuild().getIdLong(),
-                        textChannel.getIdLong(),
-                        message,
-                        failure
-                )
+                failure -> log.atWarn()
+                        .addKeyValue("guildId", textChannel.getGuild().getIdLong())
+                        .addKeyValue("channelId", textChannel.getIdLong())
+                        .addKeyValue("message", message)
+                        .setCause(failure)
+                        .log("Failed to send follow-up text channel message")
         );
     }
 }

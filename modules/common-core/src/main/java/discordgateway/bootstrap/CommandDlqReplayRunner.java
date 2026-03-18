@@ -32,12 +32,11 @@ public class CommandDlqReplayRunner implements ApplicationRunner {
         CommandDlqReplayReport report =
                 commandDlqReplayService.replay(operationsProperties.getCommandDlqReplayMaxMessages());
 
-        log.info(
-                "command-dlq replay finished replayed={} failed={} stoppedByLimit={}",
-                report.replayedCount(),
-                report.failedCount(),
-                report.stoppedByLimit()
-        );
+        log.atInfo()
+                .addKeyValue("replayedCount", report.replayedCount())
+                .addKeyValue("failedCount", report.failedCount())
+                .addKeyValue("stoppedByLimit", report.stoppedByLimit())
+                .log("command-dlq replay finished");
 
         if (operationsProperties.isCommandDlqReplayExitAfterRun()) {
             int exitCode = report.failedCount() > 0 ? 1 : 0;

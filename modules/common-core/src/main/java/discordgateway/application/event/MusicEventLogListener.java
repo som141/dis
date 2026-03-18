@@ -12,15 +12,14 @@ public class MusicEventLogListener {
 
     @EventListener
     public void onMusicEvent(MusicEvent event) {
-        log.info(
-                "music-event type={} schema={} correlationId={} guild={} producer={} summary={}",
-                event.eventType(),
-                event.schemaVersion(),
-                event.correlationId(),
-                event.guildId(),
-                event.producer(),
-                summarize(event)
-        );
+        log.atInfo()
+                .addKeyValue("eventType", event.eventType())
+                .addKeyValue("schemaVersion", event.schemaVersion())
+                .addKeyValue("correlationId", event.correlationId())
+                .addKeyValue("guildId", event.guildId())
+                .addKeyValue("producer", event.producer())
+                .addKeyValue("summary", summarize(event))
+                .log("music-event");
     }
 
     private String summarize(MusicEvent event) {

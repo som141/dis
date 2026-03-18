@@ -87,6 +87,12 @@ java -jar apps/audio-node-app/build/libs/audio-node-app.jar
 docker compose up -d --build
 ```
 
+관측성 스택 포함 실행:
+
+```powershell
+docker compose --profile observability up -d --build
+```
+
 ## 문서
 
 - [문서 인덱스](/C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/docs/README.md)
@@ -97,6 +103,17 @@ docker compose up -d --build
 - [운영 런북](/C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/docs/OPERATIONS_RUNBOOK.md)
 - [배포 스크립트 가이드](/C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/docs/SERVER_DEPLOY_SCRIPT.md)
 - [작업 로그](/C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/docs/CODEX_WORK_LOG.md)
+- [관측성 스택 설정](/C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/ops/observability/README.md)
+
+## 관측성 상태
+
+현재 구조는 아래까지 반영된 상태다.
+
+- `health`, `info`, `prometheus` Actuator endpoint 노출
+- 콘솔 로그 ECS JSON 구조화
+- `commandId`, `correlationId`, `producer`, `schemaVersion` MDC 전파
+
+다음 단계는 `Grafana + Prometheus + Loki + Alloy` compose 스택 추가다.
 
 ## 현재 기준 정리
 

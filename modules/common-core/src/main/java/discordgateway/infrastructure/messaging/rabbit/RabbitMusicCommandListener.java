@@ -34,14 +34,13 @@ public class RabbitMusicCommandListener {
 
     @RabbitListener(queues = "${messaging.command-queue:music.command.queue}")
     public CommandResult handle(MusicCommandMessage message) {
-        log.info(
-                "music-command rpc commandId={} schema={} producer={} type={} guild={}",
-                message.commandId(),
-                message.schemaVersion(),
-                message.producer(),
-                message.command().getClass().getSimpleName(),
-                message.command().guildId()
-        );
+        log.atInfo()
+                .addKeyValue("commandId", message.commandId())
+                .addKeyValue("schemaVersion", message.schemaVersion())
+                .addKeyValue("producer", message.producer())
+                .addKeyValue("commandType", message.command().getClass().getSimpleName())
+                .addKeyValue("guildId", message.command().guildId())
+                .log("music-command rpc");
 
         ProcessedCommand existing = processedCommandRepository.find(message.commandId());
         if (existing != null) {
@@ -75,11 +74,17 @@ public class RabbitMusicCommandListener {
 
     private CommandResult replayOrDuplicate(ProcessedCommand existing, String commandId) {
         if (existing.status() == CommandProcessingStatus.COMPLETED && existing.result() != null) {
-            log.info("music-command duplicate replay commandId={} status=COMPLETED", commandId);
+            log.atInfo()
+                    .addKeyValue("commandId", commandId)
+                    .addKeyValue("status", "COMPLETED")
+                    .log("music-command duplicate replay");
             return existing.result();
         }
 
-        log.info("music-command duplicate ignored commandId={} status={}", commandId, existing.status());
+        log.atInfo()
+                .addKeyValue("commandId", commandId)
+                .addKeyValue("status", existing.status())
+                .log("music-command duplicate ignored");
         return duplicateInProgress(commandId);
     }
 
@@ -88,7 +93,10 @@ public class RabbitMusicCommandListener {
     }
 
     private AmqpRejectAndDontRequeueException reject(String commandId, Throwable cause) {
-        log.warn("music-command failed commandId={} sending to DLQ", commandId, cause);
+        log.atWarn()
+                .addKeyValue("commandId", commandId)
+                .setCause(cause)
+                .log("music-command failed sending to DLQ");
         return new AmqpRejectAndDontRequeueException(
                 "Command processing failed. commandId=" + commandId,
                 cause

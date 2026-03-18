@@ -175,15 +175,17 @@ public class ApplicationFactory {
             ObjectProvider<MusicCommandBus> musicCommandBusProvider,
             MusicEventPublisher musicEventPublisher
     ) {
-        return args -> log.info(
-                "startup-config application={} node={} commandBus={} eventPublisher={}",
-                environment.getProperty("spring.application.name", "unknown"),
-                appProperties.getNodeName(),
-                Optional.ofNullable(musicCommandBusProvider.getIfAvailable())
-                        .map(bus -> bus.getClass().getSimpleName())
-                        .orElse("none"),
-                musicEventPublisher.getClass().getSimpleName()
-        );
+        return args -> log.atInfo()
+                .addKeyValue("application", environment.getProperty("spring.application.name", "unknown"))
+                .addKeyValue("node", appProperties.getNodeName())
+                .addKeyValue(
+                        "commandBus",
+                        Optional.ofNullable(musicCommandBusProvider.getIfAvailable())
+                                .map(bus -> bus.getClass().getSimpleName())
+                                .orElse("none")
+                )
+                .addKeyValue("eventPublisher", musicEventPublisher.getClass().getSimpleName())
+                .log("startup-config");
     }
 
     @Bean(destroyMethod = "shutdown")

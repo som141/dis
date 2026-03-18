@@ -191,3 +191,13 @@ gateway에서 수정하면 안 되는 범위:
 - recovery 규칙
 - Redis 저장 로직
 - Rabbit command consumer
+
+## 관측성 확인
+
+gateway-app은 공통 설정 기준으로 아래 Actuator endpoint를 노출한다.
+
+- `/actuator/health`
+- `/actuator/info`
+- `/actuator/prometheus`
+
+로그는 `stdout`으로 출력되고, `common-core`의 `logback-spring.xml`을 통해 ECS JSON 구조 로그로 기록된다.

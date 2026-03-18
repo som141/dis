@@ -1,0 +1,131 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: discord-bot-grafana-managed
+    folder: Discord Bot
+    interval: 1m
+    rules:
+      - uid: gateway_down_grafana
+        title: GatewayDownGrafana
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: max(up{job="gateway"} == 0)
+              instant: true
+              intervalMs: 1000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: A
+        noDataState: NoData
+        execErrState: Error
+        for: 1m
+        annotations:
+          summary: gateway 가 응답하지 않습니다
+          description: gateway-app 의 /actuator/prometheus scrape 가 1분 이상 실패했습니다.
+        labels:
+          severity: critical
+          service: gateway
+
+      - uid: audio_node_down_grafana
+        title: AudioNodeDownGrafana
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: max(up{job="audio-node"} == 0)
+              instant: true
+              intervalMs: 1000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: A
+        noDataState: NoData
+        execErrState: Error
+        for: 1m
+        annotations:
+          summary: audio-node 가 응답하지 않습니다
+          description: audio-node-app 의 /actuator/prometheus scrape 가 1분 이상 실패했습니다.
+        labels:
+          severity: critical
+          service: audio-node
+
+      - uid: app_heap_high_grafana
+        title: AppHighJvmHeapUsageGrafana
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 100 * sum by(job) (jvm_memory_used_bytes{area="heap", job=~"gateway|audio-node"}) / sum by(job) (jvm_memory_max_bytes{area="heap", job=~"gateway|audio-node"}) > 85
+              instant: true
+              intervalMs: 1000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: A
+        noDataState: NoData
+        execErrState: Error
+        for: 10m
+        annotations:
+          summary: 애플리케이션 JVM heap 사용률이 높습니다
+          description: gateway 또는 audio-node heap 사용률이 10분 이상 85%를 초과했습니다.
+        labels:
+          severity: warning
+          service: app
+
+      - uid: rabbitmq_consumer_missing_g
+        title: RabbitMqConsumerMissingGrafana
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: max(rabbitmq_consumers{job="rabbitmq"} < 1)
+              instant: true
+              intervalMs: 1000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: A
+        noDataState: NoData
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: RabbitMQ consumer 가 없습니다
+          description: command queue 를 소비하는 consumer 수가 5분 이상 0 입니다.
+        labels:
+          severity: warning
+          service: rabbitmq

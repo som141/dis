@@ -28,7 +28,7 @@ modules/common-core/
     infrastructure/
   src/main/resources/
     application-common.yml
-    logback.xml
+    logback-spring.xml
     smbj.mp3
     gsuck.mp3
 ```
@@ -101,12 +101,14 @@ modules/common-core/
 ## 설정 파일
 
 - [application-common.yml](src/main/resources/application-common.yml)
+- [logback-spring.xml](src/main/resources/logback-spring.xml)
 
 공통 파일에는 아래처럼 실제 공용값만 남아 있다.
 
 - `discord.*`
 - `server.port`
 - `management.*`
+- `logging.structured.*`
 - `messaging.rpc-timeout-ms`
 - `messaging.command-*`
 - `spring.rabbitmq.*`

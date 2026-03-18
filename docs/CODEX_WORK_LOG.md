@@ -634,3 +634,157 @@
 - Spring Boot metrics 공식 문서
 - OpenTelemetry Java 공식 문서
 - Grafana Alerting 공식 문서
+
+## 35. Stage 30
+
+### 수정한 요소
+
+- `modules/common-core/build.gradle`
+- `modules/common-core/src/main/resources/application-common.yml`
+- `modules/common-core/src/main/resources/logback-spring.xml`
+- `modules/common-core/src/main/java/discordgateway/application/MusicCommandTraceContext.java`
+- `modules/common-core/src/main/java/discordgateway/application/MusicWorkerService.java`
+- `modules/common-core/src/main/java/discordgateway/application/event/MusicEventLogListener.java`
+- `modules/common-core/src/main/java/discordgateway/bootstrap/ApplicationFactory.java`
+- `modules/common-core/src/main/java/discordgateway/bootstrap/CommandDlqReplayRunner.java`
+- `modules/common-core/src/main/java/discordgateway/infrastructure/messaging/rabbit/RabbitMusicCommandListener.java`
+- `modules/common-core/README.md`
+- `docs/OBSERVABILITY_PLAN.md`
+
+### 반영 내용
+
+- `micrometer-registry-prometheus`를 추가해서 Spring Boot Actuator가 `/actuator/prometheus`를 노출할 수 있게 정리
+- 공통 설정에서 Actuator 노출 범위를 `health,info,prometheus`로 확장
+- `management.metrics.tags.*`로 기본 메트릭에 `application`, `node` 태그를 붙이도록 정리
+- 기존 평문 `logback.xml`을 `logback-spring.xml` 기반 구조 로그 설정으로 교체
+- 콘솔 로그를 Spring Boot structured logging `ecs` 포맷으로 고정
+- `MusicCommandTraceContext`에 MDC 전파를 추가해서 `commandId`, `correlationId`, `producer`, `schemaVersion`가 구조 필드로 남도록 정리
+- 핵심 운영 로그를 `addKeyValue(...)` 기반 구조 로그로 전환
+  - startup-config
+  - music-command rpc
+  - music-event
+  - join / play 요청 로그
+  - command DLQ replay 결과
+- 관측성 계획 문서도 실제 반영된 파일 경로 기준으로 갱신
+
+### 검증
+
+- `.\gradlew.bat :modules:common-core:compileJava :apps:gateway-app:compileJava :apps:audio-node-app:compileJava :modules:common-core:compileTestJava`
+  - 성공
+
+## 36. Stage 31
+
+### 수정한 요소
+
+- `docker-compose.yml`
+- `.env.example`
+- `ops/observability/README.md`
+- `ops/observability/prometheus/prometheus.yml`
+- `ops/observability/loki/loki-config.yml`
+- `ops/observability/alloy/config.alloy`
+- `ops/observability/grafana/provisioning/datasources/datasources.yml`
+- `ops/observability/grafana/provisioning/dashboards/dashboards.yml`
+- `ops/observability/grafana/dashboards/README.md`
+- `README.md`
+- `docs/README.md`
+- `docs/OPERATIONS_RUNBOOK.md`
+
+### 반영 내용
+
+- 관측성 스택을 기본 앱 실행과 분리하기 위해 `docker compose profile` 기반 `observability` 구성을 추가
+- `prometheus`, `loki`, `alloy`, `redis-exporter`, `grafana` 서비스를 compose에 추가
+- RabbitMQ에 `rabbitmq_prometheus` 플러그인을 켜서 Prometheus scrape 경로를 제공하도록 정리
+- Prometheus scrape 대상을 애플리케이션, Redis exporter, RabbitMQ, Prometheus, Loki, Alloy로 정리
+- Alloy는 Docker socket 기반으로 컨테이너 stdout 로그를 Loki로 전달하도록 구성
+- Grafana datasource provisioning을 추가해서 Prometheus / Loki를 자동 등록
+- `.env.example`에 `APP_ENV`, Grafana 관리자 계정 관련 변수 추가
+- README와 운영 런북에 관측성 스택 실행 명령과 접속 경로 반영
+
+### 검증
+
+- `docker compose config`
+  - 성공
+- `docker compose --profile observability config`
+  - 성공
+- `docker compose --profile observability up -d prometheus loki alloy redis-exporter grafana`
+  - 성공
+- `http://127.0.0.1:9090/-/ready`
+  - `200`
+- `http://127.0.0.1:3100/ready`
+  - `200`
+- `http://127.0.0.1:3000/api/health`
+  - `200`
+- `http://127.0.0.1:8081/actuator/prometheus`
+  - `200`
+- `http://127.0.0.1:8082/actuator/prometheus`
+  - `200`
+
+## 37. Stage 32
+
+### 수정한 파일
+
+- `docker-compose.yml`
+- `ops/observability/prometheus/prometheus.yml`
+- `ops/observability/prometheus/alerts.yml`
+- `ops/observability/grafana/dashboards/discord-bot-app-overview.json`
+- `ops/observability/grafana/dashboards/discord-bot-infra-overview.json`
+- `ops/observability/README.md`
+- `ops/observability/grafana/dashboards/README.md`
+- `docs/OBSERVABILITY_PLAN.md`
+- `docs/OPERATIONS_RUNBOOK.md`
+
+### 반영 내용
+
+- Prometheus 설정에 `rule_files`를 추가하고 기본 알림 규칙 파일을 연결
+- Grafana file provisioning 경로에 기본 대시보드 2개 추가
+  - 앱 상태 / JVM / CPU / 스레드 / 로그율
+  - Redis / RabbitMQ / 관측 스택 상태
+- 현재 실제로 노출되는 메트릭 이름 기준으로 알림 식을 고정
+- 운영 문서에 대시보드 이름과 기본 알림 규칙을 반영
+
+### 검증 예정 항목
+
+- `docker compose --profile observability up -d prometheus grafana`
+- `http://127.0.0.1:9090/api/v1/rules`
+- Grafana dashboard search API 확인
+
+## 38. Stage 33
+
+### 수정한 파일
+
+- `docker-compose.yml`
+- `.env.example`
+- `ops/observability/grafana/provisioning/alerting/contact-points.yml`
+- `ops/observability/grafana/provisioning/alerting/notification-policies.yml`
+- `ops/observability/grafana/provisioning/alerting/alert-rules.yml`
+- `ops/observability/README.md`
+- `docs/OBSERVABILITY_PLAN.md`
+- `docs/OPERATIONS_RUNBOOK.md`
+
+### 반영 내용
+
+- Grafana alerting file provisioning 디렉터리 추가
+- 기본 contact point 를 `observability-noop` 로 두고, Discord webhook 을 위한 `observability-discord` contact point 추가
+- Grafana-managed alert rule 4개 추가
+  - `GatewayDownGrafana`
+  - `AudioNodeDownGrafana`
+  - `AppHighJvmHeapUsageGrafana`
+  - `RabbitMqConsumerMissingGrafana`
+- 운영 문서에 Discord webhook 기반 활성화 절차 반영
+
+### 검증 예정 항목
+
+### 검증
+
+- `docker compose --profile observability up -d grafana`
+  - 성공
+- `http://127.0.0.1:3000/api/health`
+  - `200`
+- `http://127.0.0.1:3000/api/v1/provisioning/contact-points`
+  - `observability-noop`, `observability-discord` 확인
+- `http://127.0.0.1:3000/api/v1/provisioning/policies`
+  - 기본 receiver `observability-noop` 확인
+- `http://127.0.0.1:3000/api/v1/provisioning/alert-rules`
+  - Grafana-managed rule 4개 확인
+- `http://127.0.0.1:3000/api/ruler/grafana/api/v1/rules`
+  - `discord-bot-grafana-managed` rule group 확인

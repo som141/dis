@@ -20,6 +20,12 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-guest}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        rabbitmq-plugins enable --offline rabbitmq_prometheus
+        exec rabbitmq-server
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     healthcheck:
@@ -94,6 +100,102 @@ services:
       - "8082:8080"
     restart: unless-stopped
 
+  prometheus:
+    profiles: ["observability"]
+    image: ${PROMETHEUS_IMAGE:-prom/prometheus:latest}
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    volumes:
+      - ./ops/observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./ops/observability/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      gateway:
+        condition: service_started
+      audio-node:
+        condition: service_started
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  loki:
+    profiles: ["observability"]
+    image: ${LOKI_IMAGE:-grafana/loki:latest}
+    command:
+      - -config.file=/etc/loki/config.yml
+    volumes:
+      - ./ops/observability/loki/loki-config.yml:/etc/loki/config.yml:ro
+      - loki-data:/loki
+    ports:
+      - "3100:3100"
+    restart: unless-stopped
+
+  alloy:
+    profiles: ["observability"]
+    image: ${ALLOY_IMAGE:-grafana/alloy:latest}
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+    volumes:
+      - ./ops/observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - alloy-data:/var/lib/alloy/data
+    ports:
+      - "12345:12345"
+    depends_on:
+      loki:
+        condition: service_started
+    restart: unless-stopped
+
+  redis-exporter:
+    profiles: ["observability"]
+    image: ${REDIS_EXPORTER_IMAGE:-oliver006/redis_exporter:latest}
+    environment:
+      REDIS_ADDR: redis://redis:6379
+    ports:
+      - "9121:9121"
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  grafana:
+    profiles: ["observability"]
+    image: ${GRAFANA_IMAGE:-grafana/grafana:latest}
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_AUTH_ANONYMOUS_ENABLED: ${GRAFANA_ANONYMOUS_ENABLED:-false}
+      GRAFANA_ALERT_DEFAULT_RECEIVER: ${GRAFANA_ALERT_DEFAULT_RECEIVER:-observability-noop}
+      GRAFANA_ALERT_NOOP_WEBHOOK_URL: ${GRAFANA_ALERT_NOOP_WEBHOOK_URL:-http://127.0.0.1:9/disabled}
+      GRAFANA_ALERT_DISCORD_WEBHOOK_URL: ${GRAFANA_ALERT_DISCORD_WEBHOOK_URL:-https://example.invalid/discord-webhook}
+      GRAFANA_ALERT_DISCORD_AVATAR_URL: ${GRAFANA_ALERT_DISCORD_AVATAR_URL:-}
+      GRAFANA_ALERT_DISCORD_USE_USERNAME: ${GRAFANA_ALERT_DISCORD_USE_USERNAME:-true}
+    volumes:
+      - ./ops/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./ops/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      prometheus:
+        condition: service_started
+      loki:
+        condition: service_started
+    restart: unless-stopped
+
 volumes:
   redis-data:
   rabbitmq-data:
+  prometheus-data:
+  loki-data:
+  grafana-data:
+  alloy-data:
