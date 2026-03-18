@@ -12,12 +12,16 @@ import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEve
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import org.jetbrains.annotations.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class DiscordBotListener extends ListenerAdapter {
+
+    private static final Logger log = LoggerFactory.getLogger(DiscordBotListener.class);
 
     private final MusicApplicationService musicApplicationService;
     private final PlayAutocompleteService playAutocompleteService;
@@ -33,7 +37,9 @@ public class DiscordBotListener extends ListenerAdapter {
     @Override
     public void onSlashCommandInteraction(@NotNull SlashCommandInteractionEvent event) {
         if (!event.isFromGuild()) {
-            event.reply("이 봇은 서버(길드) 채널에서만 동작합니다.").setEphemeral(true).queue();
+            event.reply("이 명령은 서버 텍스트 채널에서만 사용할 수 있습니다.")
+                    .setEphemeral(true)
+                    .queue();
             return;
         }
 
@@ -50,17 +56,17 @@ public class DiscordBotListener extends ListenerAdapter {
                 case DiscordCommandCatalog.CMD_RESUME -> handleResume(event);
                 case DiscordCommandCatalog.CMD_SFX -> handleSfx(event);
                 case DiscordCommandCatalog.CMD_PIZZA -> handlePizza(event);
-                default -> event.reply("알 수 없는 커맨드입니다.").setEphemeral(true).queue();
+                default -> event.reply("알 수 없는 명령입니다.").setEphemeral(true).queue();
             }
         } catch (Exception e) {
             if (!event.isAcknowledged()) {
-                event.reply("❌ 명령 처리 중 오류가 발생했습니다: " + e.getMessage())
+                event.reply("명령 처리 중 오류가 발생했습니다: " + e.getMessage())
                         .setEphemeral(true)
                         .queue();
             } else {
-                event.getHook().editOriginal("❌ 명령 처리 중 오류가 발생했습니다: " + e.getMessage()).queue();
+                safeEditOriginal(event, "명령 처리 중 오류가 발생했습니다: " + e.getMessage());
             }
-            e.printStackTrace();
+            log.error("Slash command handling failed. command={}", event.getName(), e);
         }
     }
 
@@ -155,11 +161,16 @@ public class DiscordBotListener extends ListenerAdapter {
             return;
         }
 
+        TextChannel textChannel = requireUsableTextChannel(event, guild);
+        if (textChannel == null) {
+            return;
+        }
+
         event.deferReply(true).queue();
-        musicApplicationService.join(guild, event.getUser().getIdLong())
+        musicApplicationService.join(guild, textChannel, event.getUser().getIdLong())
                 .whenComplete((result, err) -> {
                     if (err != null) {
-                        safeEditOriginal(event, "⚠️ 먼저 음성 채널에 들어가세요!");
+                        safeEditOriginal(event, "먼저 음성 채널에 들어가 주세요.");
                         return;
                     }
                     safeEditOriginal(event, result.message());
@@ -184,7 +195,7 @@ public class DiscordBotListener extends ListenerAdapter {
         musicApplicationService.play(guild, textChannel, event.getUser().getIdLong(), query, autoPlay)
                 .whenComplete((result, err) -> {
                     if (err != null) {
-                        safeEditOriginal(event, "❌ 재생 요청 처리 중 오류: " + err.getMessage());
+                        safeEditOriginal(event, "재생 요청 처리 중 오류가 발생했습니다: " + err.getMessage());
                         return;
                     }
                     safeEditOriginal(event, result.message());
@@ -208,7 +219,7 @@ public class DiscordBotListener extends ListenerAdapter {
         musicApplicationService.playSfx(guild, textChannel, event.getUser().getIdLong(), file)
                 .whenComplete((result, err) -> {
                     if (err != null) {
-                        safeEditOriginal(event, "❌ 효과음 재생 중 오류: " + err.getMessage());
+                        safeEditOriginal(event, "효과음 재생 중 오류가 발생했습니다: " + err.getMessage());
                         return;
                     }
                     safeEditOriginal(event, result.message());
@@ -226,7 +237,7 @@ public class DiscordBotListener extends ListenerAdapter {
 
     private void reply(SlashCommandInteractionEvent event, CommandResult result) {
         if (result == null) {
-            event.reply("❌ 결과가 없습니다.").setEphemeral(true).queue();
+            event.reply("결과가 없습니다.").setEphemeral(true).queue();
             return;
         }
 
@@ -239,19 +250,19 @@ public class DiscordBotListener extends ListenerAdapter {
 
     private Guild requireUsableGuild(SlashCommandInteractionEvent event) {
         if (!event.isFromGuild() || event.getGuild() == null) {
-            event.reply("이 명령어는 서버에서만 사용할 수 있습니다.")
+            event.reply("이 명령은 서버에서만 사용할 수 있습니다.")
                     .setEphemeral(true)
                     .queue();
             return null;
         }
 
         Guild cached = event.getJDA().getGuildById(event.getGuild().getIdLong());
-        return (cached != null) ? cached : event.getGuild();
+        return cached != null ? cached : event.getGuild();
     }
 
     private TextChannel requireUsableTextChannel(SlashCommandInteractionEvent event, Guild guild) {
         if (event.getChannelType() != ChannelType.TEXT) {
-            event.reply("이 명령어는 일반 텍스트 채널에서만 사용할 수 있습니다.")
+            event.reply("이 명령은 일반 텍스트 채널에서만 사용할 수 있습니다.")
                     .setEphemeral(true)
                     .queue();
             return null;
@@ -273,7 +284,7 @@ public class DiscordBotListener extends ListenerAdapter {
         try {
             return event.getChannel().asTextChannel();
         } catch (Exception e) {
-            event.reply("❌ 텍스트 채널 정보를 가져오지 못했습니다.")
+            event.reply("텍스트 채널 정보를 가져오지 못했습니다.")
                     .setEphemeral(true)
                     .queue();
             return null;
@@ -282,9 +293,27 @@ public class DiscordBotListener extends ListenerAdapter {
 
     private void safeEditOriginal(SlashCommandInteractionEvent event, String message) {
         if (event.isAcknowledged()) {
-            event.getHook().editOriginal(message).queue();
+            event.getHook().editOriginal(message).queue(
+                    null,
+                    failure -> log.warn(
+                            "Failed to edit original interaction response. command={} guild={} channel={}",
+                            event.getName(),
+                            event.getGuild() != null ? event.getGuild().getId() : "unknown",
+                            event.getChannel().getId(),
+                            failure
+                    )
+            );
         } else {
-            event.reply(message).setEphemeral(true).queue();
+            event.reply(message).setEphemeral(true).queue(
+                    null,
+                    failure -> log.warn(
+                            "Failed to send interaction response. command={} guild={} channel={}",
+                            event.getName(),
+                            event.getGuild() != null ? event.getGuild().getId() : "unknown",
+                            event.getChannel().getId(),
+                            failure
+                    )
+            );
         }
     }
 
