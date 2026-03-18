@@ -9,11 +9,13 @@ import discordgateway.application.event.MusicEventPublisher;
 import discordgateway.application.event.SpringMusicEventPublisher;
 import discordgateway.domain.MusicEventOutboxRepository;
 import discordgateway.domain.ProcessedCommandRepository;
+import discordgateway.infrastructure.messaging.rabbit.CommandDlqReplayService;
 import discordgateway.infrastructure.messaging.rabbit.RabbitMusicCommandBus;
 import discordgateway.infrastructure.messaging.rabbit.RabbitMusicCommandListener;
 import discordgateway.infrastructure.messaging.rabbit.MusicEventOutboxRelay;
 import discordgateway.infrastructure.messaging.rabbit.RabbitMusicEventSender;
 import discordgateway.infrastructure.messaging.rabbit.RabbitMusicEventPublisher;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.Declarables;
 import org.springframework.amqp.core.DirectExchange;
@@ -70,6 +72,7 @@ public class RabbitMessagingConfiguration {
     @Bean
     @ConditionalOnProperty(prefix = "messaging", name = "command-transport", havingValue = "rabbitmq")
     @ConditionalOnAppRole({AppRole.AUDIO_NODE, AppRole.ALL})
+    @ConditionalOnProperty(prefix = "ops", name = "command-dlq-replay-enabled", havingValue = "false", matchIfMissing = true)
     public RabbitMusicCommandListener rabbitMusicCommandListener(
             MusicWorkerService musicWorkerService,
             ProcessedCommandRepository processedCommandRepository,
@@ -142,6 +145,7 @@ public class RabbitMessagingConfiguration {
 
     @Bean
     @ConditionalOnProperty(prefix = "messaging", name = "event-transport", havingValue = "rabbitmq")
+    @ConditionalOnProperty(prefix = "ops", name = "command-dlq-replay-enabled", havingValue = "false", matchIfMissing = true)
     public MusicEventOutboxRelay musicEventOutboxRelay(
             RabbitMusicEventSender rabbitMusicEventSender,
             MusicEventOutboxRepository musicEventOutboxRepository,
@@ -161,5 +165,36 @@ public class RabbitMessagingConfiguration {
     public Declarables rabbitEventDeclarables(MessagingProperties messagingProperties) {
         TopicExchange exchange = new TopicExchange(messagingProperties.getEventExchange(), true, false);
         return new Declarables(exchange);
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "messaging", name = "command-transport", havingValue = "rabbitmq")
+    public CommandDlqReplayService commandDlqReplayService(
+            RabbitTemplate rabbitTemplate,
+            ObjectMapper objectMapper,
+            MessagingProperties messagingProperties,
+            AppProperties appProperties
+    ) {
+        return new CommandDlqReplayService(
+                rabbitTemplate,
+                objectMapper,
+                messagingProperties,
+                appProperties
+        );
+    }
+
+    @Bean
+    @ConditionalOnProperty(prefix = "messaging", name = "command-transport", havingValue = "rabbitmq")
+    @ConditionalOnProperty(prefix = "ops", name = "command-dlq-replay-enabled", havingValue = "true")
+    public ApplicationRunner commandDlqReplayRunner(
+            CommandDlqReplayService commandDlqReplayService,
+            OperationsProperties operationsProperties,
+            org.springframework.context.ConfigurableApplicationContext applicationContext
+    ) {
+        return new CommandDlqReplayRunner(
+                commandDlqReplayService,
+                operationsProperties,
+                applicationContext
+        );
     }
 }

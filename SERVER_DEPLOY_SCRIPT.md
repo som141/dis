@@ -2,9 +2,9 @@
 
 ## 1. 목적
 
-이 문서는 GitHub Actions가 서버에 전달한 산출물을 어떤 쉘 스크립트로 배포하는지, 그리고 서버에서 어떤 디렉터리 구조와 명령으로 동작하는지 설명한다.
+이 문서는 GitHub Actions가 서버에 전달한 산출물을 어떤 쉘 스크립트로 배포하는지 설명한다.
 
-실제 스크립트 파일은 [deploy.sh](C:/Users/s0302/OneDrive/바탕 화면/portpolio/dis/deploy.sh)다.
+실제 스크립트 파일은 [deploy.sh](C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/deploy.sh)다.
 
 ## 2. 배포 방식
 
@@ -18,6 +18,8 @@
    - `.env.cicd`
    - `docker-compose.yml`
    - `deploy.sh`
+   - `ops/replay-command-dlq.sh`
+   - `ops/smoke-check.sh`
 5. 서버에서 `deploy.sh <git-sha>`를 실행한다.
 6. 스크립트가 이미지를 `docker load`로 적재한다.
 7. `docker compose up -d --no-build --remove-orphans`로 `gateway`, `audio-node`, `redis`, `rabbitmq`를 갱신한다.
@@ -29,18 +31,24 @@
 ```text
 /home/ubuntu/dis-bot
 ├─ incoming
+│  └─ ops
 ├─ releases
 │  ├─ <git-sha>
+│  │  └─ ops
 │  └─ ...
 └─ current -> /home/ubuntu/dis-bot/releases/<git-sha>
 ```
 
-의미는 아래와 같다.
+각 경로의 의미는 아래와 같다.
 
 - `incoming`
   - GitHub Actions가 업로드한 최신 산출물 임시 보관
+- `incoming/ops`
+  - 운영용 보조 스크립트 임시 보관
 - `releases/<git-sha>`
   - 실제 배포 릴리스 디렉터리
+- `releases/<git-sha>/ops`
+  - DLQ 재처리, 스모크 체크용 보조 스크립트
 - `current`
   - 현재 활성 릴리스를 가리키는 심볼릭 링크
 
@@ -49,11 +57,12 @@
 `deploy.sh`는 아래 작업을 수행한다.
 
 - 인자로 받은 `git-sha`를 기준으로 릴리스 디렉터리를 만든다.
-- `incoming`에 올라온 `docker-compose.yml`, `.env.cicd`, 이미지 압축 파일을 릴리스 디렉터리로 복사한다.
+- `incoming` 아래의 `docker-compose.yml`, `.env.cicd`, 이미지 압축 파일을 릴리스 디렉터리로 복사한다.
+- `incoming/ops`가 있으면 릴리스 안으로 같이 복사한다.
 - `docker load`로 이미지 태그를 로컬 Docker에 적재한다.
 - `current` 링크를 새 릴리스로 바꾼다.
 - 새 릴리스 디렉터리에서 `docker compose --env-file .env up -d --no-build --remove-orphans`를 실행한다.
-- 처리 후 `incoming` 파일을 삭제한다.
+- 처리 후 `incoming` 파일과 `incoming/ops`를 정리한다.
 - 오래된 릴리스는 최근 5개만 남기고 정리한다.
 
 ## 5. 필요한 서버 사전 조건
@@ -66,7 +75,7 @@
 최초 1회는 아래처럼 준비하면 된다.
 
 ```bash
-mkdir -p /home/ubuntu/dis-bot/incoming
+mkdir -p /home/ubuntu/dis-bot/incoming/ops
 mkdir -p /home/ubuntu/dis-bot/releases
 chmod +x /home/ubuntu/dis-bot/deploy.sh
 ```
@@ -99,9 +108,15 @@ bash /home/ubuntu/dis-bot/deploy.sh <git-sha>
   - `discord-bot-<git-sha>.tar.gz`
   - `.env.cicd`
   - `docker-compose.yml`
+- 운영 스크립트도 같이 둘 거라면 `/home/ubuntu/dis-bot/incoming/ops` 아래에 넣으면 된다.
 
-## 8. 주의 사항
+## 8. 배포 후 운영 스크립트
 
-- 현재 구조는 `gateway`와 `audio-node`가 동일한 봇 토큰으로 각각 JDA 세션을 연다.
-- 코드 기준으로는 이 구조가 맞지만, 실제 Discord 운영 정책과 세션 충돌 여부는 별도 검증이 필요하다.
-- 따라서 배포는 가능하지만, 운영 검증 전까지는 모니터링을 반드시 붙여서 확인하는 편이 맞다.
+배포가 끝나면 아래 스크립트를 `current/ops` 아래에서 사용할 수 있다.
+
+- [ops/replay-command-dlq.sh](C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/ops/replay-command-dlq.sh)
+  - command DLQ 재처리
+- [ops/smoke-check.sh](C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/ops/smoke-check.sh)
+  - health endpoint와 compose 상태 점검
+
+운영 절차 전체는 [OPERATIONS_RUNBOOK.md](C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/OPERATIONS_RUNBOOK.md)에 정리했다.
