@@ -49,7 +49,6 @@ import net.dv8tion.jda.api.audio.AudioModuleConfig;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -234,7 +233,7 @@ public class ApplicationFactory {
     }
 
     @Bean
-    @ConditionalOnMissingBean(MusicCommandBus.class)
+    @ConditionalOnProperty(prefix = "messaging", name = "command-transport", havingValue = "in-process", matchIfMissing = true)
     public MusicCommandBus musicCommandBus(
             MusicWorkerService musicWorkerService,
             MusicCommandMessageFactory musicCommandMessageFactory
