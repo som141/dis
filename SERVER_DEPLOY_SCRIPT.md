@@ -19,6 +19,7 @@
    - `docker-compose.yml`
    - `deploy.sh`
    - `ops/replay-command-dlq.sh`
+   - `ops/cleanup-legacy-deploy.sh`
    - `ops/smoke-check.sh`
 5. 서버에서 `deploy.sh <git-sha>`를 실행한다.
 6. 스크립트가 이미지를 `docker load`로 적재한다.
@@ -67,6 +68,7 @@
 - 새 릴리스 디렉터리에서 고정 Compose 프로젝트 이름으로 `docker compose --env-file .env up -d --no-build --remove-orphans`를 실행한다.
 - 처리 후 `incoming` 파일과 `incoming/ops`를 정리한다.
 - 오래된 릴리스는 최근 5개만 남기고 정리한다.
+- 각 단계는 `echo` 로그를 남기고, 실패 시 어느 줄에서 죽었는지 출력한다.
 
 현재 기본 Compose 프로젝트 이름은 `discord-bot`이다.
 이 값을 고정한 이유는 릴리스 디렉터리 이름이 매번 바뀌더라도 네트워크와 볼륨, 서비스 수명주기를 같은 프로젝트로 관리하기 위해서다.
@@ -128,6 +130,8 @@ bash /home/ubuntu/dis-bot/deploy.sh <git-sha>
 
 - [ops/replay-command-dlq.sh](C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/ops/replay-command-dlq.sh)
   - command DLQ 재처리
+- [ops/cleanup-legacy-deploy.sh](C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/ops/cleanup-legacy-deploy.sh)
+  - 레거시 배포 컨테이너 정리
 - [ops/smoke-check.sh](C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/ops/smoke-check.sh)
   - health endpoint와 compose 상태 점검
 

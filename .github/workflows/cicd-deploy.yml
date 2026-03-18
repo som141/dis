@@ -114,6 +114,7 @@ jobs:
 
           scp -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \
             "ops/replay-command-dlq.sh" \
+            "ops/cleanup-legacy-deploy.sh" \
             "ops/smoke-check.sh" \
             "${SSH_USER}@${SSH_HOST}:${DEPLOY_DIR}/incoming/ops/"
 
