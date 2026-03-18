@@ -21,6 +21,8 @@
 - Redis 기반 복구와 분산 안전장치 확보
 - GitHub Actions와 서버 스크립트 기반 배포 정리
 
+아키텍처 다이어그램과 컴포넌트별 특징, 워크로드 정리는 [CURRENT_ARCHITECTURE.md](C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/CURRENT_ARCHITECTURE.md)에 별도로 정리했다.
+
 ## 2. 현재 아키텍처 요약
 
 ### Gateway
@@ -280,8 +282,9 @@
 
 - [deploy.sh](C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/deploy.sh)
   - 릴리스 디렉터리 생성
+  - 이전 릴리스 중지
   - 이미지 load
-  - compose 갱신
+  - 고정 Compose 프로젝트 이름 기준 compose 갱신
 - [ops/replay-command-dlq.sh](C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/ops/replay-command-dlq.sh)
   - command DLQ 재처리
 - [ops/smoke-check.sh](C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/ops/smoke-check.sh)

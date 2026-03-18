@@ -4,6 +4,7 @@ set -euo pipefail
 DEPLOY_DIR="${DEPLOY_DIR:-/home/ubuntu/dis-bot}"
 CURRENT_DIR="${DEPLOY_DIR}/current"
 ENV_FILE="${CURRENT_DIR}/.env"
+COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-discord-bot}"
 MAX_MESSAGES="${1:-50}"
 
 if [[ ! -d "${CURRENT_DIR}" ]]; then
@@ -17,7 +18,7 @@ if [[ ! -f "${ENV_FILE}" ]]; then
 fi
 
 pushd "${CURRENT_DIR}" >/dev/null
-docker compose --env-file .env run --rm --no-deps audio-node \
+docker compose --project-name "${COMPOSE_PROJECT_NAME}" --env-file .env run --rm --no-deps audio-node \
   --spring.profiles.active=audio-node \
   --app.node-name=ops-command-dlq-replay \
   --ops.command-dlq-replay-enabled=true \
