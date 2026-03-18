@@ -48,7 +48,7 @@ compose_project_from_env() {
   if [[ ! -f "${env_path}" ]]; then
     return 0
   fi
-  grep -E '^COMPOSE_PROJECT_NAME=' "${env_path}" | tail -n 1 | cut -d '=' -f 2-
+  grep -E '^COMPOSE_PROJECT_NAME=' "${env_path}" | tail -n 1 | cut -d '=' -f 2- || true
 }
 
 compose_in_dir() {

@@ -73,6 +73,7 @@
 현재 기본 Compose 프로젝트 이름은 `discord-bot`이다.
 이 값을 고정한 이유는 릴리스 디렉터리 이름이 매번 바뀌더라도 네트워크와 볼륨, 서비스 수명주기를 같은 프로젝트로 관리하기 위해서다.
 또한 과거 `dis-bot`, `discord-redis`, `discord-rabbitmq`, `discord-gateway`, `discord-audio-node` 같은 레거시 컨테이너와 충돌하지 않도록 deploy 스크립트에서 자동 정리도 수행한다.
+구형 릴리스의 `.env`에 `COMPOSE_PROJECT_NAME`이 없어도 이전 릴리스 정리 단계에서 실패하지 않도록 호환 처리했다.
 
 ## 5. 필요한 서버 사전 조건
 
