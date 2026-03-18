@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+on_error() {
+  local exit_code="$1"
+  local line_no="$2"
+  echo "deploy failed at line ${line_no} with exit code ${exit_code}"
+}
+
+trap 'on_error "$?" "$LINENO"' ERR
+
 if [[ $# -lt 1 ]]; then
   echo "usage: $0 <git-sha>"
   exit 1
@@ -75,6 +83,7 @@ remove_legacy_fixed_name_containers() {
 
 mkdir -p "${RELEASE_DIR}"
 
+echo "preparing release directory: ${RELEASE_DIR}"
 cp "${COMPOSE_FILE}" "${RELEASE_DIR}/docker-compose.yml"
 cp "${ENV_FILE}" "${RELEASE_DIR}/.env"
 cp "${IMAGE_ARCHIVE}" "${RELEASE_DIR}/discord-bot.tar.gz"
@@ -84,21 +93,27 @@ if [[ -d "${OPS_DIR}" ]]; then
   find "${RELEASE_DIR}/ops" -type f -name "*.sh" -exec chmod +x {} \;
 fi
 
+echo "loading docker image archive"
 gzip -dc "${RELEASE_DIR}/discord-bot.tar.gz" | docker load
+
+echo "removing legacy fixed-name containers if present"
+remove_legacy_fixed_name_containers
 
 if [[ -n "${PREVIOUS_RELEASE_DIR}" && -d "${PREVIOUS_RELEASE_DIR}" && "${PREVIOUS_RELEASE_DIR}" != "${RELEASE_DIR}" ]]; then
   PREVIOUS_PROJECT_NAME="$(compose_project_from_env "${PREVIOUS_RELEASE_DIR}/.env")"
   if [[ -f "${PREVIOUS_RELEASE_DIR}/docker-compose.yml" && -f "${PREVIOUS_RELEASE_DIR}/.env" ]]; then
-    compose_in_dir "${PREVIOUS_RELEASE_DIR}" "${PREVIOUS_PROJECT_NAME}" down --remove-orphans
+    echo "stopping previous release: ${PREVIOUS_RELEASE_DIR}"
+    compose_in_dir "${PREVIOUS_RELEASE_DIR}" "${PREVIOUS_PROJECT_NAME}" down --remove-orphans || true
   fi
 fi
 
-remove_legacy_fixed_name_containers
-
+echo "switching current release symlink"
 ln -sfn "${RELEASE_DIR}" "${CURRENT_LINK}"
 
+echo "starting compose project: ${COMPOSE_PROJECT_NAME}"
 compose_in_dir "${RELEASE_DIR}" "${COMPOSE_PROJECT_NAME}" up -d --no-build --remove-orphans
 
+echo "cleaning incoming artifacts"
 rm -f "${IMAGE_ARCHIVE}" "${ENV_FILE}" "${COMPOSE_FILE}"
 rm -rf "${OPS_DIR}"
 find "${RELEASES_DIR}" -mindepth 1 -maxdepth 1 -type d | sort | head -n -5 | xargs -r rm -rf

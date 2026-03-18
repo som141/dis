@@ -113,6 +113,30 @@ bash /home/ubuntu/dis-bot/current/ops/smoke-check.sh
 4. `/skip`, `/stop` 응답 확인
 5. 컨테이너 재시작 후 recovery 동작 확인
 
+## 4-1. 레거시 배포 정리
+
+예전 단일 컨테이너 `dis-bot`이나 구형 `container_name` 기반 컨테이너가 남아 있으면 아래 스크립트로 정리할 수 있다.
+
+```bash
+bash /home/ubuntu/dis-bot/current/ops/cleanup-legacy-deploy.sh
+```
+
+기본 동작:
+
+- 현재 Compose 프로젝트 down
+- `dis-bot`
+- `discord-gateway`
+- `discord-audio-node`
+- `discord-redis`
+- `discord-rabbitmq`
+  - 위 레거시 컨테이너 제거
+
+이미지까지 지우고 싶으면 아래처럼 실행할 수 있다.
+
+```bash
+PURGE_BOT_IMAGES=true bash /home/ubuntu/dis-bot/current/ops/cleanup-legacy-deploy.sh
+```
+
 ## 5. 이중 JDA 세션 검증 포인트
 
 현재 구조는 `gateway`와 `audio-node`가 같은 봇 토큰으로 각각 JDA 세션을 연다.

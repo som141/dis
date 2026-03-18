@@ -373,7 +373,39 @@
 - 운영 스크립트도 같은 Compose 프로젝트 이름을 사용하도록 정리
 - 예전 단일 컨테이너 `dis-bot`과 `container_name` 기반 레거시 컨테이너가 남아 있어도 다음 배포에서 자동 정리되도록 deploy 스크립트 보강
 
-## 23. 검증
+## 23. Stage 22
+
+### 추가 요소
+
+- `ops/cleanup-legacy-deploy.sh`
+
+### 크게 수정한 요소
+
+- `.github/workflows/cicd-deploy.yml`
+- `README.md`
+- `SERVER_DEPLOY_SCRIPT.md`
+- `OPERATIONS_RUNBOOK.md`
+
+### 반영 내용
+
+- 예전 단일 배포와 구형 컨테이너를 서버에서 한 번에 정리할 수 있는 cleanup 스크립트 추가
+- 필요 시 `discord-bot:*` 이미지까지 제거할 수 있는 선택 경로 추가
+- 운영 스크립트 업로드 대상에 cleanup 스크립트를 포함
+
+## 24. Stage 23
+
+### 크게 수정한 요소
+
+- `deploy.sh`
+- `SERVER_DEPLOY_SCRIPT.md`
+
+### 반영 내용
+
+- 서버 배포 스크립트에 단계별 로그 출력 추가
+- 실패 시 몇 번째 줄에서 종료됐는지 바로 보이도록 에러 트랩 추가
+- 이전 릴리스 `docker compose down`이 실패해도 레거시 컨테이너 정리와 새 릴리스 기동으로 이어지도록 보강
+
+## 25. 검증
 
 ### 실행한 검증
 
@@ -393,7 +425,7 @@
 - 실제 Discord 환경 검증
   - 운영 환경 필요
 
-## 24. 원본 지시 md 대비 진행률
+## 26. 원본 지시 md 대비 진행률
 
 기준 문서:
 
@@ -404,7 +436,7 @@
 - 원본 문서 기준 큰 단계는 사실상 `7 / 8` 수준까지 진행
 - 비율로 보면 약 `87.5%`
 
-## 25. 원본 문서와 달라진 점
+## 27. 원본 문서와 달라진 점
 
 - 원본 문서는 Stage 3부터 시작한다고 가정했지만 실제 코드에는 Stage 3 수준 작업이 이미 들어가 있었음
 - 원본 문서는 `Gateway -> Worker -> Audio Node` 완전 3프로세스 분리를 직접 목표로 잡았지만 현재 구현은 `Spring Boot 단일 코드베이스 + gateway 역할 + audio-node 역할 + 내부 worker core` 구조
@@ -420,7 +452,7 @@
   - command DLQ 재처리 운영 모드
   - 배포 후 스모크 체크 스크립트
 
-## 26. 현재 기준 남은 핵심 작업
+## 28. 현재 기준 남은 핵심 작업
 
 - 실제 Discord 운영 환경에서 `gateway` / `audio-node` 이중 JDA 세션 검증
 - command DLQ 재처리 빈도와 실패 패턴 관찰 후 운영 절차 보정

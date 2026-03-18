@@ -66,6 +66,8 @@ java -jar build/libs/TBot1-all.jar --spring.profiles.active=audio-node
 
 - [ops/replay-command-dlq.sh](C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/ops/replay-command-dlq.sh)
   - command DLQ 재처리
+- [ops/cleanup-legacy-deploy.sh](C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/ops/cleanup-legacy-deploy.sh)
+  - 레거시 단일 배포 / 구형 컨테이너 정리
 - [ops/smoke-check.sh](C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/ops/smoke-check.sh)
   - health와 compose 상태 점검
 
