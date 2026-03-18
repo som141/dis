@@ -61,7 +61,7 @@ remove_legacy_fixed_name_containers() {
   local legacy_containers=()
   local name
 
-  for name in discord-gateway discord-audio-node discord-redis discord-rabbitmq; do
+  for name in dis-bot discord-gateway discord-audio-node discord-redis discord-rabbitmq; do
     if docker container inspect "${name}" >/dev/null 2>&1; then
       legacy_containers+=("${name}")
     fi
