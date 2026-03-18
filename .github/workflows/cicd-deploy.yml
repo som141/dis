@@ -17,7 +17,8 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      APP_IMAGE_NAME: discord-bot
+      GATEWAY_IMAGE_NAME: discord-gateway
+      AUDIO_NODE_IMAGE_NAME: discord-audio-node
       COMPOSE_PROJECT_NAME: discord-bot
       DEPLOY_DIR: /home/ubuntu/dis-bot
 
@@ -35,33 +36,47 @@ jobs:
       - name: Build with Gradle
         run: |
           chmod +x ./gradlew
-          ./gradlew clean compileJava compileTestJava bootJar --no-daemon
+          ./gradlew clean compileTestJava bootJarAll --no-daemon
 
-      - name: Build Docker image
+      - name: Build Docker images
         run: |
-          docker build -t "${APP_IMAGE_NAME}:${{ github.sha }}" .
+          docker build -f apps/gateway-app/Dockerfile -t "${GATEWAY_IMAGE_NAME}:${{ github.sha }}" .
+          docker build -f apps/audio-node-app/Dockerfile -t "${AUDIO_NODE_IMAGE_NAME}:${{ github.sha }}" .
 
-      - name: Save Docker image to tar.gz
+      - name: Save Docker images to tar.gz
         run: |
           mkdir -p out
-          docker save "${APP_IMAGE_NAME}:${{ github.sha }}" | gzip > "out/${APP_IMAGE_NAME}-${{ github.sha }}.tar.gz"
+          docker save "${GATEWAY_IMAGE_NAME}:${{ github.sha }}" | gzip > "out/${GATEWAY_IMAGE_NAME}-${{ github.sha }}.tar.gz"
+          docker save "${AUDIO_NODE_IMAGE_NAME}:${{ github.sha }}" | gzip > "out/${AUDIO_NODE_IMAGE_NAME}-${{ github.sha }}.tar.gz"
 
       - name: Create env file
         env:
           DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN || secrets.TOKEN }}
           DISCORD_DEV_GUILD_ID: ${{ secrets.DISCORD_DEV_GUILD_ID }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          YOUTUBE_PO_TOKEN: ${{ secrets.YOUTUBE_PO_TOKEN }}
+          YOUTUBE_VISITOR_DATA: ${{ secrets.YOUTUBE_VISITOR_DATA }}
+          YOUTUBE_REMOTE_CIPHER_URL: ${{ secrets.YOUTUBE_REMOTE_CIPHER_URL }}
+          YOUTUBE_REMOTE_CIPHER_PASSWORD: ${{ secrets.YOUTUBE_REMOTE_CIPHER_PASSWORD }}
+          YOUTUBE_REMOTE_CIPHER_USER_AGENT: ${{ secrets.YOUTUBE_REMOTE_CIPHER_USER_AGENT }}
           RABBITMQ_USERNAME: ${{ secrets.RABBITMQ_USERNAME }}
           RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD }}
         run: |
           mkdir -p out
           {
-            printf "APP_IMAGE_NAME=%s\n" "${APP_IMAGE_NAME}"
-            printf "APP_IMAGE_TAG=%s\n" "${{ github.sha }}"
+            printf "GATEWAY_IMAGE_NAME=%s\n" "${GATEWAY_IMAGE_NAME}"
+            printf "GATEWAY_IMAGE_TAG=%s\n" "${{ github.sha }}"
+            printf "AUDIO_NODE_IMAGE_NAME=%s\n" "${AUDIO_NODE_IMAGE_NAME}"
+            printf "AUDIO_NODE_IMAGE_TAG=%s\n" "${{ github.sha }}"
             printf "COMPOSE_PROJECT_NAME=%s\n" "${COMPOSE_PROJECT_NAME}"
             printf "DISCORD_TOKEN=%s\n" "${DISCORD_TOKEN}"
             printf "DISCORD_DEV_GUILD_ID=%s\n" "${DISCORD_DEV_GUILD_ID}"
             printf "YOUTUBE_REFRESH_TOKEN=%s\n" "${YOUTUBE_REFRESH_TOKEN}"
+            printf "YOUTUBE_PO_TOKEN=%s\n" "${YOUTUBE_PO_TOKEN}"
+            printf "YOUTUBE_VISITOR_DATA=%s\n" "${YOUTUBE_VISITOR_DATA}"
+            printf "YOUTUBE_REMOTE_CIPHER_URL=%s\n" "${YOUTUBE_REMOTE_CIPHER_URL}"
+            printf "YOUTUBE_REMOTE_CIPHER_PASSWORD=%s\n" "${YOUTUBE_REMOTE_CIPHER_PASSWORD}"
+            printf "YOUTUBE_REMOTE_CIPHER_USER_AGENT=%s\n" "${YOUTUBE_REMOTE_CIPHER_USER_AGENT}"
             printf "YOUTUBE_OAUTH_INIT=false\n"
             printf "RABBITMQ_USERNAME=%s\n" "${RABBITMQ_USERNAME}"
             printf "RABBITMQ_PASSWORD=%s\n" "${RABBITMQ_PASSWORD}"
@@ -97,7 +112,11 @@ jobs:
             "mkdir -p '${DEPLOY_DIR}/incoming/ops'"
 
           scp -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \
-            "out/${APP_IMAGE_NAME}-${{ github.sha }}.tar.gz" \
+            "out/${GATEWAY_IMAGE_NAME}-${{ github.sha }}.tar.gz" \
+            "${SSH_USER}@${SSH_HOST}:${DEPLOY_DIR}/incoming/"
+
+          scp -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \
+            "out/${AUDIO_NODE_IMAGE_NAME}-${{ github.sha }}.tar.gz" \
             "${SSH_USER}@${SSH_HOST}:${DEPLOY_DIR}/incoming/"
 
           scp -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \

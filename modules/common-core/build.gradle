@@ -1,0 +1,39 @@
+plugins {
+    id 'java-library'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+dependencies {
+    api platform('org.springframework.boot:spring-boot-dependencies:3.5.5')
+
+    api 'org.springframework.boot:spring-boot-starter'
+    api 'org.springframework.boot:spring-boot-starter-web'
+    api 'org.springframework.boot:spring-boot-starter-actuator'
+    api 'org.springframework.boot:spring-boot-starter-amqp'
+
+    api "dev.arbjerg:lavaplayer:2.2.4"
+    api "dev.lavalink.youtube:common:1.18.0"
+    api "dev.lavalink.youtube:v2:1.18.0"
+
+    api "net.dv8tion:JDA:6.3.1"
+
+    api "moe.kyokobot.libdave:adapter-jda:0.1.2"
+    api "moe.kyokobot.libdave:impl-jni:0.1.2"
+
+    runtimeOnly "moe.kyokobot.libdave:natives-win-x86-64:0.1.2"
+    runtimeOnly "moe.kyokobot.libdave:natives-linux-musl-x86-64:0.1.2"
+
+    api "org.slf4j:slf4j-api:2.0.13"
+    api "ch.qos.logback:logback-classic:1.5.6"
+
+    api 'redis.clients:jedis:5.1.5'
+    annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor:3.5.5'
+
+    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}

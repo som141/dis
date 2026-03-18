@@ -1,11 +1,17 @@
+spring:
+  application:
+    name: audio-node-app
+  config:
+    import: "classpath:application-common.yml"
+
 app:
-  role: gateway
+  role: audio-node
   state-store: redis
   queue-store: redis
   player-state-store: redis
   command-dedup-store: redis
   event-outbox-store: redis
-  node-name: ${APP_NODE_NAME:gateway-1}
+  node-name: ${APP_NODE_NAME:audio-node-1}
 
 messaging:
   command-transport: rabbitmq

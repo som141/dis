@@ -3,19 +3,13 @@ package discordgateway.bootstrap;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import discordgateway.application.DiscordReferenceResolver;
 import discordgateway.application.InProcessMusicCommandBus;
-import discordgateway.application.MusicApplicationService;
 import discordgateway.application.MusicCommandBus;
 import discordgateway.application.MusicCommandMessageFactory;
 import discordgateway.application.MusicWorkerService;
-import discordgateway.application.PlayAutocompleteService;
-import discordgateway.application.PlaybackRecoveryService;
 import discordgateway.application.event.MusicEventFactory;
 import discordgateway.application.event.MusicEventPublisher;
 import discordgateway.application.event.SpringMusicEventPublisher;
 import discordgateway.audio.PlayerManager;
-import discordgateway.discord.DiscordBotListener;
-import discordgateway.discord.DiscordCommandRegistrationListener;
-import discordgateway.discord.PlaybackRecoveryReadyListener;
 import discordgateway.domain.GuildPlaybackLockManager;
 import discordgateway.domain.GuildStateRepository;
 import discordgateway.domain.MusicEventOutboxRepository;
@@ -145,7 +139,6 @@ public class ApplicationFactory {
     @Bean
     public GuildPlaybackLockManager guildPlaybackLockManager(
             AppProperties appProperties,
-            QueueRepository queueRepository,
             ObjectProvider<RedisSupport> redisSupportProvider
     ) {
         if ("redis".equalsIgnoreCase(appProperties.getQueueStore())) {
@@ -242,33 +235,6 @@ public class ApplicationFactory {
     }
 
     @Bean
-    public MusicApplicationService musicApplicationService(MusicCommandBus musicCommandBus) {
-        return new MusicApplicationService(musicCommandBus);
-    }
-
-    @Bean
-    public PlaybackRecoveryService playbackRecoveryService(
-            PlaybackGateway playbackGateway,
-            VoiceGateway voiceGateway,
-            GuildStateRepository guildStateRepository,
-            PlayerStateRepository playerStateRepository,
-            QueueRepository queueRepository
-    ) {
-        return new PlaybackRecoveryService(
-                playbackGateway,
-                voiceGateway,
-                guildStateRepository,
-                playerStateRepository,
-                queueRepository
-        );
-    }
-
-    @Bean
-    public PlayAutocompleteService playAutocompleteService(PlaybackGateway playbackGateway) {
-        return new PlayAutocompleteService(playbackGateway);
-    }
-
-    @Bean
     public ApplicationRunner startupConfigurationLogger(
             AppProperties appProperties,
             MessagingProperties messagingProperties,
@@ -284,34 +250,6 @@ public class ApplicationFactory {
                 musicCommandBus.getClass().getSimpleName(),
                 musicEventPublisher.getClass().getSimpleName()
         );
-    }
-
-    @Bean
-    @ConditionalOnAppRole({AppRole.GATEWAY, AppRole.ALL})
-    public DiscordBotListener discordBotListener(
-            MusicApplicationService musicApplicationService,
-            PlayAutocompleteService playAutocompleteService
-    ) {
-        return new DiscordBotListener(
-                musicApplicationService,
-                playAutocompleteService
-        );
-    }
-
-    @Bean
-    @ConditionalOnAppRole({AppRole.GATEWAY, AppRole.ALL})
-    public DiscordCommandRegistrationListener discordCommandRegistrationListener(
-            DiscordProperties discordProperties
-    ) {
-        return new DiscordCommandRegistrationListener(discordProperties);
-    }
-
-    @Bean
-    @ConditionalOnAppRole({AppRole.AUDIO_NODE, AppRole.ALL})
-    public PlaybackRecoveryReadyListener playbackRecoveryReadyListener(
-            PlaybackRecoveryService playbackRecoveryService
-    ) {
-        return new PlaybackRecoveryReadyListener(playbackRecoveryService);
     }
 
     @Bean(destroyMethod = "shutdown")

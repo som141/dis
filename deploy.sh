@@ -21,7 +21,8 @@ INCOMING_DIR="${DEPLOY_DIR}/incoming"
 RELEASES_DIR="${DEPLOY_DIR}/releases"
 RELEASE_DIR="${RELEASES_DIR}/${SHA}"
 CURRENT_LINK="${DEPLOY_DIR}/current"
-IMAGE_ARCHIVE="${INCOMING_DIR}/discord-bot-${SHA}.tar.gz"
+GATEWAY_IMAGE_ARCHIVE="${INCOMING_DIR}/discord-gateway-${SHA}.tar.gz"
+AUDIONODE_IMAGE_ARCHIVE="${INCOMING_DIR}/discord-audio-node-${SHA}.tar.gz"
 ENV_FILE="${INCOMING_DIR}/.env.cicd"
 COMPOSE_FILE="${INCOMING_DIR}/docker-compose.yml"
 OPS_DIR="${INCOMING_DIR}/ops"
@@ -35,7 +36,8 @@ require_file() {
   fi
 }
 
-require_file "${IMAGE_ARCHIVE}"
+require_file "${GATEWAY_IMAGE_ARCHIVE}"
+require_file "${AUDIONODE_IMAGE_ARCHIVE}"
 require_file "${ENV_FILE}"
 require_file "${COMPOSE_FILE}"
 
@@ -86,15 +88,19 @@ mkdir -p "${RELEASE_DIR}"
 echo "preparing release directory: ${RELEASE_DIR}"
 cp "${COMPOSE_FILE}" "${RELEASE_DIR}/docker-compose.yml"
 cp "${ENV_FILE}" "${RELEASE_DIR}/.env"
-cp "${IMAGE_ARCHIVE}" "${RELEASE_DIR}/discord-bot.tar.gz"
+cp "${GATEWAY_IMAGE_ARCHIVE}" "${RELEASE_DIR}/discord-gateway.tar.gz"
+cp "${AUDIONODE_IMAGE_ARCHIVE}" "${RELEASE_DIR}/discord-audio-node.tar.gz"
 if [[ -d "${OPS_DIR}" ]]; then
   rm -rf "${RELEASE_DIR}/ops"
   cp -R "${OPS_DIR}" "${RELEASE_DIR}/ops"
   find "${RELEASE_DIR}/ops" -type f -name "*.sh" -exec chmod +x {} \;
 fi
 
-echo "loading docker image archive"
-gzip -dc "${RELEASE_DIR}/discord-bot.tar.gz" | docker load
+echo "loading gateway image archive"
+gzip -dc "${RELEASE_DIR}/discord-gateway.tar.gz" | docker load
+
+echo "loading audio-node image archive"
+gzip -dc "${RELEASE_DIR}/discord-audio-node.tar.gz" | docker load
 
 echo "removing legacy fixed-name containers if present"
 remove_legacy_fixed_name_containers
@@ -114,7 +120,7 @@ echo "starting compose project: ${COMPOSE_PROJECT_NAME}"
 compose_in_dir "${RELEASE_DIR}" "${COMPOSE_PROJECT_NAME}" up -d --no-build --remove-orphans
 
 echo "cleaning incoming artifacts"
-rm -f "${IMAGE_ARCHIVE}" "${ENV_FILE}" "${COMPOSE_FILE}"
+rm -f "${GATEWAY_IMAGE_ARCHIVE}" "${AUDIONODE_IMAGE_ARCHIVE}" "${ENV_FILE}" "${COMPOSE_FILE}"
 rm -rf "${OPS_DIR}"
 find "${RELEASES_DIR}" -mindepth 1 -maxdepth 1 -type d | sort | head -n -5 | xargs -r rm -rf
 

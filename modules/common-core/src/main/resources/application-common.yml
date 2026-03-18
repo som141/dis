@@ -1,6 +1,3 @@
-app:
-  role: all
-
 discord:
   token: ${DISCORD_TOKEN:${TOKEN:}}
   dev-guild-id: ${DISCORD_DEV_GUILD_ID:}
@@ -20,8 +17,6 @@ management:
       show-details: always
 
 messaging:
-  command-transport: in-process
-  event-transport: spring
   rpc-timeout-ms: 10000
   command-exchange: music.command.exchange
   command-queue: music.command.queue

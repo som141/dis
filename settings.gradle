@@ -1,2 +1,5 @@
 rootProject.name = 'TBot'
 
+include 'modules:common-core'
+include 'apps:gateway-app'
+include 'apps:audio-node-app'

@@ -1,14 +1,14 @@
-package discordgateway;
+package discordgateway.audionode;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
-@SpringBootApplication
+@SpringBootApplication(scanBasePackages = "discordgateway")
 @EnableScheduling
-public class Main {
+public class AudioNodeApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(Main.class, args);
+        SpringApplication.run(AudioNodeApplication.class, args);
     }
 }
