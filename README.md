@@ -1,15 +1,14 @@
 # Discord Music Bot
 
-현재 저장소는 `gateway-app`, `audio-node-app`, `common-core` 3축으로 정리되어 있다.
+현재 저장소는 `gateway-app`, `audio-node-app`, `common-core`를 분리한 멀티 모듈 구조다. 실제 운영 경로는 아래처럼 고정되어 있다.
 
-핵심 원칙은 단순하다.
-
-- Discord 명령 진입점은 `gateway-app`
-- 실제 재생과 recovery는 `audio-node-app`
-- 공용 도메인과 재생 코어는 `common-core`
-- 상태 저장은 Redis만 사용
-- 앱 간 명령 전달은 RabbitMQ만 사용
-- 로컬 fallback 저장소와 in-process bus는 제거
+- Discord 명령 진입: `apps/gateway-app`
+- 실제 재생 및 복구 실행: `apps/audio-node-app`
+- 공용 도메인, 재생 엔진, Redis/RabbitMQ 인프라: `modules/common-core`
+- 상태 저장소: Redis
+- 명령 전달: RabbitMQ RPC
+- 이벤트 전달: Spring local event
+- 관측성 스택: Prometheus + Loki + Alloy + Grafana
 
 ## 디렉터리 구조
 
@@ -25,103 +24,151 @@ docker-compose.yml
 deploy.sh
 ```
 
-## 모듈 설명
+## 현재 아키텍처 요약
 
-### `apps/gateway-app`
+- `gateway-app`
+  - Discord slash command 수신
+  - autocomplete 처리
+  - 입력 검증
+  - `MusicCommand` 생성
+  - RabbitMQ command producer
+- `audio-node-app`
+  - RabbitMQ command consumer
+  - 음성 채널 연결 및 해제
+  - 실제 트랙 로드/재생/정지/스킵
+  - Redis 상태 복구
+- `common-core`
+  - 공용 command/event 모델
+  - `MusicWorkerService`
+  - `PlayerManager`, `TrackScheduler`
+  - Redis repository
+  - RabbitMQ command infrastructure
+  - 공통 Spring bootstrap
 
-- slash command 수신
-- autocomplete 처리
-- command 생성
-- RabbitMQ command producer
+## 현재 고정된 설계 원칙
 
-자세한 설명:
+- 인메모리 상태 저장소는 없다.
+- in-process command bus는 없다.
+- RabbitMQ event outbox는 제거됐다.
+- `gateway-app`은 명령을 만들고 보내는 쪽이다.
+- `audio-node-app`은 명령을 받아 실제 재생을 수행하는 쪽이다.
+- Redis가 현재 source of truth다.
 
-- [gateway-app README](/C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/apps/gateway-app/README.md)
+## 빠른 시작
 
-### `apps/audio-node-app`
+### 1. 환경변수 준비
 
-- RabbitMQ command consumer
-- 음성 채널 연결
-- 실제 트랙 재생
-- playback recovery
+```powershell
+Copy-Item .env.example .env
+```
 
-자세한 설명:
+최소한 아래 값은 채워야 한다.
 
-- [audio-node-app README](/C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/apps/audio-node-app/README.md)
+- `DISCORD_TOKEN`
+- `RABBITMQ_USERNAME`
+- `RABBITMQ_PASSWORD`
+- 필요시 `DISCORD_DEV_GUILD_ID`
+- YouTube 재생 안정화가 필요하면 `YOUTUBE_REFRESH_TOKEN`, `YOUTUBE_PO_TOKEN`, `YOUTUBE_VISITOR_DATA`, `YOUTUBE_REMOTE_CIPHER_*`
 
-### `modules/common-core`
-
-- command / event 모델
-- worker 로직
-- 재생 엔진
-- Redis 저장소
-- RabbitMQ command 인프라
-
-자세한 설명:
-
-- [common-core README](/C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/modules/common-core/README.md)
-
-## 빠른 실행
-
-전체 JAR 생성:
+### 2. JAR 빌드
 
 ```powershell
 .\gradlew.bat bootJarAll
 ```
 
-gateway만 실행:
+산출물:
 
-```powershell
-java -jar apps/gateway-app/build/libs/gateway-app.jar
-```
+- `apps/gateway-app/build/libs/gateway-app.jar`
+- `apps/audio-node-app/build/libs/audio-node-app.jar`
 
-audio-node만 실행:
+### 3. 로컬 실행
 
-```powershell
-java -jar apps/audio-node-app/build/libs/audio-node-app.jar
-```
-
-로컬 compose 실행:
+기본 스택:
 
 ```powershell
 docker compose up -d --build
 ```
 
-관측성 스택 포함 실행:
+관측성 포함:
 
 ```powershell
 docker compose --profile observability up -d --build
 ```
 
+### 4. 개별 실행
+
+Gateway만 실행:
+
+```powershell
+.\gradlew.bat :apps:gateway-app:bootJar
+java -jar apps/gateway-app/build/libs/gateway-app.jar
+```
+
+Audio Node만 실행:
+
+```powershell
+.\gradlew.bat :apps:audio-node-app:bootJar
+java -jar apps/audio-node-app/build/libs/audio-node-app.jar
+```
+
+## 포트
+
+- Gateway health/actuator: `8081`
+- Audio Node health/actuator: `8082`
+- Redis: `6379`
+- RabbitMQ AMQP: `5672`
+- RabbitMQ Management: `15672`
+- Grafana: `3000`
+- Prometheus: `9090`
+- Loki: `3100`
+- Alloy UI: `12345`
+
+## 관측성
+
+현재 저장소에는 아래가 이미 반영되어 있다.
+
+- `/actuator/prometheus`
+- ECS JSON 콘솔 로그
+- `commandId`, `correlationId` 기반 MDC 전파
+- Grafana datasource provisioning
+- Grafana dashboard provisioning
+- Prometheus alert rule
+- Grafana-managed alert rule
+- Discord webhook 기반 알림 라우팅 준비
+
+기본 알림 수신자는 `observability-noop`이다. 실제 Discord 알림을 켜려면 아래 값을 넣어야 한다.
+
+- `GRAFANA_ALERT_DEFAULT_RECEIVER=observability-discord`
+- `GRAFANA_ALERT_DISCORD_WEBHOOK_URL=<실제 Discord webhook>`
+
+## 원격 배포
+
+GitHub Actions는 `main` push 시 자동 실행된다. 현재 배포는 다음을 포함한다.
+
+- `gateway-app` 이미지
+- `audio-node-app` 이미지
+- `docker-compose.yml`
+- `ops/`
+- `ops/observability/`
+- `.env.cicd`
+
+`OBSERVABILITY_ENABLED=true`면 원격 서버에서도 `prometheus`, `loki`, `alloy`, `redis-exporter`, `grafana`가 같이 올라간다.
+
+## 현재 주의점
+
+- Grafana 관리자 계정은 `GF_SECURITY_ADMIN_USER`, `GF_SECURITY_ADMIN_PASSWORD`를 처음 기동할 때만 적용한다. 기존 `grafana-data` 볼륨이 있으면 나중에 env를 바꿔도 로그인 계정은 자동으로 바뀌지 않는다.
+- YouTube 재생은 로컬과 원격 서버에서 결과가 다를 수 있다. 현재 구조상 코드 차이보다 서버 IP/ASN, YouTube anti-bot 응답 차이의 영향을 더 크게 받는다.
+- `gateway-app`과 `audio-node-app`은 같은 Discord 토큰으로 각각 JDA 세션을 연다. 이 구조는 현재 역할 분리 기준으로 설계된 것이다.
+
 ## 문서
 
-- [문서 인덱스](/C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/docs/README.md)
-- [현재 아키텍처](/C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/docs/CURRENT_ARCHITECTURE.md)
-- [코드베이스 분석](/C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/docs/CODEBASE_ANALYSIS.md)
-- [관측성 계획](/C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/docs/OBSERVABILITY_PLAN.md)
-- [이벤트 계약](/C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/docs/EVENT_CONTRACT.md)
-- [운영 런북](/C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/docs/OPERATIONS_RUNBOOK.md)
-- [배포 스크립트 가이드](/C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/docs/SERVER_DEPLOY_SCRIPT.md)
-- [작업 로그](/C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/docs/CODEX_WORK_LOG.md)
-- [관측성 스택 설정](/C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/ops/observability/README.md)
-
-## 관측성 상태
-
-현재 구조는 아래까지 반영된 상태다.
-
-- `health`, `info`, `prometheus` Actuator endpoint 노출
-- 콘솔 로그 ECS JSON 구조화
-- `commandId`, `correlationId`, `producer`, `schemaVersion` MDC 전파
-
-다음 단계는 `Grafana + Prometheus + Loki + Alloy` compose 스택 추가다.
-
-## 현재 기준 정리
-
-이번 정리 이후 남아 있는 것은 아래뿐이다.
-
-- 실제 소스 코드
-- 실행에 필요한 설정과 배포 파일
-- 운영에 필요한 스크립트
-- 현재 구조를 설명하는 문서
-
-빌드 산출물, IDE 메타파일, 사용하지 않는 fallback 구현, 쓰지 않는 이벤트 outbox 경로는 제거했다.
+- [문서 인덱스](docs/README.md)
+- [현재 아키텍처](docs/CURRENT_ARCHITECTURE.md)
+- [코드베이스 분석](docs/CODEBASE_ANALYSIS.md)
+- [모듈 구조](docs/MODULE_STRUCTURE.md)
+- [이벤트 계약](docs/EVENT_CONTRACT.md)
+- [운영 런북](docs/OPERATIONS_RUNBOOK.md)
+- [배포 스크립트 가이드](docs/SERVER_DEPLOY_SCRIPT.md)
+- [옵저버빌리티 계획](docs/OBSERVABILITY_PLAN.md)
+- [옵저버빌리티 스택 안내](ops/observability/README.md)
+- [작업 로그](docs/CODEX_WORK_LOG.md)

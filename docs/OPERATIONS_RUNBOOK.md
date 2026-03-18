@@ -2,184 +2,197 @@
 
 ## 1. 목적
 
-이 문서는 현재 배포 구조에서 운영자가 바로 써야 하는 절차를 정리한다.
+이 문서는 현재 배포 구조에서 운영자가 바로 사용할 수 있는 점검 절차를 정리한다.
 
-- Linux 서버 런타임 주의점
-- command DLQ 재처리 방법
-- 배포 직후 스모크 체크 방법
-- `gateway` / `audio-node` 이중 JDA 세션 검증 포인트
+대상:
 
-## 2. Linux 런타임 정리
+- 앱 기동 / 정지
+- 장애 확인
+- DLQ 재처리
+- 관측성 스택 확인
+- 배포 후 스모크 체크
 
-현재 애플리케이션 이미지는 [Dockerfile](C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/Dockerfile) 기준 `eclipse-temurin:21-jre-alpine`를 사용한다.
+## 2. 현재 운영 구조
 
-따라서 음성 관련 네이티브 라이브러리는 Alpine Linux 기준 `musl` 호환본이 필요하다.
+- 앱:
+  - `gateway-app`
+  - `audio-node-app`
+- 공통 인프라:
+  - Redis
+  - RabbitMQ
+- 관측성:
+  - Prometheus
+  - Loki
+  - Alloy
+  - redis-exporter
+  - Grafana
 
-[build.gradle](C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/build.gradle)에는 아래 두 런타임 네이티브를 함께 포함했다.
+현재 운영 경로:
 
-- `natives-win-x86-64`
-- `natives-linux-musl-x86-64`
+- 상태 저장소: Redis
+- 명령 전달: RabbitMQ
+- 이벤트 전달: Spring local event
 
-의미는 아래와 같다.
+## 3. 원격 서버 기본 명령
 
-- 로컬 Windows 실행 유지
-- Docker Alpine 배포 이미지에서 음성 재생 가능성 확보
-
-## 2-1. Compose 프로젝트 이름
-
-서버 배포에서는 Compose 프로젝트 이름을 `discord-bot`으로 고정한다.
-
-이 값을 고정한 이유는 아래와 같다.
-
-- 릴리스 디렉터리 이름이 매 배포마다 바뀜
-- 프로젝트 이름을 고정하지 않으면 네트워크와 볼륨 이름도 매번 새로 생김
-- 이전 릴리스 컨테이너와 새 릴리스 컨테이너가 충돌할 수 있음
-
-따라서 서버 운영 스크립트는 항상 같은 Compose 프로젝트 이름으로 스택을 교체한다.
-초기 마이그레이션 구간에서는 예전 단일 컨테이너 `dis-bot`과 `container_name`으로 고정된 레거시 컨테이너를 deploy 스크립트가 함께 정리한다.
-
-## 3. Command DLQ 재처리
-
-### 개요
-
-RabbitMQ command consumer는 실패한 명령을 DLQ로 보낸다.
-
-- 메인 큐: `messaging.command-queue`
-- DLQ: `messaging.command-dead-letter-queue`
-
-재처리는 애플리케이션의 운영 모드를 통해 수행한다.
-
-### 동작 방식
-
-DLQ 재처리 모드가 켜지면 아래 순서로 동작한다.
-
-1. DLQ에서 메시지를 하나씩 읽는다.
-2. JSON body를 `MusicCommandMessage`로 역직렬화한다.
-3. 메인 command exchange로 다시 발행한다.
-4. 발행이 성공하면 DLQ 메시지를 ack 한다.
-5. 발행이 실패하면 해당 메시지를 다시 DLQ로 requeue 하고 중단한다.
-
-이 모드에서는 일반 서비스 기동과 충돌하지 않도록 아래 기능을 비활성화했다.
-
-- JDA 세션 기동
-- command consumer 기동
-- event outbox relay 기동
-
-### 서버에서 실행하는 방법
-
-서버에는 [ops/replay-command-dlq.sh](C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/ops/replay-command-dlq.sh)를 함께 배포한다.
-
-기본 사용법:
+작업 디렉터리:
 
 ```bash
-bash /home/ubuntu/dis-bot/current/ops/replay-command-dlq.sh
+cd /home/ubuntu/dis-bot/current
 ```
 
-최대 재처리 개수 지정:
+전체 상태 확인:
 
 ```bash
-bash /home/ubuntu/dis-bot/current/ops/replay-command-dlq.sh 100
+docker compose --env-file .env ps
 ```
 
-이 스크립트는 내부적으로 `audio-node` 컨테이너 이미지를 재사용해 아래 운영 옵션으로 1회성 실행을 수행한다.
+관측성 포함 상태 확인:
 
-- `--ops.command-dlq-replay-enabled=true`
-- `--ops.command-dlq-replay-exit-after-run=true`
-- `--ops.command-dlq-replay-max-messages=<개수>`
+```bash
+docker compose --profile observability --env-file .env ps
+```
 
-## 4. 배포 직후 스모크 체크
+## 4. 봇 정지 / 시작
 
-### 자동 확인
+앱만 잠깐 정지:
 
-서버에는 [ops/smoke-check.sh](C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/ops/smoke-check.sh)를 함께 배포한다.
+```bash
+docker compose --project-name discord-bot --env-file .env stop gateway audio-node
+```
+
+앱만 다시 시작:
+
+```bash
+docker compose --project-name discord-bot --env-file .env start gateway audio-node
+```
+
+전체 스택 정지:
+
+```bash
+docker compose --project-name discord-bot --env-file .env stop
+```
+
+전체 스택 시작:
+
+```bash
+docker compose --project-name discord-bot --env-file .env start
+```
+
+## 5. 로그 확인
+
+앱 로그:
+
+```bash
+docker compose --project-name discord-bot --env-file .env logs gateway --tail=200
+docker compose --project-name discord-bot --env-file .env logs audio-node --tail=200
+```
+
+실시간 추적:
+
+```bash
+docker compose --project-name discord-bot --env-file .env logs -f gateway audio-node
+```
+
+관측성 로그:
+
+```bash
+docker compose --project-name discord-bot --profile observability --env-file .env logs grafana --tail=200
+docker compose --project-name discord-bot --profile observability --env-file .env logs prometheus --tail=200
+```
+
+## 6. 헬스 체크
+
+Gateway:
+
+```bash
+curl http://127.0.0.1:8081/actuator/health
+```
+
+Audio Node:
+
+```bash
+curl http://127.0.0.1:8082/actuator/health
+```
+
+Prometheus:
+
+```bash
+curl http://127.0.0.1:9090/-/ready
+```
+
+Grafana:
+
+```bash
+curl http://127.0.0.1:3000/api/health
+```
+
+## 7. 스모크 체크
+
+배포 직후:
 
 ```bash
 bash /home/ubuntu/dis-bot/current/ops/smoke-check.sh
 ```
 
-이 스크립트는 아래를 확인한다.
+추가 수동 확인:
 
-- `docker compose ps`
-- `http://127.0.0.1:8081/actuator/health`
-- `http://127.0.0.1:8082/actuator/health`
-
-### 수동 확인
-
-자동 확인 뒤에는 Discord에서 아래를 직접 확인해야 한다.
-
-1. slash command가 보이는지 확인
+1. slash command가 Discord에서 보이는지 확인
 2. `/join` 응답 확인
 3. `/play`로 실제 재생 확인
 4. `/skip`, `/stop` 응답 확인
-5. 컨테이너 재시작 후 recovery 동작 확인
+5. 컨테이너 재시작 후 recovery 확인
 
-## 4-1. 레거시 배포 정리
+## 8. Command DLQ 재처리
 
-예전 단일 컨테이너 `dis-bot`이나 구형 `container_name` 기반 컨테이너가 남아 있으면 아래 스크립트로 정리할 수 있다.
+기본 실행:
+
+```bash
+bash /home/ubuntu/dis-bot/current/ops/replay-command-dlq.sh
+```
+
+최대 메시지 수 제한:
+
+```bash
+bash /home/ubuntu/dis-bot/current/ops/replay-command-dlq.sh 100
+```
+
+동작 방식:
+
+1. DLQ에서 메시지를 읽는다.
+2. `MusicCommandMessage`로 역직렬화한다.
+3. 메인 command exchange로 다시 발행한다.
+4. 성공 시 ACK
+5. 실패 시 중단
+
+DLQ 재처리 모드에서는 JDA와 일반 command consumer가 같이 뜨지 않도록 구성되어 있다.
+
+## 9. 레거시 컨테이너 정리
+
+예전 배포 잔재가 남아 있으면:
 
 ```bash
 bash /home/ubuntu/dis-bot/current/ops/cleanup-legacy-deploy.sh
 ```
 
-기본 동작:
-
-- 현재 Compose 프로젝트 down
-- `dis-bot`
-- `discord-gateway`
-- `discord-audio-node`
-- `discord-redis`
-- `discord-rabbitmq`
-  - 위 레거시 컨테이너 제거
-
-이미지까지 지우고 싶으면 아래처럼 실행할 수 있다.
+이미지까지 정리:
 
 ```bash
 PURGE_BOT_IMAGES=true bash /home/ubuntu/dis-bot/current/ops/cleanup-legacy-deploy.sh
 ```
 
-## 5. 이중 JDA 세션 검증 포인트
+## 10. 관측성 스택
 
-현재 구조는 `gateway`와 `audio-node`가 같은 봇 토큰으로 각각 JDA 세션을 연다.
-
-코드상 역할 분리는 되어 있다.
-
-- `gateway`
-  - slash command 수신
-  - command 등록
-- `audio-node`
-  - recovery
-  - playback 처리
-  - RabbitMQ consumer
-
-운영에서 반드시 확인할 항목은 아래다.
-
-1. slash command 응답이 중복되지 않는지
-2. `audio-node` ready 이후 recovery가 한 번만 수행되는지
-3. voice join / play / stop이 정상 동작하는지
-4. 재배포 후 세션 reconnect 과정에서 명령 누락이 없는지
-
-## 6. 현재 기준 남은 작업
-
-이번 런북 반영 이후에도 완전히 끝난 것은 아니다.
-
-- 실제 Discord 운영 환경에서 이중 JDA 세션을 실배포 검증
-- command DLQ 재처리 운영 빈도와 실패 패턴 관찰
-- observability 대시보드 / 알림 규칙 고도화
-
-## 7. 관측성 스택 실행
-
-관측성 스택은 기본 compose에 `observability` profile로 붙어 있다.
-
-실행:
+기동:
 
 ```bash
-docker compose --profile observability up -d prometheus loki alloy redis-exporter grafana
+docker compose --profile observability --env-file .env up -d prometheus loki alloy redis-exporter grafana
 ```
 
-중지:
+정지:
 
 ```bash
-docker compose --profile observability stop prometheus loki alloy redis-exporter grafana
+docker compose --profile observability --env-file .env stop prometheus loki alloy redis-exporter grafana
 ```
 
 접속:
@@ -189,65 +202,30 @@ docker compose --profile observability stop prometheus loki alloy redis-exporter
 - Loki: `http://127.0.0.1:3100`
 - Alloy: `http://127.0.0.1:12345`
 
-기본 계정:
+## 11. Grafana 운영 주의점
 
-- ID: `admin`
-- Password: `.env`의 `GRAFANA_ADMIN_PASSWORD`
+- `GRAFANA_ADMIN_USER`, `GRAFANA_ADMIN_PASSWORD`는 최초 기동 시점에만 적용된다.
+- 기존 `grafana-data` 볼륨이 있으면 env 변경만으로 계정이 바뀌지 않는다.
 
-기본 scrape 대상:
+비밀번호 재설정:
 
-- `gateway:8080/actuator/prometheus`
-- `audio-node:8080/actuator/prometheus`
-- `redis-exporter:9121/metrics`
-- `rabbitmq:15692/metrics`
-- `prometheus:9090/metrics`
-- `loki:3100/metrics`
-- `alloy:12345/metrics`
+```bash
+docker compose --profile observability --env-file .env exec grafana grafana cli --homepath /usr/share/grafana admin reset-admin-password '<새비밀번호>'
+```
 
-원격 CI/CD 기준:
+## 12. 알림
 
-- `OBSERVABILITY_ENABLED=true`면 배포 시 관측성 스택도 같이 올라간다.
-- `OBSERVABILITY_ENABLED=false`면 앱 스택만 올라간다.
+기본 상태:
 
-## 8. 기본 대시보드와 알림 규칙
+- `GRAFANA_ALERT_DEFAULT_RECEIVER=observability-noop`
 
-기본 대시보드:
+Discord 알림 활성화:
 
-- `Discord Bot App Overview`
-- `Discord Bot Infra Overview`
+- `GRAFANA_ALERT_DEFAULT_RECEIVER=observability-discord`
+- `GRAFANA_ALERT_DISCORD_WEBHOOK_URL=<실제 webhook>`
 
-Prometheus 기본 알림 규칙:
+## 13. 현재 알려진 운영 리스크
 
-- `GatewayDown`
-- `AudioNodeDown`
-- `RedisExporterDown`
-- `RabbitMqExporterDown`
-- `AppHighJvmHeapUsage`
-- `ApplicationErrorLogsDetected`
-- `RabbitMqConsumerMissing`
-- `RabbitMqQueueBacklog`
-- `RabbitMqUnackedBacklog`
-
-현재 상태:
-
-- 규칙은 Prometheus 에 로드된다.
-- 대시보드는 Grafana file provisioning 으로 자동 로드된다.
-- Grafana-managed alert rule 과 contact point 도 provisioning 으로 자동 로드된다.
-- 기본 수신자는 `observability-noop` 이고, 이는 더미 webhook 으로 흘려보내는 안전 기본값이다.
-- 실제 통지 라우팅은 Grafana-managed alert rule 기준이다.
-- Prometheus rule 은 `/rules`, `/alerts` 에서 상태를 보는 용도로 남겨둔 상태다.
-
-확인 경로:
-
-- Prometheus rules: `http://127.0.0.1:9090/rules`
-- Prometheus alerts: `http://127.0.0.1:9090/alerts`
-- Grafana dashboards: `http://127.0.0.1:3000`
-- Grafana alert rules: `http://127.0.0.1:3000/alerting/list`
-
-알림 전송 활성화:
-
-1. `.env` 또는 서버 배포 환경 변수에 아래를 넣는다.
-   - `GRAFANA_ALERT_DEFAULT_RECEIVER=observability-discord`
-   - `GRAFANA_ALERT_DISCORD_WEBHOOK_URL=<실제 Discord webhook URL>`
-2. Grafana 를 재기동한다.
-3. `Alerting -> Contact points` 와 `Alerting -> Notification policies` 에서 적용 상태를 확인한다.
+- 원격 서버에서 YouTube 재생이 로컬보다 더 자주 실패할 수 있다.
+- 이 문제는 현재까지의 관측상 코드 자체보다 서버 IP/ASN과 YouTube 응답 차이의 영향을 크게 받는다.
+- `gateway-app`과 `audio-node-app`은 같은 Discord 토큰으로 각각 JDA 세션을 연다.

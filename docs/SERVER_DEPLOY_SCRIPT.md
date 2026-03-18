@@ -1,68 +1,81 @@
 # 서버 배포 스크립트 가이드
 
-## 1. 목적
+## 1. 개요
 
-이 문서는 GitHub Actions와 서버의 [deploy.sh](/C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/deploy.sh)가 현재 프로젝트를 어떻게 배포하는지 정리한 문서다.
+현재 원격 배포는 GitHub Actions와 `deploy.sh`를 기준으로 동작한다.
 
-현재 배포 구조는 다음 기준으로 동작한다.
+배포 대상:
 
-- `gateway`
-- `audio-node`
+- `gateway-app`
+- `audio-node-app`
 - `redis`
 - `rabbitmq`
-- `prometheus`
-- `loki`
-- `alloy`
-- `redis-exporter`
-- `grafana`
+- 관측성 스택
+  - `prometheus`
+  - `loki`
+  - `alloy`
+  - `redis-exporter`
+  - `grafana`
 
 단, 관측성 스택은 `OBSERVABILITY_ENABLED=true`일 때만 같이 올라간다.
 
 ## 2. 배포 흐름
 
-현재 배포는 아래 순서로 진행된다.
-
-1. GitHub Actions가 `bootJarAll`로 애플리케이션을 빌드한다.
-2. `gateway`, `audio-node` Docker 이미지를 `<git-sha>` 태그로 만든다.
-3. 이미지를 `tar.gz`로 묶는다.
-4. `docker-compose.yml`, `.env.cicd`, `ops/` 디렉터리를 서버 `incoming`으로 업로드한다.
-5. 서버에서 `deploy.sh <git-sha>`를 실행한다.
-6. `deploy.sh`가 새 release 디렉터리를 만들고 파일을 복사한다.
-7. `docker load`로 이미지를 적재한다.
-8. 이전 release가 있으면 먼저 `docker compose down --remove-orphans`로 내린다.
-9. `OBSERVABILITY_ENABLED=true`면 `--profile observability`로 같이 올린다.
-10. `current` 심볼릭 링크를 새 release로 바꾼다.
+1. `main` push 또는 workflow_dispatch
+2. GitHub Actions가 `bootJarAll` 수행
+3. `gateway-app`, `audio-node-app` 이미지를 `<git-sha>` 태그로 빌드
+4. 이미지를 `tar.gz`로 저장
+5. `.env.cicd`, `docker-compose.yml`, `ops/`, `ops/observability/`를 서버 `incoming`으로 업로드
+6. 서버에서 `deploy.sh <git-sha>` 실행
+7. `deploy.sh`가 release 디렉터리를 만들고 파일을 복사
+8. `docker load`로 이미지를 적재
+9. 이전 release가 있으면 `docker compose down --remove-orphans`
+10. 새 release를 `current` 심볼릭 링크로 전환
+11. `OBSERVABILITY_ENABLED` 값에 따라 일반 compose 또는 `--profile observability`로 기동
 
 ## 3. 서버 디렉터리 구조
 
 ```text
 /home/ubuntu/dis-bot
-├─ incoming
-│  └─ ops
-│     └─ observability
-├─ releases
-│  └─ <git-sha>
-│     └─ ops
-│        └─ observability
+├─ incoming/
+│  └─ ops/
+│     └─ observability/
+├─ releases/
+│  └─ <git-sha>/
+│     ├─ docker-compose.yml
+│     ├─ .env
+│     ├─ discord-gateway.tar.gz
+│     ├─ discord-audio-node.tar.gz
+│     └─ ops/
+│        └─ observability/
 └─ current -> /home/ubuntu/dis-bot/releases/<git-sha>
 ```
 
-## 4. deploy.sh 동작
+## 4. `deploy.sh`가 하는 일
 
-[deploy.sh](/C:/Users/s0302/OneDrive/바탕%20화면/portpolio/dis/deploy.sh)는 아래 작업을 수행한다.
+- release 디렉터리 생성
+- `incoming` 파일 복사
+- `ops/` 복사 및 실행 권한 부여
+- gateway/audio-node 이미지 `docker load`
+- 레거시 고정 이름 컨테이너 자동 정리
+- 이전 release compose down
+- `current` 심볼릭 링크 갱신
+- `OBSERVABILITY_ENABLED`에 따라 compose up
+- `incoming` 정리
+- 오래된 release 5개만 유지
 
-- `incoming`의 `docker-compose.yml`, `.env.cicd`, 이미지 아카이브를 release 디렉터리로 복사
-- `incoming/ops` 전체를 release 디렉터리로 복사
-- `docker load`로 `gateway`, `audio-node` 이미지 적재
-- 이전 release의 `.env`에서 `COMPOSE_PROJECT_NAME`, `OBSERVABILITY_ENABLED`를 읽어 이전 스택 정리
-- `current` 링크 교체
-- 새 release의 `.env`에서 `OBSERVABILITY_ENABLED`를 읽어:
-  - `false`면 일반 compose 기동
-  - `true`면 `--profile observability` 포함 기동
+## 5. Compose 프로젝트 이름
 
-## 5. GitHub Secrets / Variables
+원격 배포는 `COMPOSE_PROJECT_NAME=discord-bot` 기준으로 고정되어 있다.
 
-### 필수 Secrets
+이렇게 하는 이유:
+
+- release 디렉터리 이름이 바뀌어도 compose 프로젝트명이 매번 달라지지 않게 하기 위해서
+- 예전 `container_name` 충돌 문제를 피하기 위해서
+
+## 6. GitHub Secrets
+
+### 필수
 
 - `SSH_PRIVATE_KEY`
 - `SSH_HOST`
@@ -72,7 +85,7 @@
 - `RABBITMQ_USERNAME`
 - `RABBITMQ_PASSWORD`
 
-### 권장 Secrets
+### 권장
 
 - `DISCORD_DEV_GUILD_ID`
 - `YOUTUBE_REFRESH_TOKEN`
@@ -85,47 +98,29 @@
 - `GRAFANA_ADMIN_PASSWORD`
 - `GRAFANA_ALERT_DISCORD_WEBHOOK_URL`
 
-### 권장 Variables
+## 7. GitHub Variables
 
-- `APP_ENV`
-- `OBSERVABILITY_ENABLED`
-- `GRAFANA_ANONYMOUS_ENABLED`
-- `GRAFANA_ALERT_DEFAULT_RECEIVER`
-- `GRAFANA_ALERT_NOOP_WEBHOOK_URL`
-- `GRAFANA_ALERT_DISCORD_AVATAR_URL`
-- `GRAFANA_ALERT_DISCORD_USE_USERNAME`
+권장 값:
+
+- `APP_ENV=prod`
+- `OBSERVABILITY_ENABLED=true`
+- `GRAFANA_ANONYMOUS_ENABLED=false`
+- `GRAFANA_ALERT_DEFAULT_RECEIVER=observability-noop`
+- `GRAFANA_ALERT_NOOP_WEBHOOK_URL=http://127.0.0.1:9/disabled`
+- `GRAFANA_ALERT_DISCORD_AVATAR_URL=`
+- `GRAFANA_ALERT_DISCORD_USE_USERNAME=true`
+
+이미지 버전 오버라이드가 필요하면:
+
 - `GRAFANA_IMAGE`
 - `PROMETHEUS_IMAGE`
 - `LOKI_IMAGE`
 - `ALLOY_IMAGE`
 - `REDIS_EXPORTER_IMAGE`
 
-기본 권장값:
+## 8. 관측성 자동 배포 조건
 
-- `APP_ENV=prod`
-- `OBSERVABILITY_ENABLED=true`
-- `GRAFANA_ANONYMOUS_ENABLED=false`
-- `GRAFANA_ALERT_DEFAULT_RECEIVER=observability-noop`
-
-실제 Discord 알림까지 켜려면:
-
-- `GRAFANA_ALERT_DEFAULT_RECEIVER=observability-discord`
-- `GRAFANA_ALERT_DISCORD_WEBHOOK_URL=<실제 Discord webhook URL>`
-
-## 6. YouTube 재생 관련 환경변수
-
-다음 값은 필요 시 순서대로 붙인다.
-
-1. `YOUTUBE_REFRESH_TOKEN`
-2. `YOUTUBE_PO_TOKEN`
-3. `YOUTUBE_VISITOR_DATA`
-4. `YOUTUBE_REMOTE_CIPHER_URL`
-5. `YOUTUBE_REMOTE_CIPHER_PASSWORD`
-6. `YOUTUBE_REMOTE_CIPHER_USER_AGENT`
-
-## 7. 관측성 자동 배포 조건
-
-`OBSERVABILITY_ENABLED=true`일 때:
+`OBSERVABILITY_ENABLED=true`면 아래가 같이 올라간다.
 
 - `prometheus`
 - `loki`
@@ -133,19 +128,11 @@
 - `redis-exporter`
 - `grafana`
 
-가 release와 함께 자동 기동된다.
+`false`면 앱과 Redis/RabbitMQ만 올라간다.
 
-또한 `ops/observability/**` 파일도 서버 release 디렉터리로 같이 업로드된다.
+## 9. 수동 배포
 
-## 8. 수동 배포
-
-GitHub Actions 없이도 아래처럼 가능하다.
-
-```bash
-bash /home/ubuntu/dis-bot/deploy.sh <git-sha>
-```
-
-단, 먼저 `/home/ubuntu/dis-bot/incoming` 아래에 아래 파일이 있어야 한다.
+GitHub Actions 없이 수동으로 하려면 먼저 `incoming/`에 아래를 넣어야 한다.
 
 - `discord-gateway-<git-sha>.tar.gz`
 - `discord-audio-node-<git-sha>.tar.gz`
@@ -153,22 +140,35 @@ bash /home/ubuntu/dis-bot/deploy.sh <git-sha>
 - `docker-compose.yml`
 - `ops/`
 
-## 9. 수동 확인
+그 다음:
 
-관측성 포함 전체 스택 확인:
+```bash
+bash /home/ubuntu/dis-bot/deploy.sh <git-sha>
+```
+
+## 10. 배포 후 확인
+
+전체 상태:
+
+```bash
+cd /home/ubuntu/dis-bot/current
+docker compose --env-file .env ps
+```
+
+관측성 포함 상태:
 
 ```bash
 cd /home/ubuntu/dis-bot/current
 docker compose --profile observability --env-file .env ps
 ```
 
-Grafana health 확인:
+Grafana health:
 
 ```bash
 curl http://127.0.0.1:3000/api/health
 ```
 
-Prometheus rules 확인:
+Prometheus rules:
 
 ```bash
 curl http://127.0.0.1:9090/api/v1/rules

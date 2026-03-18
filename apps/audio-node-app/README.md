@@ -2,69 +2,51 @@
 
 ## 역할
 
-`audio-node-app`은 실제 명령 실행과 재생 상태 관리를 담당하는 실행 앱이다.
+`audio-node-app`은 명령을 실제로 수행하는 실행 노드다. 재생, 음성 연결, 상태 전이, 복구는 모두 이 앱에서 시작된다.
 
 현재 책임은 아래로 고정되어 있다.
 
-- RabbitMQ command 수신
-- 음성 채널 연결과 해제
-- 트랙 로드와 재생
-- 재생 상태 전이
-- playback recovery
-- 로컬 Spring 이벤트 발행
-- Redis 상태 저장
+- RabbitMQ command consumer
+- 음성 채널 연결 및 해제
+- 트랙 로드, 재생, 정지, 스킵
+- Redis 상태 반영
+- 기동 시 playback recovery
+- Spring local event 발행
 
-## 현재 구조
+## 주요 클래스
 
-```text
-apps/audio-node-app/
-  build.gradle
-  Dockerfile
-  README.md
-  src/main/java/discordgateway/audionode/
-    AudioNodeApplication.java
-    AudioNodeComponentConfiguration.java
-  src/main/java/discordgateway/application/
-    PlaybackRecoveryService.java
-  src/main/java/discordgateway/discord/
-    PlaybackRecoveryReadyListener.java
-  src/main/resources/
-    application.yml
-```
+### `discordgateway.audionode.AudioNodeApplication`
 
-## 핵심 클래스
+- audio-node-app의 Spring Boot 메인 클래스
+- 최종 실행 JAR의 진입점
 
-### `AudioNodeApplication`
+### `discordgateway.audionode.AudioNodeComponentConfiguration`
 
-- audio-node 앱의 Spring Boot 진입점
-- 최종 실행 JAR의 `main class`
-
-### `AudioNodeComponentConfiguration`
-
-- audio-node 전용 bean 등록
+- audio-node 전용 bean 구성
 - `RabbitMusicCommandListener`
 - `PlaybackRecoveryService`
 - `PlaybackRecoveryReadyListener`
 
-### `RabbitMusicCommandListener`
+### `discordgateway.infrastructure.messaging.rabbit.RabbitMusicCommandListener`
 
-- RabbitMQ queue에서 `MusicCommandMessage` 수신
-- command dedup과 DLQ 경계 처리
+- RabbitMQ queue에서 `MusicCommandMessage` 소비
+- command dedup
+- 실패 시 DLQ 경계 처리
 - `MusicWorkerService` 호출
 
-### `PlaybackRecoveryService`
+### `discordgateway.application.PlaybackRecoveryService`
 
-- Redis에 저장된 guild/player/queue 상태 기준 복구
+- Redis에 저장된 guild, player, queue 상태를 기준으로 복구 수행
 
-### `PlaybackRecoveryReadyListener`
+### `discordgateway.discord.PlaybackRecoveryReadyListener`
 
 - JDA Ready 이후 recovery 시작
 
 ## 실제 재생 엔진 위치
 
-audio-node가 실행 앱이지만, 실제 재생 엔진 구현은 `modules/common-core`에 있다.
+`audio-node-app` 자체는 실행 경계이고, 실제 재생 코어는 `common-core`에 있다.
 
-핵심 공용 클래스:
+중심 클래스:
 
 - `MusicWorkerService`
 - `PlayerManager`
@@ -72,40 +54,41 @@ audio-node가 실행 앱이지만, 실제 재생 엔진 구현은 `modules/commo
 - `LavaPlayerPlaybackGateway`
 - `JdaVoiceGateway`
 
-즉 `audio-node-app`은 실행 경계이고, 재생 코어는 `common-core`다.
+즉 `audio-node-app`은 실행 노드, `common-core`는 재생 코어다.
 
-## 현재 고정 구조
+## 고정된 설계
 
-audio-node는 더 이상 선택형 저장소나 transport를 쓰지 않는다.
+- command consumer: `RabbitMusicCommandListener`
+- 상태 저장소: Redis만 사용
+- 이벤트 transport: Spring local event
+- in-memory fallback 없음
+- in-process bus 없음
 
-- command 소비: `RabbitMusicCommandListener` 고정
-- 이벤트 발행: Spring local event 고정
-- 상태 저장소: Redis 고정
-- 로컬 in-memory fallback: 없음
-- in-process command bus: 없음
+정상 기동 로그에서는 보통 아래가 보인다.
 
-정상 기동 로그 예시는 아래와 같다.
-
-- `startup-config application=audio-node-app`
+- `startup-config`
+- `application=audio-node-app`
 - `commandBus=none`
 
 `commandBus=none`은 정상이다. audio-node는 producer가 아니라 consumer이기 때문이다.
 
-## 설정 파일
+## 설정
 
-파일:
+앱 전용 설정 파일:
 
-- [application.yml](src/main/resources/application.yml)
+- `src/main/resources/application.yml`
 
-현재 audio-node가 직접 갖는 앱 설정은 최소값만 남아 있다.
+현재 앱 전용 값:
 
+- `spring.application.name=audio-node-app`
 - `app.node-name`
 
-공통 설정은 `classpath:application-common.yml`에서 가져온다.
+공통 값은 `application-common.yml`을 사용한다.
 
 ## 주요 환경변수
 
 - `DISCORD_TOKEN`
+- `TOKEN`
 - `DISCORD_DEV_GUILD_ID`
 - `RABBITMQ_HOST`
 - `RABBITMQ_PORT`
@@ -124,23 +107,19 @@ audio-node는 더 이상 선택형 저장소나 transport를 쓰지 않는다.
 
 ## 빌드와 실행
 
-### JAR 생성
+JAR 생성:
 
 ```powershell
 .\gradlew.bat :apps:audio-node-app:bootJar
 ```
 
-산출물:
-
-- `apps/audio-node-app/build/libs/audio-node-app.jar`
-
-### 직접 실행
+실행:
 
 ```powershell
 java -jar apps/audio-node-app/build/libs/audio-node-app.jar
 ```
 
-### Gradle 실행
+Gradle 실행:
 
 ```powershell
 .\gradlew.bat :apps:audio-node-app:bootRun
@@ -148,73 +127,70 @@ java -jar apps/audio-node-app/build/libs/audio-node-app.jar
 
 ## Docker
 
-- [Dockerfile](Dockerfile)
+- Dockerfile: `apps/audio-node-app/Dockerfile`
+- 기본 이미지 태그: `discord-audio-node:local`
 
-기본 로컬 이미지 태그:
+## 관측성
 
-- `discord-audio-node:local`
+Audio Node는 아래 endpoint를 노출한다.
 
-## 장애 확인 포인트
+- `/actuator/health`
+- `/actuator/info`
+- `/actuator/prometheus`
+
+로그는 ECS JSON 형식으로 출력된다.
+
+주요 구조 로그:
+
+- `startup-config`
+- `music-command`
+- `music-event`
+- YouTube 로드 실패 로그
+- recovery 시작/완료 로그
+
+## 운영 시 확인 포인트
 
 ### RabbitMQ 미연결
 
 증상:
 
-- gateway는 응답했는데 실제 재생이 시작되지 않음
+- gateway가 응답은 하지만 실제 재생이 시작되지 않음
 
-확인:
+확인 값:
 
 - `RABBITMQ_HOST`
 - `RABBITMQ_PORT`
-- queue 선언 상태
+- queue consumer 상태
 
 ### Redis 미연결
 
 증상:
 
 - recovery 실패
-- health 에서 redis down
+- actuator health에서 Redis down
 
-확인:
+확인 값:
 
 - `REDIS_HOST`
 - `REDIS_PORT`
 
-### YouTube 스트림 로드 실패
+### YouTube 재생 실패
 
 증상:
 
-- 검색은 되는데 재생이 되지 않음
+- 검색은 되는데 실제 재생이 시작되지 않음
+- `track.load.failed`
+- `All clients failed to load the item`
+- `403`
 
-확인:
+확인 값:
 
 - `YOUTUBE_REFRESH_TOKEN`
 - `YOUTUBE_PO_TOKEN`
 - `YOUTUBE_VISITOR_DATA`
 - `YOUTUBE_REMOTE_CIPHER_URL`
 
-## 수정 범위 기준
+주의:
 
-audio-node에서 수정하는 것이 맞는 범위:
-
-- command consumer
-- recovery 규칙
-- 재생 상태 전이
-- Redis 저장 경계
-- YouTube 재생 설정
-
-audio-node에서 수정하면 안 되는 범위:
-
-- Discord interaction UX
-- slash command catalog
-- autocomplete UX
-
-## 관측성 확인
-
-audio-node-app은 공통 설정 기준으로 아래 Actuator endpoint를 노출한다.
-
-- `/actuator/health`
-- `/actuator/info`
-- `/actuator/prometheus`
-
-로그는 `stdout`으로 출력되고, `common-core`의 `logback-spring.xml`을 통해 ECS JSON 구조 로그로 기록된다.
+- 로컬 Docker에서는 재생되는데 원격 서버에서는 실패하는 경우가 있다.
+- 현재까지의 운영 경험상 이 문제는 코드보다 서버 IP/ASN, YouTube anti-bot 응답 차이의 영향을 크게 받는다.

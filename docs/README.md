@@ -1,36 +1,36 @@
 # 문서 인덱스
 
-현재 문서는 "지금 실제로 남아 있는 구조" 기준으로 정리되어 있다.
+이 디렉터리의 문서는 모두 현재 코드 기준으로 정리되어 있다. 예전 설계 초안이나 제거된 fallback 경로 기준 문서는 남기지 않았다.
 
 ## 구조 문서
 
-- [MODULE_STRUCTURE.md](MODULE_STRUCTURE.md)
-  - 모듈 구조와 책임
 - [CURRENT_ARCHITECTURE.md](CURRENT_ARCHITECTURE.md)
-  - 현재 실행 아키텍처와 흐름
+  - 현재 런타임 아키텍처, 흐름, 컴포넌트 역할
 - [CODEBASE_ANALYSIS.md](CODEBASE_ANALYSIS.md)
-  - 코드베이스 분석과 현재 경계 정리
-- [OBSERVABILITY_PLAN.md](OBSERVABILITY_PLAN.md)
-  - 로그 수집, 메트릭, 트레이싱, 알람 도입 권장안
+  - 코드베이스 관점의 구조 분석
+- [MODULE_STRUCTURE.md](MODULE_STRUCTURE.md)
+  - 멀티모듈 디렉터리 구조와 책임 분리
 
-## 이벤트 문서
+## 계약 문서
 
 - [EVENT_CONTRACT.md](EVENT_CONTRACT.md)
-  - 현재 로컬 이벤트 계약
+  - 현재 `MusicEvent` 계약과 발행 방식
 
 ## 운영 / 배포 문서
 
-- [SERVER_DEPLOY_SCRIPT.md](SERVER_DEPLOY_SCRIPT.md)
-  - 서버 배포 구조와 스크립트 동작
 - [OPERATIONS_RUNBOOK.md](OPERATIONS_RUNBOOK.md)
-  - 운영 점검, DLQ 재처리, 스모크 체크
+  - 장애 대응, 점검, DLQ 재처리, 관측성 운영
+- [SERVER_DEPLOY_SCRIPT.md](SERVER_DEPLOY_SCRIPT.md)
+  - GitHub Actions와 `deploy.sh` 기준 원격 배포 구조
 
-## 관측성 스택
+## 관측성 문서
 
+- [OBSERVABILITY_PLAN.md](OBSERVABILITY_PLAN.md)
+  - 현재 구현 상태, 남은 관측성 작업, 도입 이유
 - [../ops/observability/README.md](../ops/observability/README.md)
-  - Grafana / Prometheus / Loki / Alloy 스택 실행 방법
+  - 실제 compose 기반 관측성 스택 실행법
 
-## 작업 기록
+## 기록 문서
 
 - [CODEX_WORK_LOG.md](CODEX_WORK_LOG.md)
-  - 단계별 작업 기록
+  - 단계별 작업 이력과 현재 기준 요약
