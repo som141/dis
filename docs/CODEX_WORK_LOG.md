@@ -788,3 +788,27 @@
   - Grafana-managed rule 4개 확인
 - `http://127.0.0.1:3000/api/ruler/grafana/api/v1/rules`
   - `discord-bot-grafana-managed` rule group 확인
+
+## 39. Stage 34
+
+### 수정한 파일
+
+- `.github/workflows/cicd-deploy.yml`
+- `deploy.sh`
+- `.env.example`
+- `docs/SERVER_DEPLOY_SCRIPT.md`
+- `docs/OPERATIONS_RUNBOOK.md`
+
+### 반영 내용
+
+- GitHub Actions 가 `ops/observability/**`도 서버로 업로드하도록 수정
+- `.env.cicd` 생성 단계에 관측성 관련 env 추가
+  - `OBSERVABILITY_ENABLED`
+  - `GRAFANA_*`
+  - `PROMETHEUS_IMAGE`
+  - `LOKI_IMAGE`
+  - `ALLOY_IMAGE`
+  - `REDIS_EXPORTER_IMAGE`
+- `deploy.sh`가 release `.env`의 `OBSERVABILITY_ENABLED`를 읽고 `--profile observability` 포함 여부를 결정하도록 수정
+- 이전 release 정리 시에도 이전 release의 `OBSERVABILITY_ENABLED`를 읽어 동일 profile 기준으로 내리도록 수정
+- 서버 배포 문서에 필수 secrets / variables 목록과 권장값 정리

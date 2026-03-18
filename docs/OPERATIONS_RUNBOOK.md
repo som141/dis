@@ -204,6 +204,11 @@ docker compose --profile observability stop prometheus loki alloy redis-exporter
 - `loki:3100/metrics`
 - `alloy:12345/metrics`
 
+원격 CI/CD 기준:
+
+- `OBSERVABILITY_ENABLED=true`면 배포 시 관측성 스택도 같이 올라간다.
+- `OBSERVABILITY_ENABLED=false`면 앱 스택만 올라간다.
+
 ## 8. 기본 대시보드와 알림 규칙
 
 기본 대시보드:

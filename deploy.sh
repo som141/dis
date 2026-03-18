@@ -53,17 +53,32 @@ compose_project_from_env() {
   grep -E '^COMPOSE_PROJECT_NAME=' "${env_path}" | tail -n 1 | cut -d '=' -f 2- || true
 }
 
+env_value_from_file() {
+  local env_path="$1"
+  local key="$2"
+  if [[ ! -f "${env_path}" ]]; then
+    return 0
+  fi
+  grep -E "^${key}=" "${env_path}" | tail -n 1 | cut -d '=' -f 2- || true
+}
+
 compose_in_dir() {
   local dir="$1"
   local project_name="$2"
-  shift 2
+  local observability_enabled="$3"
+  shift 3
 
   pushd "${dir}" >/dev/null
+  local compose_cmd=(docker compose)
   if [[ -n "${project_name}" ]]; then
-    docker compose --project-name "${project_name}" --env-file .env "$@"
-  else
-    docker compose --env-file .env "$@"
+    compose_cmd+=(--project-name "${project_name}")
   fi
+  compose_cmd+=(--env-file .env)
+  if [[ "${observability_enabled,,}" == "true" ]]; then
+    compose_cmd+=(--profile observability)
+  fi
+  compose_cmd+=("$@")
+  "${compose_cmd[@]}"
   popd >/dev/null
 }
 
@@ -107,17 +122,23 @@ remove_legacy_fixed_name_containers
 
 if [[ -n "${PREVIOUS_RELEASE_DIR}" && -d "${PREVIOUS_RELEASE_DIR}" && "${PREVIOUS_RELEASE_DIR}" != "${RELEASE_DIR}" ]]; then
   PREVIOUS_PROJECT_NAME="$(compose_project_from_env "${PREVIOUS_RELEASE_DIR}/.env")"
+  PREVIOUS_OBSERVABILITY_ENABLED="$(env_value_from_file "${PREVIOUS_RELEASE_DIR}/.env" "OBSERVABILITY_ENABLED")"
   if [[ -f "${PREVIOUS_RELEASE_DIR}/docker-compose.yml" && -f "${PREVIOUS_RELEASE_DIR}/.env" ]]; then
     echo "stopping previous release: ${PREVIOUS_RELEASE_DIR}"
-    compose_in_dir "${PREVIOUS_RELEASE_DIR}" "${PREVIOUS_PROJECT_NAME}" down --remove-orphans || true
+    compose_in_dir "${PREVIOUS_RELEASE_DIR}" "${PREVIOUS_PROJECT_NAME}" "${PREVIOUS_OBSERVABILITY_ENABLED}" down --remove-orphans || true
   fi
 fi
 
 echo "switching current release symlink"
 ln -sfn "${RELEASE_DIR}" "${CURRENT_LINK}"
 
-echo "starting compose project: ${COMPOSE_PROJECT_NAME}"
-compose_in_dir "${RELEASE_DIR}" "${COMPOSE_PROJECT_NAME}" up -d --no-build --remove-orphans
+CURRENT_OBSERVABILITY_ENABLED="$(env_value_from_file "${RELEASE_DIR}/.env" "OBSERVABILITY_ENABLED")"
+if [[ "${CURRENT_OBSERVABILITY_ENABLED,,}" == "true" ]]; then
+  echo "starting compose project with observability profile: ${COMPOSE_PROJECT_NAME}"
+else
+  echo "starting compose project: ${COMPOSE_PROJECT_NAME}"
+fi
+compose_in_dir "${RELEASE_DIR}" "${COMPOSE_PROJECT_NAME}" "${CURRENT_OBSERVABILITY_ENABLED}" up -d --no-build --remove-orphans
 
 echo "cleaning incoming artifacts"
 rm -f "${GATEWAY_IMAGE_ARCHIVE}" "${AUDIONODE_IMAGE_ARCHIVE}" "${ENV_FILE}" "${COMPOSE_FILE}"

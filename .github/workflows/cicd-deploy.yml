@@ -61,6 +61,21 @@ jobs:
           YOUTUBE_REMOTE_CIPHER_USER_AGENT: ${{ secrets.YOUTUBE_REMOTE_CIPHER_USER_AGENT }}
           RABBITMQ_USERNAME: ${{ secrets.RABBITMQ_USERNAME }}
           RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD }}
+          APP_ENV: ${{ vars.APP_ENV || 'prod' }}
+          OBSERVABILITY_ENABLED: ${{ vars.OBSERVABILITY_ENABLED || 'true' }}
+          GRAFANA_IMAGE: ${{ vars.GRAFANA_IMAGE }}
+          PROMETHEUS_IMAGE: ${{ vars.PROMETHEUS_IMAGE }}
+          LOKI_IMAGE: ${{ vars.LOKI_IMAGE }}
+          ALLOY_IMAGE: ${{ vars.ALLOY_IMAGE }}
+          REDIS_EXPORTER_IMAGE: ${{ vars.REDIS_EXPORTER_IMAGE }}
+          GRAFANA_ADMIN_USER: ${{ secrets.GRAFANA_ADMIN_USER || vars.GRAFANA_ADMIN_USER || 'admin' }}
+          GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD || 'admin' }}
+          GRAFANA_ANONYMOUS_ENABLED: ${{ vars.GRAFANA_ANONYMOUS_ENABLED || 'false' }}
+          GRAFANA_ALERT_DEFAULT_RECEIVER: ${{ vars.GRAFANA_ALERT_DEFAULT_RECEIVER || 'observability-noop' }}
+          GRAFANA_ALERT_NOOP_WEBHOOK_URL: ${{ vars.GRAFANA_ALERT_NOOP_WEBHOOK_URL || 'http://127.0.0.1:9/disabled' }}
+          GRAFANA_ALERT_DISCORD_WEBHOOK_URL: ${{ secrets.GRAFANA_ALERT_DISCORD_WEBHOOK_URL || 'https://example.invalid/discord-webhook' }}
+          GRAFANA_ALERT_DISCORD_AVATAR_URL: ${{ vars.GRAFANA_ALERT_DISCORD_AVATAR_URL }}
+          GRAFANA_ALERT_DISCORD_USE_USERNAME: ${{ vars.GRAFANA_ALERT_DISCORD_USE_USERNAME || 'true' }}
         run: |
           mkdir -p out
           {
@@ -69,6 +84,8 @@ jobs:
             printf "AUDIO_NODE_IMAGE_NAME=%s\n" "${AUDIO_NODE_IMAGE_NAME}"
             printf "AUDIO_NODE_IMAGE_TAG=%s\n" "${{ github.sha }}"
             printf "COMPOSE_PROJECT_NAME=%s\n" "${COMPOSE_PROJECT_NAME}"
+            printf "APP_ENV=%s\n" "${APP_ENV}"
+            printf "OBSERVABILITY_ENABLED=%s\n" "${OBSERVABILITY_ENABLED}"
             printf "DISCORD_TOKEN=%s\n" "${DISCORD_TOKEN}"
             printf "DISCORD_DEV_GUILD_ID=%s\n" "${DISCORD_DEV_GUILD_ID}"
             printf "YOUTUBE_REFRESH_TOKEN=%s\n" "${YOUTUBE_REFRESH_TOKEN}"
@@ -80,6 +97,19 @@ jobs:
             printf "YOUTUBE_OAUTH_INIT=false\n"
             printf "RABBITMQ_USERNAME=%s\n" "${RABBITMQ_USERNAME}"
             printf "RABBITMQ_PASSWORD=%s\n" "${RABBITMQ_PASSWORD}"
+            printf "GRAFANA_IMAGE=%s\n" "${GRAFANA_IMAGE}"
+            printf "PROMETHEUS_IMAGE=%s\n" "${PROMETHEUS_IMAGE}"
+            printf "LOKI_IMAGE=%s\n" "${LOKI_IMAGE}"
+            printf "ALLOY_IMAGE=%s\n" "${ALLOY_IMAGE}"
+            printf "REDIS_EXPORTER_IMAGE=%s\n" "${REDIS_EXPORTER_IMAGE}"
+            printf "GRAFANA_ADMIN_USER=%s\n" "${GRAFANA_ADMIN_USER}"
+            printf "GRAFANA_ADMIN_PASSWORD=%s\n" "${GRAFANA_ADMIN_PASSWORD}"
+            printf "GRAFANA_ANONYMOUS_ENABLED=%s\n" "${GRAFANA_ANONYMOUS_ENABLED}"
+            printf "GRAFANA_ALERT_DEFAULT_RECEIVER=%s\n" "${GRAFANA_ALERT_DEFAULT_RECEIVER}"
+            printf "GRAFANA_ALERT_NOOP_WEBHOOK_URL=%s\n" "${GRAFANA_ALERT_NOOP_WEBHOOK_URL}"
+            printf "GRAFANA_ALERT_DISCORD_WEBHOOK_URL=%s\n" "${GRAFANA_ALERT_DISCORD_WEBHOOK_URL}"
+            printf "GRAFANA_ALERT_DISCORD_AVATAR_URL=%s\n" "${GRAFANA_ALERT_DISCORD_AVATAR_URL}"
+            printf "GRAFANA_ALERT_DISCORD_USE_USERNAME=%s\n" "${GRAFANA_ALERT_DISCORD_USE_USERNAME}"
           } > out/.env.cicd
 
       - name: Prepare SSH
@@ -109,7 +139,7 @@ jobs:
           SSH_PORT: ${{ secrets.SSH_PORT }}
         run: |
           ssh -p "${SSH_PORT}" -i ~/.ssh/id_ed25519 "${SSH_USER}@${SSH_HOST}" \
-            "mkdir -p '${DEPLOY_DIR}/incoming/ops'"
+            "mkdir -p '${DEPLOY_DIR}/incoming/ops' '${DEPLOY_DIR}/incoming/ops/observability'"
 
           scp -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \
             "out/${GATEWAY_IMAGE_NAME}-${{ github.sha }}.tar.gz" \
@@ -135,6 +165,10 @@ jobs:
             "ops/replay-command-dlq.sh" \
             "ops/cleanup-legacy-deploy.sh" \
             "ops/smoke-check.sh" \
+            "${SSH_USER}@${SSH_HOST}:${DEPLOY_DIR}/incoming/ops/"
+
+          scp -r -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \
+            "ops/observability" \
             "${SSH_USER}@${SSH_HOST}:${DEPLOY_DIR}/incoming/ops/"
 
       - name: Remote deploy
