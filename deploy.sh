@@ -15,6 +15,7 @@ CURRENT_LINK="${DEPLOY_DIR}/current"
 IMAGE_ARCHIVE="${INCOMING_DIR}/discord-bot-${SHA}.tar.gz"
 ENV_FILE="${INCOMING_DIR}/.env.cicd"
 COMPOSE_FILE="${INCOMING_DIR}/docker-compose.yml"
+OPS_DIR="${INCOMING_DIR}/ops"
 
 require_file() {
   local path="$1"
@@ -33,6 +34,11 @@ mkdir -p "${RELEASE_DIR}"
 cp "${COMPOSE_FILE}" "${RELEASE_DIR}/docker-compose.yml"
 cp "${ENV_FILE}" "${RELEASE_DIR}/.env"
 cp "${IMAGE_ARCHIVE}" "${RELEASE_DIR}/discord-bot.tar.gz"
+if [[ -d "${OPS_DIR}" ]]; then
+  rm -rf "${RELEASE_DIR}/ops"
+  cp -R "${OPS_DIR}" "${RELEASE_DIR}/ops"
+  find "${RELEASE_DIR}/ops" -type f -name "*.sh" -exec chmod +x {} \;
+fi
 
 gzip -dc "${RELEASE_DIR}/discord-bot.tar.gz" | docker load
 
@@ -43,6 +49,7 @@ docker compose --env-file .env up -d --no-build --remove-orphans
 popd >/dev/null
 
 rm -f "${IMAGE_ARCHIVE}" "${ENV_FILE}" "${COMPOSE_FILE}"
+rm -rf "${OPS_DIR}"
 find "${RELEASES_DIR}" -mindepth 1 -maxdepth 1 -type d | sort | head -n -5 | xargs -r rm -rf
 
 echo "deployed release ${SHA}"

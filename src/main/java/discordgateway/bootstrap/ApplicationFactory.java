@@ -50,6 +50,7 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.requests.GatewayIntent;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
@@ -65,7 +66,8 @@ import java.util.List;
         DiscordProperties.class,
         YouTubeProperties.class,
         RedisConnectionProperties.class,
-        MessagingProperties.class
+        MessagingProperties.class,
+        OperationsProperties.class
 })
 public class ApplicationFactory {
 
@@ -289,6 +291,7 @@ public class ApplicationFactory {
     }
 
     @Bean(destroyMethod = "shutdown")
+    @ConditionalOnProperty(prefix = "ops", name = "command-dlq-replay-enabled", havingValue = "false", matchIfMissing = true)
     public JDA jda(
             DiscordProperties discordProperties,
             Environment environment,

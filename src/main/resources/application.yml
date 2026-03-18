@@ -34,6 +34,11 @@ messaging:
   event-outbox-retry-delay-ms: 10000
   event-outbox-batch-size: 50
 
+ops:
+  command-dlq-replay-enabled: false
+  command-dlq-replay-exit-after-run: false
+  command-dlq-replay-max-messages: 100
+
 spring:
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}

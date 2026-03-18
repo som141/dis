@@ -91,6 +91,9 @@ jobs:
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_PORT: ${{ secrets.SSH_PORT }}
         run: |
+          ssh -p "${SSH_PORT}" -i ~/.ssh/id_ed25519 "${SSH_USER}@${SSH_HOST}" \
+            "mkdir -p '${DEPLOY_DIR}/incoming/ops'"
+
           scp -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \
             "out/${APP_IMAGE_NAME}-${{ github.sha }}.tar.gz" \
             "${SSH_USER}@${SSH_HOST}:${DEPLOY_DIR}/incoming/"
@@ -106,6 +109,11 @@ jobs:
           scp -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \
             "deploy.sh" \
             "${SSH_USER}@${SSH_HOST}:${DEPLOY_DIR}/deploy.sh"
+
+          scp -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \
+            "ops/replay-command-dlq.sh" \
+            "ops/smoke-check.sh" \
+            "${SSH_USER}@${SSH_HOST}:${DEPLOY_DIR}/incoming/ops/"
 
       - name: Remote deploy
         env:
