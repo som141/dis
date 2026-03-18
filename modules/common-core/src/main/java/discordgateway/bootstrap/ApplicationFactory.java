@@ -1,10 +1,7 @@
 package discordgateway.bootstrap;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import discordgateway.application.DiscordReferenceResolver;
-import discordgateway.application.InProcessMusicCommandBus;
 import discordgateway.application.MusicCommandBus;
-import discordgateway.application.MusicCommandMessageFactory;
 import discordgateway.application.MusicWorkerService;
 import discordgateway.application.event.MusicEventFactory;
 import discordgateway.application.event.MusicEventPublisher;
@@ -12,7 +9,6 @@ import discordgateway.application.event.SpringMusicEventPublisher;
 import discordgateway.audio.PlayerManager;
 import discordgateway.domain.GuildPlaybackLockManager;
 import discordgateway.domain.GuildStateRepository;
-import discordgateway.domain.MusicEventOutboxRepository;
 import discordgateway.domain.PlayerStateRepository;
 import discordgateway.domain.ProcessedCommandRepository;
 import discordgateway.domain.QueueRepository;
@@ -22,15 +18,8 @@ import discordgateway.infrastructure.audio.PlaybackGateway;
 import discordgateway.infrastructure.audio.VoiceGateway;
 import discordgateway.infrastructure.discord.JdaDiscordReferenceResolver;
 import discordgateway.infrastructure.discord.JdaRuntimeContext;
-import discordgateway.infrastructure.memory.InMemoryGuildPlaybackLockManager;
-import discordgateway.infrastructure.memory.InMemoryGuildStateRepository;
-import discordgateway.infrastructure.memory.InMemoryMusicEventOutboxRepository;
-import discordgateway.infrastructure.memory.InMemoryPlayerStateRepository;
-import discordgateway.infrastructure.memory.InMemoryProcessedCommandRepository;
-import discordgateway.infrastructure.memory.InMemoryQueueRepository;
 import discordgateway.infrastructure.redis.RedisGuildPlaybackLockManager;
 import discordgateway.infrastructure.redis.RedisGuildStateRepository;
-import discordgateway.infrastructure.redis.RedisMusicEventOutboxRepository;
 import discordgateway.infrastructure.redis.RedisPlayerStateRepository;
 import discordgateway.infrastructure.redis.RedisProcessedCommandRepository;
 import discordgateway.infrastructure.redis.RedisQueueRepository;
@@ -42,20 +31,20 @@ import net.dv8tion.jda.api.JDABuilder;
 import net.dv8tion.jda.api.audio.AudioModuleConfig;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.requests.GatewayIntent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.core.env.Environment;
-import org.springframework.context.annotation.Primary;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.Optional;
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties({
@@ -81,73 +70,34 @@ public class ApplicationFactory {
     }
 
     @Bean
-    public GuildStateRepository guildStateRepository(
-            AppProperties appProperties,
-            ObjectProvider<RedisSupport> redisSupportProvider
-    ) {
-        if ("redis".equalsIgnoreCase(appProperties.getStateStore())) {
-            return new RedisGuildStateRepository(redisSupportProvider.getObject().pool());
-        }
-        return new InMemoryGuildStateRepository();
+    public GuildStateRepository guildStateRepository(RedisSupport redisSupport) {
+        return new RedisGuildStateRepository(redisSupport.pool());
     }
 
     @Bean
-    public QueueRepository queueRepository(
-            AppProperties appProperties,
-            ObjectProvider<RedisSupport> redisSupportProvider
-    ) {
-        if ("redis".equalsIgnoreCase(appProperties.getQueueStore())) {
-            return new RedisQueueRepository(redisSupportProvider.getObject().pool());
-        }
-        return new InMemoryQueueRepository();
+    public QueueRepository queueRepository(RedisSupport redisSupport) {
+        return new RedisQueueRepository(redisSupport.pool());
     }
 
     @Bean
-    public PlayerStateRepository playerStateRepository(
-            AppProperties appProperties,
-            ObjectProvider<RedisSupport> redisSupportProvider
-    ) {
-        if ("redis".equalsIgnoreCase(appProperties.getPlayerStateStore())) {
-            return new RedisPlayerStateRepository(redisSupportProvider.getObject().pool());
-        }
-        return new InMemoryPlayerStateRepository();
+    public PlayerStateRepository playerStateRepository(RedisSupport redisSupport) {
+        return new RedisPlayerStateRepository(redisSupport.pool());
     }
 
     @Bean
-    public ProcessedCommandRepository processedCommandRepository(
-            AppProperties appProperties,
-            ObjectProvider<RedisSupport> redisSupportProvider
-    ) {
-        if ("redis".equalsIgnoreCase(appProperties.getCommandDedupStore())) {
-            return new RedisProcessedCommandRepository(redisSupportProvider.getObject().pool());
-        }
-        return new InMemoryProcessedCommandRepository();
-    }
-
-    @Bean
-    public MusicEventOutboxRepository musicEventOutboxRepository(
-            AppProperties appProperties,
-            ObjectProvider<RedisSupport> redisSupportProvider,
-            ObjectMapper objectMapper
-    ) {
-        if ("redis".equalsIgnoreCase(appProperties.getEventOutboxStore())) {
-            return new RedisMusicEventOutboxRepository(redisSupportProvider.getObject().pool(), objectMapper);
-        }
-        return new InMemoryMusicEventOutboxRepository();
+    public ProcessedCommandRepository processedCommandRepository(RedisSupport redisSupport) {
+        return new RedisProcessedCommandRepository(redisSupport.pool());
     }
 
     @Bean
     public GuildPlaybackLockManager guildPlaybackLockManager(
             AppProperties appProperties,
-            ObjectProvider<RedisSupport> redisSupportProvider
+            RedisSupport redisSupport
     ) {
-        if ("redis".equalsIgnoreCase(appProperties.getQueueStore())) {
-            return new RedisGuildPlaybackLockManager(
-                    redisSupportProvider.getObject().pool(),
-                    appProperties.getGuildLockTtlMs()
-            );
-        }
-        return new InMemoryGuildPlaybackLockManager();
+        return new RedisGuildPlaybackLockManager(
+                redisSupport.pool(),
+                appProperties.getGuildLockTtlMs()
+        );
     }
 
     @Bean
@@ -162,15 +112,8 @@ public class ApplicationFactory {
     }
 
     @Bean
-    public SpringMusicEventPublisher springMusicEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
+    public MusicEventPublisher musicEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
         return new SpringMusicEventPublisher(applicationEventPublisher);
-    }
-
-    @Bean
-    @ConditionalOnProperty(prefix = "messaging", name = "event-transport", havingValue = "spring", matchIfMissing = true)
-    @Primary
-    public MusicEventPublisher musicEventPublisher(SpringMusicEventPublisher springMusicEventPublisher) {
-        return springMusicEventPublisher;
     }
 
     @Bean
@@ -226,28 +169,19 @@ public class ApplicationFactory {
     }
 
     @Bean
-    @ConditionalOnProperty(prefix = "messaging", name = "command-transport", havingValue = "in-process", matchIfMissing = true)
-    public MusicCommandBus musicCommandBus(
-            MusicWorkerService musicWorkerService,
-            MusicCommandMessageFactory musicCommandMessageFactory
-    ) {
-        return new InProcessMusicCommandBus(musicWorkerService, musicCommandMessageFactory);
-    }
-
-    @Bean
     public ApplicationRunner startupConfigurationLogger(
             AppProperties appProperties,
-            MessagingProperties messagingProperties,
-            MusicCommandBus musicCommandBus,
+            Environment environment,
+            ObjectProvider<MusicCommandBus> musicCommandBusProvider,
             MusicEventPublisher musicEventPublisher
     ) {
         return args -> log.info(
-                "startup-config role={} node={} commandTransport={} eventTransport={} commandBus={} eventPublisher={}",
-                appProperties.getRole(),
+                "startup-config application={} node={} commandBus={} eventPublisher={}",
+                environment.getProperty("spring.application.name", "unknown"),
                 appProperties.getNodeName(),
-                messagingProperties.getCommandTransport(),
-                messagingProperties.getEventTransport(),
-                musicCommandBus.getClass().getSimpleName(),
+                Optional.ofNullable(musicCommandBusProvider.getIfAvailable())
+                        .map(bus -> bus.getClass().getSimpleName())
+                        .orElse("none"),
                 musicEventPublisher.getClass().getSimpleName()
         );
     }

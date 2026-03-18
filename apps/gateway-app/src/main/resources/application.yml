@@ -5,14 +5,4 @@ spring:
     import: "classpath:application-common.yml"
 
 app:
-  role: gateway
-  state-store: redis
-  queue-store: redis
-  player-state-store: redis
-  command-dedup-store: redis
-  event-outbox-store: redis
   node-name: ${APP_NODE_NAME:gateway-1}
-
-messaging:
-  command-transport: rabbitmq
-  event-transport: spring

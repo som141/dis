@@ -2,18 +2,18 @@
 
 ## 역할
 
-`common-core`는 런타임 서비스가 아니라, 두 앱이 함께 사용하는 공용 라이브러리 모듈이다.
+`common-core`는 별도 서비스가 아니라 두 실행 앱이 함께 쓰는 공용 라이브러리 모듈이다.
 
-이 모듈이 필요한 이유는 아래와 같다.
+현재 이 모듈은 아래를 담당한다.
 
-- gateway와 audio-node가 같은 command / event 모델을 써야 한다.
-- Redis 저장 구조가 둘 사이에서 일치해야 한다.
-- playback engine과 scheduler가 하나의 규칙으로 유지돼야 한다.
-- Spring 공용 설정을 중복 없이 관리해야 한다.
+- command / event 모델
+- worker 로직
+- 재생 엔진
+- Redis 저장소 구현
+- RabbitMQ command 인프라
+- 공통 Spring bootstrap
 
-즉 `세 번째 서버`가 아니라 `공유 코드 계층`이다.
-
-## 현재 디렉터리 구조
+## 현재 구조
 
 ```text
 modules/common-core/
@@ -29,51 +29,29 @@ modules/common-core/
   src/main/resources/
     application-common.yml
     logback.xml
-    META-INF/persistence.xml
     smbj.mp3
     gsuck.mp3
-  src/test/java/discordgateway/
 ```
 
 ## 패키지별 책임
 
 ### `application`
 
-- command 모델
-- command bus 인터페이스
-- worker 서비스
-- trace context
-
-핵심 클래스:
-
 - `MusicCommand`
 - `MusicCommandBus`
-- `MusicWorkerService`
 - `MusicCommandMessage`
+- `MusicWorkerService`
 - `MusicCommandTraceContext`
 
 ### `application.event`
-
-- 이벤트 모델
-- 이벤트 팩토리
-- 이벤트 퍼블리셔 인터페이스
-- spring event bridge
-
-핵심 클래스:
 
 - `MusicEvent`
 - `MusicEventFactory`
 - `MusicEventPublisher`
 - `SpringMusicEventPublisher`
-- `CompositeMusicEventPublisher`
+- `MusicEventLogListener`
 
 ### `audio`
-
-- 실제 재생 엔진
-- scheduler
-- guild별 music manager
-
-핵심 클래스:
 
 - `PlayerManager`
 - `TrackScheduler`
@@ -82,25 +60,15 @@ modules/common-core/
 
 ### `bootstrap`
 
-- 공통 Spring bean wiring
-- 설정 프로퍼티
-- RabbitMQ wiring
-- health / ready lifecycle
-
-핵심 클래스:
-
 - `ApplicationFactory`
 - `RabbitMessagingConfiguration`
 - `AppProperties`
 - `MessagingProperties`
 - `DiscordProperties`
 - `YouTubeProperties`
+- `RedisConnectionProperties`
 
 ### `domain`
-
-- 순수 도메인 모델과 저장 포트
-
-핵심 타입:
 
 - `QueueEntry`
 - `PlayerState`
@@ -113,74 +81,57 @@ modules/common-core/
 ### `infrastructure`
 
 - Redis 구현
-- InMemory 구현
-- Discord/JDA 구현
-- Audio gateway 구현
-- RabbitMQ 구현
+- JDA / Discord 구현
+- 오디오 gateway 구현
+- RabbitMQ command 구현
 
-## 이 모듈에 들어가야 하는 것
+## 현재 고정 구조
 
-- 두 앱이 공통으로 쓰는 모델
-- 두 앱이 공통으로 쓰는 infra
-- 두 앱이 공통으로 써야 하는 wiring
+이 모듈은 더 이상 선택형 저장소나 transport를 제공하지 않는다.
 
-## 이 모듈에 넣지 않는 것
+- 상태 저장소: Redis 고정
+- command 전송: RabbitMQ 고정
+- 이벤트 발행: Spring local event 고정
+- InMemory 구현: 제거
+- InProcess command bus: 제거
+- Rabbit event outbox: 제거
 
-- gateway에서만 쓰는 Discord listener 진입점
-- audio-node에서만 쓰는 recovery 시작 트리거
-- 앱별 `main class`
-- 앱별 `application.yml`
-- 앱별 Dockerfile
+즉 현재 common-core는 "현재 운영 구조만 남긴 공용 코어"다.
 
 ## 설정 파일
 
 - [application-common.yml](src/main/resources/application-common.yml)
 
-여기에는 앱 공통값만 둔다.
-
-예:
+공통 파일에는 아래처럼 실제 공용값만 남아 있다.
 
 - `discord.*`
 - `server.port`
 - `management.*`
-- `messaging`의 공용 값
+- `messaging.rpc-timeout-ms`
+- `messaging.command-*`
 - `spring.rabbitmq.*`
+- `ops.*`
 
-반대로 앱마다 달라질 수 있는 값은 넣지 않는다.
+앱별 값은 각 앱 모듈이 최종 결정한다.
 
 예:
 
-- `app.role`
-- `messaging.command-transport`
-- `messaging.event-transport`
-
-이 값은 각 앱 모듈이 최종 결정한다.
+- `app.node-name`
 
 ## 빌드 역할
 
-이 모듈은 독립 배포 JAR를 만들지 않는다.
+`common-core`는 독립 실행 JAR을 만들지 않는다.
 
-대신 아래 앱들이 이 모듈을 의존한다.
+최종 실행 산출물은 아래 앱 모듈에서 만든다.
 
 - `apps/gateway-app`
 - `apps/audio-node-app`
 
-즉 최종 배포물은 앱 모듈에서 나오고, common-core는 그 안에 포함된다.
+## 왜 공용 모듈을 유지하나
 
-## 테스트 기준
+공용 모듈이 없으면 아래 둘 중 하나가 된다.
 
-공용 로직 테스트는 가능하면 여기 둔다.
+- 같은 코드를 두 앱에 복제
+- 한 앱이 다른 앱 코드를 직접 참조
 
-현재 예시:
-
-- queue repository 테스트
-- player state repository 테스트
-
-## common-core를 유지하는 이유
-
-만약 이 모듈을 없애고 두 앱만 남기면 아래 중 하나가 된다.
-
-- 공용 로직 복제
-- 한 앱이 다른 앱 코드를 참조
-
-둘 다 장기 유지보수에 불리하다. 그래서 현재 구조에서는 공용 코어를 명시적으로 남겨두는 편이 낫다.
+둘 다 유지보수성이 나쁘다. 그래서 현재 구조에서는 공용 코어를 명시적으로 두는 편이 맞다.

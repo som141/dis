@@ -529,3 +529,108 @@
   - 성공
 - `docker compose ps`
   - `gateway`, `audio-node`, `redis`, `rabbitmq` 모두 healthy 확인
+
+## 32. Stage 27
+
+### 크게 수정한 요소
+
+- `modules/common-core/src/main/java/discordgateway/bootstrap/ApplicationFactory.java`
+- `modules/common-core/src/main/java/discordgateway/bootstrap/AppProperties.java`
+- `modules/common-core/src/main/java/discordgateway/bootstrap/MessagingProperties.java`
+- `modules/common-core/src/main/java/discordgateway/bootstrap/RabbitMessagingConfiguration.java`
+- `modules/common-core/src/main/java/discordgateway/bootstrap/RedisStorageHealthIndicator.java`
+- `apps/gateway-app/src/main/java/discordgateway/gateway/GatewayComponentConfiguration.java`
+- `apps/audio-node-app/src/main/java/discordgateway/audionode/AudioNodeComponentConfiguration.java`
+- `apps/gateway-app/src/main/resources/application.yml`
+- `apps/audio-node-app/src/main/resources/application.yml`
+- `modules/common-core/src/main/resources/application-common.yml`
+
+### 삭제한 요소
+
+- `InMemory*Repository`
+- `InMemoryGuildPlaybackLockManager`
+- `InProcessMusicCommandBus`
+- `CompositeMusicEventPublisher`
+- `AppRole`, `ConditionalOnAppRole`, `AppRoleCondition`
+- `MusicEventOutboxRepository`
+- `PendingMusicEvent`
+- `RabbitMusicEventPublisher`
+- `RabbitMusicEventSender`
+- `MusicEventOutboxRelay`
+- `RedisMusicEventOutboxRepository`
+- 관련 memory 테스트 2건
+
+### 반영 내용
+
+- 공용 저장소 경로를 Redis 구현으로 고정
+- command 전송 경로를 RabbitMQ로 고정
+- 이벤트 발행 경로를 Spring local event로 고정
+- 저장소/transport 선택 분기를 없애기 위해 `app.role`, `state-store`, `queue-store`, `player-state-store`, `command-dedup-store`, `event-outbox-store`, `messaging.command-transport`, `messaging.event-transport` 설정 제거
+- gateway는 `RabbitMusicCommandBus`만 생성하도록 앱 모듈로 이동
+- audio-node는 `RabbitMusicCommandListener`만 생성하도록 앱 모듈로 이동
+- health는 Redis 기준으로만 판정하도록 단순화
+- 현재 구조 문서와 앱별 README를 실제 코드 기준으로 다시 작성
+
+### 검증
+
+- `.\gradlew.bat :modules:common-core:compileJava :apps:gateway-app:compileJava :apps:audio-node-app:compileJava :modules:common-core:compileTestJava`
+  - 성공
+
+## 33. Stage 28
+
+### 크게 정리한 요소
+
+- 루트 `README.md`
+- `docs/README.md`
+- `modules/common-core/README.md`
+- 루트 로컬 산출물과 IDE 메타파일
+
+### 삭제한 요소
+
+- 루트 `img.png`
+- `modules/common-core/src/main/resources/META-INF/persistence.xml`
+- `docs/discord_msa_codex_instructions.md`
+- 루트 `.idea/`
+- 루트 `.gradle/`
+- 루트 `build/`
+- 루트 `out/`
+- 각 모듈의 생성된 `build/` 디렉터리
+
+### 반영 내용
+
+- 저장소 루트를 실행 코드, 배포 파일, 문서만 남는 구조로 재정리
+- 더 이상 현재 구조 설명에 필요 없는 과거 입력 문서 제거
+- 공용 코어 README에서 삭제된 리소스 항목 반영
+- 루트 README를 현재 최소 구조 기준으로 다시 작성
+- 문서 인덱스를 현재 유지 중인 문서만 보이도록 다시 작성
+
+### 검증
+
+- `.\gradlew.bat :modules:common-core:compileJava :apps:gateway-app:compileJava :apps:audio-node-app:compileJava :modules:common-core:compileTestJava`
+  - 성공
+- 검증 후 생성된 `build/`, `.gradle/` 산출물 재정리 완료
+
+## 34. Stage 29
+
+### 크게 수정한 요소
+
+- `docs/OBSERVABILITY_PLAN.md`
+- `docs/README.md`
+- `README.md`
+
+### 반영 내용
+
+- 현재 구조에 맞는 로그 수집 / 메트릭 / 트레이싱 / 알람 권장안을 별도 문서로 정리
+- `Grafana + Prometheus + Loki + Alloy`를 1차 권장안으로 제시
+- `OpenTelemetry Java agent + Tempo`를 2차 권장안으로 제시
+- Promtail은 2026-03-02 EOL 기준으로 신규 도입 비권장 사항으로 정리
+- 문서 인덱스와 루트 README에 관측성 계획 문서 링크 추가
+
+### 참고 출처
+
+- Grafana Alloy 공식 문서
+- Grafana Loki / Promtail 공식 문서
+- Prometheus 공식 문서
+- Spring Boot metrics 공식 문서
+- OpenTelemetry Java 공식 문서
+- Grafana Alerting 공식 문서

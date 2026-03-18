@@ -10,25 +10,14 @@ import redis.clients.jedis.Jedis;
 @Component
 public class RedisStorageHealthIndicator implements HealthIndicator {
 
-    private final AppProperties appProperties;
     private final ObjectProvider<RedisSupport> redisSupportProvider;
 
-    public RedisStorageHealthIndicator(
-            AppProperties appProperties,
-            ObjectProvider<RedisSupport> redisSupportProvider
-    ) {
-        this.appProperties = appProperties;
+    public RedisStorageHealthIndicator(ObjectProvider<RedisSupport> redisSupportProvider) {
         this.redisSupportProvider = redisSupportProvider;
     }
 
     @Override
     public Health health() {
-        if (!usesRedisStore()) {
-            return Health.up()
-                    .withDetail("store", "memory")
-                    .build();
-        }
-
         RedisSupport redisSupport = redisSupportProvider.getIfAvailable();
         if (redisSupport == null) {
             return Health.down()
@@ -54,13 +43,5 @@ public class RedisStorageHealthIndicator implements HealthIndicator {
         return Health.up()
                 .withDetail("store", "redis")
                 .build();
-    }
-
-    private boolean usesRedisStore() {
-        return "redis".equalsIgnoreCase(appProperties.getStateStore())
-                || "redis".equalsIgnoreCase(appProperties.getQueueStore())
-                || "redis".equalsIgnoreCase(appProperties.getPlayerStateStore())
-                || "redis".equalsIgnoreCase(appProperties.getCommandDedupStore())
-                || "redis".equalsIgnoreCase(appProperties.getEventOutboxStore());
     }
 }
