@@ -48,7 +48,7 @@ jobs:
 
       - name: Create env file
         env:
-          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN || secrets.TOKEN }}
           DISCORD_DEV_GUILD_ID: ${{ secrets.DISCORD_DEV_GUILD_ID }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
           RABBITMQ_USERNAME: ${{ secrets.RABBITMQ_USERNAME }}

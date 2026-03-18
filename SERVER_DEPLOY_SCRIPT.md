@@ -98,7 +98,7 @@ chmod +x /home/ubuntu/dis-bot/deploy.sh
 - `SSH_HOST`
 - `SSH_PORT`
 - `SSH_USER`
-- `DISCORD_TOKEN`
+- `DISCORD_TOKEN` 또는 `TOKEN`
 - `DISCORD_DEV_GUILD_ID`
 - `YOUTUBE_REFRESH_TOKEN`
 - `RABBITMQ_USERNAME`

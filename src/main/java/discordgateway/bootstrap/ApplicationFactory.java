@@ -169,7 +169,7 @@ public class ApplicationFactory {
     }
 
     @Bean
-    @ConditionalOnMissingBean(MusicEventPublisher.class)
+    @ConditionalOnProperty(prefix = "messaging", name = "event-transport", havingValue = "spring", matchIfMissing = true)
     public MusicEventPublisher musicEventPublisher(SpringMusicEventPublisher springMusicEventPublisher) {
         return springMusicEventPublisher;
     }
@@ -330,7 +330,17 @@ public class ApplicationFactory {
             return configured;
         }
 
-        String fallback = trimToNull(environment.getProperty("token"));
+        String fallback = trimToNull(environment.getProperty("discord.token"));
+        if (fallback != null) {
+            return fallback;
+        }
+
+        fallback = trimToNull(environment.getProperty("DISCORD_TOKEN"));
+        if (fallback != null) {
+            return fallback;
+        }
+
+        fallback = trimToNull(environment.getProperty("token"));
         if (fallback != null) {
             return fallback;
         }
@@ -340,7 +350,9 @@ public class ApplicationFactory {
             return fallback;
         }
 
-        throw new IllegalStateException("Discord bot token is missing. Set property 'discord.token' or env 'token'/'TOKEN'.");
+        throw new IllegalStateException(
+                "Discord bot token is missing. Set property 'discord.token' or env 'DISCORD_TOKEN'/'TOKEN'."
+        );
     }
 
     private String trimToNull(String value) {
