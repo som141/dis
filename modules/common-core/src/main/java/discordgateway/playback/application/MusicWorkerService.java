@@ -16,11 +16,16 @@ import discordgateway.playback.domain.GuildStateRepository;
 import discordgateway.playback.domain.PlayerStateRepository;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import net.dv8tion.jda.api.entities.channel.middleman.AudioChannel;
+import net.dv8tion.jda.api.exceptions.ErrorResponseException;
+import net.dv8tion.jda.api.requests.ErrorResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.function.Function;
 
 public class MusicWorkerService {
 
@@ -114,41 +119,48 @@ public class MusicWorkerService {
                 .addKeyValue("textChannelId", command.textChannelId())
                 .log("join requested");
 
-        return voiceGateway.findUserAudioChannel(guild, command.userId())
-                .thenApply(audioChannel -> MusicCommandTraceContext.callWith(trace, () -> {
-                    boolean alreadyConnected = voiceGateway.connect(guild, audioChannel);
+        return withUserAudioChannel(guild, command.userId(), trace, audioChannel -> {
+            try {
+                boolean alreadyConnected = voiceGateway.connect(guild, audioChannel);
 
-                    log.atInfo()
-                            .addKeyValue("guildId", command.guildId())
-                            .addKeyValue("userId", command.userId())
-                            .addKeyValue("voiceChannelId", audioChannel.getIdLong())
-                            .addKeyValue("alreadyConnected", alreadyConnected)
-                            .log("join connect resolved");
+                log.atInfo()
+                        .addKeyValue("guildId", command.guildId())
+                        .addKeyValue("userId", command.userId())
+                        .addKeyValue("voiceChannelId", audioChannel.getIdLong())
+                        .addKeyValue("alreadyConnected", alreadyConnected)
+                        .log("join connect resolved");
 
-                    GuildPlayerState state = guildStateRepository.getOrCreate(guild.getIdLong());
-                    state.setConnectedVoiceChannelId(audioChannel.getIdLong());
-                    state.setLastTextChannelId(textChannel.getIdLong());
-                    guildStateRepository.save(state);
+                GuildPlayerState state = guildStateRepository.getOrCreate(guild.getIdLong());
+                state.setConnectedVoiceChannelId(audioChannel.getIdLong());
+                state.setLastTextChannelId(textChannel.getIdLong());
+                guildStateRepository.save(state);
 
-                    if (!alreadyConnected) {
-                        musicEventPublisher.publish(
-                                musicEventFactory.voiceConnected(
-                                        guild.getIdLong(),
-                                        audioChannel.getIdLong(),
-                                        command.userId(),
-                                        "join-command"
-                                )
-                        );
-                        return CommandResult.ephemeral("음성 채널에 연결했습니다: " + audioChannel.getName());
-                    }
+                if (!alreadyConnected) {
+                    musicEventPublisher.publish(
+                            musicEventFactory.voiceConnected(
+                                    guild.getIdLong(),
+                                    audioChannel.getIdLong(),
+                                    command.userId(),
+                                    "join-command"
+                            )
+                    );
+                    return CompletableFuture.completedFuture(
+                            CommandResult.ephemeral("음성 채널에 연결했습니다: " + audioChannel.getName())
+                    );
+                }
 
-                    return CommandResult.ephemeral("이미 해당 음성 채널에 연결되어 있습니다.");
-                }));
+                return CompletableFuture.completedFuture(
+                        CommandResult.ephemeral("이미 해당 음성 채널에 연결되어 있습니다.")
+                );
+            } catch (RuntimeException e) {
+                return CompletableFuture.completedFuture(commandResultForVoiceFailure(e));
+            }
+        });
     }
 
     private CommandResult leave(MusicCommand.Leave command) {
         Guild guild = requireGuild(command.guildId());
-        var connectedChannel = voiceGateway.connectedChannel(guild);
+        AudioChannel connectedChannel = voiceGateway.connectedChannel(guild);
 
         if (connectedChannel == null) {
             return CommandResult.ephemeral("현재 봇이 음성 채널에 들어가 있지 않습니다.");
@@ -177,40 +189,43 @@ public class MusicWorkerService {
             );
         }
 
-        return voiceGateway.findUserAudioChannel(guild, command.userId())
-                .thenCompose(audioChannel -> MusicCommandTraceContext.callWith(trace, () -> {
-                    boolean alreadyConnected = voiceGateway.connect(guild, audioChannel);
+        return withUserAudioChannel(guild, command.userId(), trace, audioChannel -> {
+            try {
+                boolean alreadyConnected = voiceGateway.connect(guild, audioChannel);
 
-                    GuildPlayerState state = guildStateRepository.getOrCreate(guild.getIdLong());
-                    state.setConnectedVoiceChannelId(audioChannel.getIdLong());
-                    state.setLastTextChannelId(textChannel.getIdLong());
-                    guildStateRepository.save(state);
+                GuildPlayerState state = guildStateRepository.getOrCreate(guild.getIdLong());
+                state.setConnectedVoiceChannelId(audioChannel.getIdLong());
+                state.setLastTextChannelId(textChannel.getIdLong());
+                guildStateRepository.save(state);
 
-                    if (!alreadyConnected) {
-                        musicEventPublisher.publish(
-                                musicEventFactory.voiceConnected(
-                                        guild.getIdLong(),
-                                        audioChannel.getIdLong(),
-                                        command.userId(),
-                                        "play-command"
-                                )
-                        );
-                    }
+                if (!alreadyConnected) {
+                    musicEventPublisher.publish(
+                            musicEventFactory.voiceConnected(
+                                    guild.getIdLong(),
+                                    audioChannel.getIdLong(),
+                                    command.userId(),
+                                    "play-command"
+                            )
+                    );
+                }
 
-                    playbackGateway.setAutoPlay(guild, command.autoPlay());
+                playbackGateway.setAutoPlay(guild, command.autoPlay());
 
-                    String trackUrl = (command.query().startsWith("http://") || command.query().startsWith("https://"))
-                            ? command.query()
-                            : "ytsearch:" + command.query();
+                String trackUrl = (command.query().startsWith("http://") || command.query().startsWith("https://"))
+                        ? command.query()
+                        : "ytsearch:" + command.query();
 
-                    log.atInfo()
-                            .addKeyValue("guildId", command.guildId())
-                            .addKeyValue("userId", command.userId())
-                            .addKeyValue("trackUrl", trackUrl)
-                            .log("play load scheduled");
+                log.atInfo()
+                        .addKeyValue("guildId", command.guildId())
+                        .addKeyValue("userId", command.userId())
+                        .addKeyValue("trackUrl", trackUrl)
+                        .log("play load scheduled");
 
-                    return playbackGateway.loadAndPlay(textChannel, trackUrl);
-                }));
+                return playbackGateway.loadAndPlay(textChannel, trackUrl);
+            } catch (RuntimeException e) {
+                return CompletableFuture.completedFuture(commandResultForVoiceFailure(e));
+            }
+        });
     }
 
     private CommandResult stop(MusicCommand.Stop command) {
@@ -281,28 +296,81 @@ public class MusicWorkerService {
             );
         }
 
-        return voiceGateway.findUserAudioChannel(guild, command.userId())
-                .thenCompose(audioChannel -> MusicCommandTraceContext.callWith(trace, () -> {
-                    boolean alreadyConnected = voiceGateway.connect(guild, audioChannel);
+        return withUserAudioChannel(guild, command.userId(), trace, audioChannel -> {
+            try {
+                boolean alreadyConnected = voiceGateway.connect(guild, audioChannel);
 
-                    GuildPlayerState state = guildStateRepository.getOrCreate(guild.getIdLong());
-                    state.setConnectedVoiceChannelId(audioChannel.getIdLong());
-                    state.setLastTextChannelId(textChannel.getIdLong());
-                    guildStateRepository.save(state);
+                GuildPlayerState state = guildStateRepository.getOrCreate(guild.getIdLong());
+                state.setConnectedVoiceChannelId(audioChannel.getIdLong());
+                state.setLastTextChannelId(textChannel.getIdLong());
+                guildStateRepository.save(state);
 
-                    if (!alreadyConnected) {
-                        musicEventPublisher.publish(
-                                musicEventFactory.voiceConnected(
-                                        guild.getIdLong(),
-                                        audioChannel.getIdLong(),
-                                        command.userId(),
-                                        "play-sfx-command"
-                                )
-                        );
+                if (!alreadyConnected) {
+                    musicEventPublisher.publish(
+                            musicEventFactory.voiceConnected(
+                                    guild.getIdLong(),
+                                    audioChannel.getIdLong(),
+                                    command.userId(),
+                                    "play-sfx-command"
+                            )
+                    );
+                }
+
+                return playbackGateway.playLocalFile(textChannel, command.fileName());
+            } catch (RuntimeException e) {
+                return CompletableFuture.completedFuture(commandResultForVoiceFailure(e));
+            }
+        });
+    }
+
+    private CompletableFuture<CommandResult> withUserAudioChannel(
+            Guild guild,
+            long userId,
+            MusicCommandTrace trace,
+            Function<AudioChannel, CompletableFuture<CommandResult>> next
+    ) {
+        return voiceGateway.findUserAudioChannel(guild, userId)
+                .handle((audioChannel, err) -> {
+                    if (err != null) {
+                        return CompletableFuture.completedFuture(commandResultForVoiceFailure(err));
                     }
+                    return MusicCommandTraceContext.callWith(trace, () -> next.apply(audioChannel));
+                })
+                .thenCompose(Function.identity());
+    }
 
-                    return playbackGateway.playLocalFile(textChannel, command.fileName());
-                }));
+    private CommandResult commandResultForVoiceFailure(Throwable error) {
+        Throwable cause = unwrap(error);
+
+        if (cause instanceof ErrorResponseException errorResponseException) {
+            if (errorResponseException.getErrorResponse() == ErrorResponse.UNKNOWN_VOICE_STATE
+                    || errorResponseException.getErrorCode() == 10065) {
+                return CommandResult.ephemeral("먼저 음성 채널에 들어가 주세요.");
+            }
+            if (errorResponseException.getErrorResponse() == ErrorResponse.UNKNOWN_CHANNEL) {
+                return CommandResult.ephemeral("음성 채널 정보를 찾지 못했습니다. 다시 시도해 주세요.");
+            }
+        }
+
+        String message = cause.getMessage();
+        if ("User is not in a voice channel".equals(message)) {
+            return CommandResult.ephemeral("먼저 음성 채널에 들어가 주세요.");
+        }
+        if ("Voice channel not found".equals(message)) {
+            return CommandResult.ephemeral("음성 채널 정보를 찾지 못했습니다. 다시 시도해 주세요.");
+        }
+        if (message != null && message.contains("VOICE_CONNECT")) {
+            return CommandResult.ephemeral("봇에 음성 채널 연결 권한이 없습니다.");
+        }
+
+        return CommandResult.ephemeral("음성 채널 상태를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.");
+    }
+
+    private Throwable unwrap(Throwable error) {
+        if (error instanceof CompletionException completionException && completionException.getCause() != null) {
+            return unwrap(completionException.getCause());
+        }
+        return error;
     }
 
     private Guild requireGuild(long guildId) {
