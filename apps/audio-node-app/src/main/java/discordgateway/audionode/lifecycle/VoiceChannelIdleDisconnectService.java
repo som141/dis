@@ -1,11 +1,11 @@
 package discordgateway.audionode.lifecycle;
 
-import discordgateway.application.DiscordReferenceResolver;
-import discordgateway.application.VoiceSessionLifecycleService;
-import discordgateway.bootstrap.OperationsProperties;
-import discordgateway.domain.GuildPlayerState;
-import discordgateway.domain.GuildStateRepository;
-import discordgateway.infrastructure.audio.VoiceGateway;
+import discordgateway.common.command.DiscordReferenceResolver;
+import discordgateway.playback.application.VoiceSessionLifecycleService;
+import discordgateway.common.bootstrap.OperationsProperties;
+import discordgateway.playback.domain.GuildPlayerState;
+import discordgateway.playback.domain.GuildStateRepository;
+import discordgateway.infra.audio.VoiceGateway;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
@@ -226,7 +226,7 @@ public class VoiceChannelIdleDisconnectService {
             return;
         }
 
-        textChannel.sendMessage("사용자가 없어서 음성 채널에서 퇴장합니다.").queue(
+        textChannel.sendMessage("?ъ슜?먭? ?놁뼱???뚯꽦 梨꾨꼸?먯꽌 ?댁옣?⑸땲??").queue(
                 null,
                 failure -> log.atWarn()
                         .addKeyValue("guildId", guildId)

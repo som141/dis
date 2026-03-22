@@ -1,31 +1,35 @@
 # 현재 아키텍처
 
-## 1. 요약
+## 요약
 
-현재 시스템은 `gateway-app + audio-node-app + common-core` 3계층 구조다.
+현재 시스템은 `gateway-app + audio-node-app + common-core` 구조다.
 
 - `gateway-app`
-  - Discord slash command 진입점
+  - Discord command 진입점
   - RabbitMQ command producer
 - `audio-node-app`
   - RabbitMQ command consumer
-  - 실제 재생과 복구 수행
+  - 실제 재생, 복구, 유휴 퇴장 실행
 - `common-core`
-  - 공용 도메인
-  - 재생 엔진
-  - Redis 저장소
-  - RabbitMQ command 인프라
-  - 공통 bootstrap
+  - 공용 계약
+  - playback 코어
+  - Redis / RabbitMQ / JDA 인프라
 
-현재 설계에서 중요한 점은 fallback 경로를 제거하고 실제 운영 경로만 남겼다는 점이다.
+고정된 런타임 경로:
 
 - 상태 저장소: Redis
 - 명령 transport: RabbitMQ RPC
 - 이벤트 transport: Spring local event
-- in-memory fallback: 없음
-- in-process command bus: 없음
 
-## 2. 런타임 다이어그램
+## 패키지 계층
+
+- `discordgateway.gateway.*`
+- `discordgateway.audionode.*`
+- `discordgateway.common.*`
+- `discordgateway.playback.*`
+- `discordgateway.infra.*`
+
+## 시스템 다이어그램
 
 ```mermaid
 flowchart LR
@@ -47,7 +51,7 @@ flowchart LR
     A -->|voice/playback| D
 ```
 
-## 3. 관측성 다이어그램
+## 관측성 다이어그램
 
 ```mermaid
 flowchart LR
@@ -74,36 +78,34 @@ flowchart LR
     L --> GR
 ```
 
-## 4. 명령 흐름
+## 명령 흐름
 
 1. 사용자가 Discord slash command를 호출한다.
 2. `gateway-app`의 `DiscordBotListener`가 interaction을 수신한다.
-3. `MusicApplicationService`가 Discord 요청을 `MusicCommand`로 변환한다.
-4. `RabbitMusicCommandBus`가 RabbitMQ RPC로 명령을 보낸다.
+3. `MusicApplicationService`가 요청을 `MusicCommand`로 변환한다.
+4. `RabbitMusicCommandBus`가 RabbitMQ RPC로 전송한다.
 5. `audio-node-app`의 `RabbitMusicCommandListener`가 명령을 소비한다.
 6. `MusicWorkerService`가 실제 비즈니스 로직을 수행한다.
-7. 결과는 RPC 응답으로 gateway에 돌아간다.
+7. 응답은 RPC로 gateway에 돌아간다.
 8. gateway가 interaction 응답이나 follow-up 메시지를 정리한다.
 
-## 5. 재생 흐름
+## 재생 흐름
 
-1. `MusicWorkerService`가 `PlaybackGateway`, `VoiceGateway`를 호출한다.
-2. `PlayerManager`가 트랙 로드, 큐 반영, 재생 시작을 제어한다.
-3. `TrackScheduler`가 종료 후 다음 곡 전이를 제어한다.
-4. 종료가 필요할 때는 `VoiceSessionLifecycleService`가 stop, queue clear, disconnect, state cleanup을 공통 처리한다.
-5. `audio-node-app`의 `VoiceChannelIdleListener`가 음성 상태 변화를 감시하고, 비어 있는 채널이면 유휴 퇴장 타이머를 예약한다.
-6. 타이머 만료 시 `VoiceChannelIdleDisconnectService`가 사람 수를 다시 검증하고, 마지막 텍스트 채널에 안내 메시지를 보낸 뒤 같은 공통 종료 경로를 호출한다.
-7. 현재 상태는 Redis에 저장된다.
-8. 상태 변화는 Spring local event로 발행되고 구조 로그로 남는다.
+1. `MusicWorkerService`가 playback / voice gateway를 호출한다.
+2. `PlayerManager`가 곡 로드와 큐 반영을 처리한다.
+3. `TrackScheduler`가 재생 전이와 다음 곡 결정을 처리한다.
+4. 종료가 필요하면 `VoiceSessionLifecycleService`가 stop, clear, disconnect, state cleanup을 공통 처리한다.
+5. `VoiceChannelIdleListener`와 `VoiceChannelIdleDisconnectService`가 유휴 음성 채널 퇴장을 수행한다.
+6. 상태 변화는 Redis와 로컬 Spring event에 반영된다.
 
-## 6. 복구 흐름
+## 복구 흐름
 
 1. `audio-node-app`이 기동한다.
-2. JDA Ready 이후 `PlaybackRecoveryReadyListener`가 실행된다.
-3. `PlaybackRecoveryService`가 Redis에서 guild, player, queue 상태를 읽는다.
-4. 저장된 voice channel과 현재 재생 상태를 기준으로 복구를 시도한다.
+2. JDA Ready 이후 `PlaybackRecoveryReadyListener`가 시작된다.
+3. `PlaybackRecoveryService`가 Redis에서 guild / player / queue 상태를 읽는다.
+4. 저장된 음성 채널과 현재 재생 상태를 기준으로 복구를 시도한다.
 
-## 7. 컴포넌트별 특징
+## 컴포넌트별 특징
 
 ### Gateway App
 
@@ -111,57 +113,54 @@ flowchart LR
 | --- | --- |
 | 역할 | Discord 요청 수신, command 생성, 즉시 응답 |
 | 주요 클래스 | `DiscordBotListener`, `MusicApplicationService`, `PlayAutocompleteService`, `RabbitMusicCommandBus` |
-| 상태 보유 | 직접 상태를 저장하지 않음 |
+| 상태 보유 | 직접 상태 저장 안 함 |
 | 워크로드 | slash command burst, autocomplete, RPC 응답 대기 |
 
 ### Audio Node App
 
 | 항목 | 내용 |
 | --- | --- |
-| 역할 | 명령 소비, 재생 실행, 복구, 상태 전이 |
-| 주요 클래스 | `RabbitMusicCommandListener`, `PlaybackRecoveryService`, `PlaybackRecoveryReadyListener`, `VoiceChannelIdleDisconnectService`, `VoiceChannelIdleListener` |
+| 역할 | 명령 소비, 재생 실행, 복구, 유휴 퇴장 |
+| 주요 클래스 | `RabbitMusicCommandListener`, `PlaybackRecoveryService`, `VoiceChannelIdleDisconnectService`, `VoiceChannelIdleListener` |
 | 상태 보유 | Redis를 source of truth로 사용 |
-| 워크로드 | 음성 연결, 트랙 로드, 재생, recovery, 유휴 퇴장 감시 |
+| 워크로드 | 음성 연결, 곡 로드, 재생, recovery, voice state 감시 |
 
 ### Common Core
 
 | 항목 | 내용 |
 | --- | --- |
-| 역할 | 공용 도메인, 인프라, 재생 코어 |
+| 역할 | 공용 계약, 인프라, 재생 코어 |
 | 주요 클래스 | `MusicWorkerService`, `PlayerManager`, `TrackScheduler`, `ApplicationFactory` |
-| 상태 보유 | 직접 보유하지 않고 Redis 경로만 사용 |
-| 워크로드 | 상태 전이, 재생 제어, bootstrap |
+| 상태 보유 | 직접 상태를 들고 있지 않고 Redis 경로를 통해 접근 |
+| 워크로드 | 코어 로직, bootstrap, 저장소 및 메시징 연결 |
 
 ### Redis
 
 | 항목 | 내용 |
 | --- | --- |
-| 역할 | 현재 구조의 shared source of truth |
-| 저장 대상 | guild 상태, queue 상태, player 상태, processed command |
-| 비고 | in-memory fallback 없음 |
+| 역할 | shared source of truth |
+| 저장 대상 | guild state, queue state, player state, processed command |
+| 비고 | in-memory fallback 제거 |
 
 ### RabbitMQ
 
 | 항목 | 내용 |
 | --- | --- |
-| 역할 | gateway와 audio-node 사이의 command transport |
+| 역할 | gateway와 audio-node 사이 command transport |
 | 사용 범위 | command exchange, queue, DLQ, reply-to RPC |
-| 비고 | event transport로는 사용하지 않음 |
+| 비고 | 이벤트 transport로는 사용하지 않음 |
 
-## 8. 현재 구현된 관측성
+## 관측성
 
 - Actuator `health`, `info`, `prometheus`
 - ECS JSON structured logging
-- `application`, `node` 메트릭 태그
-- Grafana 대시보드 2종
-  - `Discord Bot App Overview`
-  - `Discord Bot Infra Overview`
+- Grafana dashboard provisioning
 - Prometheus alert rules
-- Grafana-managed alert rules
-- `observability-noop`, `observability-discord` contact point provisioning
+- Grafana managed alert rules
+- Discord webhook 알림 경로
 
-## 9. 현재 알려진 운영 이슈
+## 현재 운영 이슈
 
-- YouTube 재생은 로컬과 원격 서버에서 결과가 다를 수 있다.
-- 현재까지의 관측 결과상 이 차이는 코드보다 서버 IP/ASN과 YouTube anti-bot 응답 차이의 영향을 많이 받는다.
-- Grafana 관리자 계정은 첫 기동 시점에만 env가 반영된다. 기존 `grafana-data` 볼륨이 있으면 나중에 env를 바꿔도 계정은 자동으로 바뀌지 않는다.
+- YouTube 재생은 로컬과 원격 서버에서 결과 차이가 날 수 있다.
+- 현재까지의 관측상 코드를 넘어서 서버 IP/ASN과 YouTube anti-bot 응답 차이가 큰 변수다.
+- Grafana 관리자 계정은 첫 기동 시점의 env만 반영된다.

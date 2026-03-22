@@ -2,68 +2,50 @@
 
 ## 역할
 
-`gateway-app`은 Discord 사용자 요청의 진입점이다. 이 앱은 실제 재생 엔진이 아니라 명령 수신과 변환, 즉시 응답에 집중한다.
+`gateway-app`은 Discord 사용자 요청의 진입점이다. 이 모듈은 실제 재생을 직접 수행하지 않고, slash command를 `MusicCommand`로 변환해서 RabbitMQ RPC로 전달한다.
 
-현재 책임은 아래로 고정되어 있다.
+## 주요 패키지
 
-- Discord slash command 수신
-- Discord autocomplete 처리
-- 사용자 입력 검증
-- Discord 요청을 `MusicCommand`로 변환
-- RabbitMQ RPC command producer
-- Discord interaction 즉시 응답 및 follow-up 메시지 처리
+### `discordgateway.gateway`
 
-`gateway-app`은 직접 상태를 저장하지 않는다. 실제 재생과 상태 전이는 `audio-node-app`과 `common-core`가 담당한다.
+- `GatewayApplication`
+  - gateway-app의 Spring Boot 시작점
 
-## 주요 클래스
+### `discordgateway.gateway.config`
 
-### `discordgateway.gateway.GatewayApplication`
+- `GatewayComponentConfiguration`
+  - gateway 전용 bean 조립
 
-- gateway-app의 Spring Boot 메인 클래스
-- 최종 실행 JAR의 진입점
+### `discordgateway.gateway.application`
 
-### `discordgateway.gateway.GatewayComponentConfiguration`
-
-- gateway 전용 bean 구성
 - `MusicApplicationService`
+  - Discord 요청을 command로 변환하는 facade
 - `PlayAutocompleteService`
-- `RabbitMusicCommandBus`
+  - `/play` 자동완성 후보 조회
+
+### `discordgateway.gateway.presentation.discord`
+
 - `DiscordBotListener`
+  - slash command 처리
+- `DiscordCommandCatalog`
+  - 명령 정의
 - `DiscordCommandRegistrationListener`
+  - Ready 이후 명령 등록
 
-### `discordgateway.application.MusicApplicationService`
+## 동작 방식
 
-- Discord interaction을 `MusicCommand`로 변환하는 facade
-- 실제 비즈니스 처리는 하지 않고 command bus 호출만 수행
+1. Discord interaction 수신
+2. 입력 검증
+3. `MusicCommand` 생성
+4. `RabbitMusicCommandBus`로 RPC 전송
+5. 응답을 interaction 응답 또는 follow-up 메시지로 정리
 
-### `discordgateway.application.PlayAutocompleteService`
+## 고정된 의존 경로
 
-- `/play` autocomplete 후보 조회
-- 검색 UX를 위한 경량 서비스
-
-### `discordgateway.discord.DiscordBotListener`
-
-- slash command 분기
-- interaction 응답 처리
-- 채널 follow-up 메시지 구성
-
-### `discordgateway.discord.DiscordCommandRegistrationListener`
-
-- Ready 이후 slash command 등록
-
-## 고정된 설계
-
-- command bus: `RabbitMusicCommandBus`
-- 상태 저장소: Redis 사용 경로만 허용
-- 이벤트 transport: Spring local event
-- in-process fallback 없음
-- in-memory fallback 없음
-
-정상 기동 로그에서는 보통 아래가 보인다.
-
-- `startup-config`
-- `application=gateway-app`
-- `commandBus=RabbitMusicCommandBus`
+- command bus: RabbitMQ RPC
+- 상태 저장소 직접 접근: 없음
+- 이벤트 소비: 없음
+- in-memory fallback: 없음
 
 ## 설정
 
@@ -71,14 +53,9 @@
 
 - `src/main/resources/application.yml`
 
-현재 앱 전용 값은 최소화되어 있다.
+공통 설정은 `modules/common-core/src/main/resources/application-common.yml`에서 읽는다.
 
-- `spring.application.name=gateway-app`
-- `app.node-name`
-
-나머지 공통 설정은 `modules/common-core/src/main/resources/application-common.yml`에서 가져온다.
-
-## 주요 환경변수
+## 주요 환경 변수
 
 - `DISCORD_TOKEN`
 - `TOKEN`
@@ -87,80 +64,39 @@
 - `RABBITMQ_PORT`
 - `RABBITMQ_USERNAME`
 - `RABBITMQ_PASSWORD`
-- `REDIS_HOST`
-- `REDIS_PORT`
 - `APP_NODE_NAME`
 - `HEALTH_PORT`
 
-## 빌드와 실행
-
-JAR 생성:
+## 빌드 / 실행
 
 ```powershell
 .\gradlew.bat :apps:gateway-app:bootJar
-```
-
-실행:
-
-```powershell
 java -jar apps/gateway-app/build/libs/gateway-app.jar
 ```
 
-Gradle 실행:
+또는
 
 ```powershell
 .\gradlew.bat :apps:gateway-app:bootRun
 ```
 
-## Docker
-
-- Dockerfile: `apps/gateway-app/Dockerfile`
-- 기본 이미지 태그: `discord-gateway:local`
-
 ## 관측성
 
-Gateway는 아래 endpoint를 노출한다.
+노출 endpoint:
 
 - `/actuator/health`
 - `/actuator/info`
 - `/actuator/prometheus`
 
-로그는 `common-core`의 `logback-spring.xml` 설정을 공유하며 ECS JSON 형식으로 출력된다.
-
-주요 구조 로그:
+구조 로그 키:
 
 - `startup-config`
 - `music-command`
 - `music-event`
 
-## 운영 시 확인 포인트
+## 확인 포인트
 
-### Discord 토큰 문제
+정상 기동 시 gateway 로그에서 보통 아래가 보인다.
 
-증상:
-
-- JDA 초기화 실패
-- `Discord bot token is missing`
-
-확인 값:
-
-- `DISCORD_TOKEN`
-- fallback `TOKEN`
-
-### RabbitMQ 연결 문제
-
-증상:
-
-- slash command 즉시 응답만 오고 실제 처리가 되지 않음
-- RPC timeout
-
-확인 값:
-
-- `RABBITMQ_HOST`
-- `RABBITMQ_PORT`
-- `RABBITMQ_USERNAME`
-- `RABBITMQ_PASSWORD`
-
-### 구조 확인
-
-gateway 로그에서 `commandBus=RabbitMusicCommandBus`가 보여야 정상이다.
+- `application=gateway-app`
+- `commandBus=RabbitMusicCommandBus`

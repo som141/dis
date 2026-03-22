@@ -2,90 +2,63 @@
 
 ## 역할
 
-`audio-node-app`은 명령을 실제로 수행하는 실행 노드다. 재생, 음성 연결, 상태 전이, 복구는 모두 이 앱에서 시작된다.
+`audio-node-app`은 명령을 실제로 수행하는 실행 노드다. RabbitMQ에서 command를 받아 음성 연결, 곡 로드, 재생, 복구, 유휴 퇴장을 수행한다.
 
-현재 책임은 아래로 고정되어 있다.
+## 주요 패키지
 
-- RabbitMQ command consumer
-- 음성 채널 연결 및 해제
-- 트랙 로드, 재생, 정지, 스킵
-- Redis 상태 반영
-- 기동 시 playback recovery
-- Spring local event 발행
+### `discordgateway.audionode`
 
-## 주요 클래스
+- `AudioNodeApplication`
+  - audio-node-app의 Spring Boot 시작점
 
-### `discordgateway.audionode.AudioNodeApplication`
+### `discordgateway.audionode.config`
 
-- audio-node-app의 Spring Boot 메인 클래스
-- 최종 실행 JAR의 진입점
+- `AudioNodeComponentConfiguration`
+  - audio-node 전용 bean 조립
 
-### `discordgateway.audionode.AudioNodeComponentConfiguration`
+### `discordgateway.audionode.recovery`
 
-- audio-node 전용 bean 구성
-- `RabbitMusicCommandListener`
 - `PlaybackRecoveryService`
+  - Redis 상태 기준 복구 실행
 - `PlaybackRecoveryReadyListener`
+  - Ready 이후 recovery 시작
+
+### `discordgateway.audionode.lifecycle`
+
 - `VoiceChannelIdleDisconnectService`
+  - 비어 있는 음성 채널 유휴 퇴장 예약 / 취소 / 실행
 - `VoiceChannelIdleListener`
+  - `GuildVoiceUpdateEvent` 감시
 
-### `discordgateway.infrastructure.messaging.rabbit.RabbitMusicCommandListener`
+## 공용 코어 사용
 
-- RabbitMQ queue에서 `MusicCommandMessage` 소비
-- command dedup
-- 실패 시 DLQ 경계 처리
-- `MusicWorkerService` 호출
+실제 재생 코어는 `common-core`에 있다. audio-node-app은 이를 실행하는 앱 계층이다.
 
-### `discordgateway.application.PlaybackRecoveryService`
+주요 코어 클래스:
 
-- Redis에 저장된 guild, player, queue 상태를 기준으로 복구 수행
+- `discordgateway.playback.application.MusicWorkerService`
+- `discordgateway.playback.application.VoiceSessionLifecycleService`
+- `discordgateway.playback.audio.PlayerManager`
+- `discordgateway.playback.audio.TrackScheduler`
+- `discordgateway.infra.audio.LavaPlayerPlaybackGateway`
+- `discordgateway.infra.audio.JdaVoiceGateway`
 
-### `discordgateway.discord.PlaybackRecoveryReadyListener`
+## 동작 방식
 
-- JDA Ready 이후 recovery 시작
+1. RabbitMQ command 소비
+2. `MusicWorkerService`로 전달
+3. playback 코어 실행
+4. Redis 상태 반영
+5. 필요 시 recovery / idle disconnect 수행
+6. 로컬 Spring event와 구조 로그 발행
 
-### `discordgateway.audionode.lifecycle.VoiceChannelIdleDisconnectService`
+## 고정된 의존 경로
 
-- 현재 봇이 연결된 음성 채널의 사람 수를 계산
-- 사람이 0명이면 유휴 퇴장 타이머를 예약
-- 예약 후 사람이 다시 들어오면 타이머를 취소
-- 타이머 만료 시 `VoiceSessionLifecycleService`를 호출해 수동 `/leave`와 같은 정리 경로를 사용
-- 마지막으로 사용한 텍스트 채널에 유휴 퇴장 안내 메시지를 전송
-
-### `discordgateway.audionode.lifecycle.VoiceChannelIdleListener`
-
-- `GuildVoiceUpdateEvent`가 들어올 때마다 guild 단위로 유휴 상태를 재평가
-- gateway가 아니라 audio-node에서만 등록되는 JDA listener
-
-## 실제 재생 엔진 위치
-
-`audio-node-app` 자체는 실행 경계이고, 실제 재생 코어는 `common-core`에 있다.
-
-중심 클래스:
-
-- `MusicWorkerService`
-- `PlayerManager`
-- `TrackScheduler`
-- `LavaPlayerPlaybackGateway`
-- `JdaVoiceGateway`
-
-즉 `audio-node-app`은 실행 노드, `common-core`는 재생 코어다.
-
-## 고정된 설계
-
-- command consumer: `RabbitMusicCommandListener`
-- 상태 저장소: Redis만 사용
-- 이벤트 transport: Spring local event
-- in-memory fallback 없음
-- in-process bus 없음
-
-정상 기동 로그에서는 보통 아래가 보인다.
-
-- `startup-config`
-- `application=audio-node-app`
-- `commandBus=none`
-
-`commandBus=none`은 정상이다. audio-node는 producer가 아니라 consumer이기 때문이다.
+- command consumer: RabbitMQ
+- 상태 저장소: Redis
+- 이벤트 발행: Spring local event
+- in-memory fallback: 없음
+- in-process bus: 없음
 
 ## 설정
 
@@ -93,19 +66,14 @@
 
 - `src/main/resources/application.yml`
 
-현재 앱 전용 값:
+공통 설정은 `application-common.yml`을 사용한다.
 
-- `spring.application.name=audio-node-app`
-- `app.node-name`
-
-공통 값은 `application-common.yml`을 사용한다.
-
-유휴 퇴장 관련 공통 설정:
+유휴 퇴장 관련 설정:
 
 - `ops.voice-idle-disconnect-enabled`
 - `ops.voice-idle-timeout`
 
-## 주요 환경변수
+## 주요 환경 변수
 
 - `DISCORD_TOKEN`
 - `TOKEN`
@@ -125,92 +93,41 @@
 - `YOUTUBE_REMOTE_CIPHER_PASSWORD`
 - `YOUTUBE_REMOTE_CIPHER_USER_AGENT`
 
-## 빌드와 실행
-
-JAR 생성:
+## 빌드 / 실행
 
 ```powershell
 .\gradlew.bat :apps:audio-node-app:bootJar
-```
-
-실행:
-
-```powershell
 java -jar apps/audio-node-app/build/libs/audio-node-app.jar
 ```
 
-Gradle 실행:
+또는
 
 ```powershell
 .\gradlew.bat :apps:audio-node-app:bootRun
 ```
 
-## Docker
-
-- Dockerfile: `apps/audio-node-app/Dockerfile`
-- 기본 이미지 태그: `discord-audio-node:local`
-
 ## 관측성
 
-Audio Node는 아래 endpoint를 노출한다.
+노출 endpoint:
 
 - `/actuator/health`
 - `/actuator/info`
 - `/actuator/prometheus`
 
-로그는 ECS JSON 형식으로 출력된다.
-
-주요 구조 로그:
+주요 로그 흐름:
 
 - `startup-config`
 - `music-command`
 - `music-event`
 - YouTube 로드 실패 로그
-- recovery 시작/완료 로그
+- recovery 시작 / 완료 로그
+- voice idle disconnect 로그
 
-## 운영 시 확인 포인트
+## 확인 포인트
 
-### RabbitMQ 미연결
+정상 기동 시 audio-node 로그에서 보통 아래가 보인다.
 
-증상:
+- `application=audio-node-app`
+- `commandBus=none`
 
-- gateway가 응답은 하지만 실제 재생이 시작되지 않음
-
-확인 값:
-
-- `RABBITMQ_HOST`
-- `RABBITMQ_PORT`
-- queue consumer 상태
-
-### Redis 미연결
-
-증상:
-
-- recovery 실패
-- actuator health에서 Redis down
-
-확인 값:
-
-- `REDIS_HOST`
-- `REDIS_PORT`
-
-### YouTube 재생 실패
-
-증상:
-
-- 검색은 되는데 실제 재생이 시작되지 않음
-- `track.load.failed`
-- `All clients failed to load the item`
-- `403`
-
-확인 값:
-
-- `YOUTUBE_REFRESH_TOKEN`
-- `YOUTUBE_PO_TOKEN`
-- `YOUTUBE_VISITOR_DATA`
-- `YOUTUBE_REMOTE_CIPHER_URL`
-
-주의:
-
-- 로컬 Docker에서는 재생되는데 원격 서버에서는 실패하는 경우가 있다.
-- 현재까지의 운영 경험상 이 문제는 코드보다 서버 IP/ASN, YouTube anti-bot 응답 차이의 영향을 크게 받는다.
+`commandBus=none`은 정상이다. audio-node는 producer가 아니라 consumer이기 때문이다.
