@@ -46,6 +46,8 @@ ops:
   command-dlq-replay-enabled: false
   command-dlq-replay-exit-after-run: false
   command-dlq-replay-max-messages: 100
+  voice-idle-disconnect-enabled: true
+  voice-idle-timeout: 5s
 
 spring:
   rabbitmq:

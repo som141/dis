@@ -3,6 +3,7 @@ package discordgateway.bootstrap;
 import discordgateway.application.DiscordReferenceResolver;
 import discordgateway.application.MusicCommandBus;
 import discordgateway.application.MusicWorkerService;
+import discordgateway.application.VoiceSessionLifecycleService;
 import discordgateway.application.event.MusicEventFactory;
 import discordgateway.application.event.MusicEventPublisher;
 import discordgateway.application.event.SpringMusicEventPublisher;
@@ -154,12 +155,35 @@ public class ApplicationFactory {
             VoiceGateway voiceGateway,
             GuildStateRepository guildStateRepository,
             PlayerStateRepository playerStateRepository,
+            VoiceSessionLifecycleService voiceSessionLifecycleService,
             MusicEventPublisher musicEventPublisher,
             MusicEventFactory musicEventFactory
     ) {
         return new MusicWorkerService(
                 discordReferenceResolver,
                 playbackGateway,
+                voiceGateway,
+                guildStateRepository,
+                playerStateRepository,
+                voiceSessionLifecycleService,
+                musicEventPublisher,
+                musicEventFactory
+        );
+    }
+
+    @Bean
+    public VoiceSessionLifecycleService voiceSessionLifecycleService(
+            PlaybackGateway playbackGateway,
+            QueueRepository queueRepository,
+            VoiceGateway voiceGateway,
+            GuildStateRepository guildStateRepository,
+            PlayerStateRepository playerStateRepository,
+            MusicEventPublisher musicEventPublisher,
+            MusicEventFactory musicEventFactory
+    ) {
+        return new VoiceSessionLifecycleService(
+                playbackGateway,
+                queueRepository,
                 voiceGateway,
                 guildStateRepository,
                 playerStateRepository,

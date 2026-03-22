@@ -37,6 +37,7 @@ deploy.sh
   - 음성 채널 연결 및 해제
   - 실제 트랙 로드/재생/정지/스킵
   - Redis 상태 복구
+  - 유휴 음성 채널 5분 자동 퇴장
 - `common-core`
   - 공용 command/event 모델
   - `MusicWorkerService`

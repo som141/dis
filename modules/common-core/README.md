@@ -42,6 +42,7 @@ modules/common-core/
 - `MusicCommandBus`
 - `MusicCommandMessage`
 - `MusicWorkerService`
+- `VoiceSessionLifecycleService`
 - `MusicCommandTraceContext`
 
 ### `application.event`
@@ -113,6 +114,7 @@ modules/common-core/
 - structured logging
 - RabbitMQ command 설정
 - DLQ replay 설정
+- voice idle lifecycle 설정
 
 ### `logback-spring.xml`
 

@@ -90,8 +90,11 @@ flowchart LR
 1. `MusicWorkerService`가 `PlaybackGateway`, `VoiceGateway`를 호출한다.
 2. `PlayerManager`가 트랙 로드, 큐 반영, 재생 시작을 제어한다.
 3. `TrackScheduler`가 종료 후 다음 곡 전이를 제어한다.
-4. 현재 상태는 Redis에 저장된다.
-5. 상태 변화는 Spring local event로 발행되고 구조 로그로 남는다.
+4. 종료가 필요할 때는 `VoiceSessionLifecycleService`가 stop, queue clear, disconnect, state cleanup을 공통 처리한다.
+5. `audio-node-app`의 `VoiceChannelIdleListener`가 음성 상태 변화를 감시하고, 비어 있는 채널이면 유휴 퇴장 타이머를 예약한다.
+6. 타이머 만료 시 `VoiceChannelIdleDisconnectService`가 사람 수를 다시 검증하고, 마지막 텍스트 채널에 안내 메시지를 보낸 뒤 같은 공통 종료 경로를 호출한다.
+7. 현재 상태는 Redis에 저장된다.
+8. 상태 변화는 Spring local event로 발행되고 구조 로그로 남는다.
 
 ## 6. 복구 흐름
 
@@ -116,9 +119,9 @@ flowchart LR
 | 항목 | 내용 |
 | --- | --- |
 | 역할 | 명령 소비, 재생 실행, 복구, 상태 전이 |
-| 주요 클래스 | `RabbitMusicCommandListener`, `PlaybackRecoveryService`, `PlaybackRecoveryReadyListener` |
+| 주요 클래스 | `RabbitMusicCommandListener`, `PlaybackRecoveryService`, `PlaybackRecoveryReadyListener`, `VoiceChannelIdleDisconnectService`, `VoiceChannelIdleListener` |
 | 상태 보유 | Redis를 source of truth로 사용 |
-| 워크로드 | 음성 연결, 트랙 로드, 재생, recovery |
+| 워크로드 | 음성 연결, 트랙 로드, 재생, recovery, 유휴 퇴장 감시 |
 
 ### Common Core
 

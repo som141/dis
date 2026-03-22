@@ -14,6 +14,7 @@ public class RedisGuildStateRepository implements GuildStateRepository {
     private static final String KEY_SUFFIX = ":player";
 
     private static final String FIELD_CONNECTED_VOICE_CHANNEL_ID = "connectedVoiceChannelId";
+    private static final String FIELD_LAST_TEXT_CHANNEL_ID = "lastTextChannelId";
 
     private final JedisPool jedisPool;
 
@@ -42,6 +43,15 @@ public class RedisGuildStateRepository implements GuildStateRepository {
                 }
             }
 
+            String lastTextChannelId = values.get(FIELD_LAST_TEXT_CHANNEL_ID);
+            if (lastTextChannelId != null && !lastTextChannelId.isBlank()) {
+                try {
+                    state.setLastTextChannelId(Long.parseLong(lastTextChannelId));
+                } catch (NumberFormatException ignored) {
+                    state.setLastTextChannelId(null);
+                }
+            }
+
             return state;
         }
     }
@@ -57,12 +67,20 @@ public class RedisGuildStateRepository implements GuildStateRepository {
                 values.put(FIELD_CONNECTED_VOICE_CHANNEL_ID, Long.toString(state.getConnectedVoiceChannelId()));
             }
 
+            if (state.getLastTextChannelId() != null) {
+                values.put(FIELD_LAST_TEXT_CHANNEL_ID, Long.toString(state.getLastTextChannelId()));
+            }
+
             if (!values.isEmpty()) {
                 jedis.hset(key, values);
             }
 
             if (state.getConnectedVoiceChannelId() == null) {
                 jedis.hdel(key, FIELD_CONNECTED_VOICE_CHANNEL_ID);
+            }
+
+            if (state.getLastTextChannelId() == null) {
+                jedis.hdel(key, FIELD_LAST_TEXT_CHANNEL_ID);
             }
         }
     }

@@ -142,6 +142,28 @@
 - GitHub Actions와 `deploy.sh`가 `ops/observability/**`를 원격으로 반영하도록 수정
 - `OBSERVABILITY_ENABLED` 기준 자동 기동 추가
 
+## Phase 6. refactor plan 1단계
+
+### Stage 35
+
+- `VoiceSessionLifecycleService` 추가
+- `/leave`의 종료 정리 로직을 공통 서비스로 이동
+- 공통 종료 경로에서 아래를 한 번에 수행하도록 정리
+  - playback stop
+  - queue clear
+  - voice disconnect
+  - guild state remove
+  - player state remove
+- 향후 audio-node 유휴 퇴장 기능이 같은 종료 서비스를 재사용할 수 있는 기반 마련
+
+### Stage 36
+
+- `OperationsProperties`에 유휴 퇴장 관련 설정 추가
+- `ops.voice-idle-disconnect-enabled`
+- `ops.voice-idle-timeout`
+- 기본값을 `true`, `5m`으로 고정
+- 공통 설정 파일에도 같은 키를 반영해서 이후 audio-node lifecycle 구현에서 바로 참조할 수 있도록 정리
+
 ## 현재 남은 작업
 
 - 실제 운영 Discord webhook 연결
@@ -166,3 +188,15 @@
 - Discord webhook 실제 발송
 - 원격 서버 Grafana 계정 최종 상태
 - 원격 서버 YouTube 재생 성공률
+### Stage 37
+
+- `apps/audio-node-app`에 `VoiceChannelIdleDisconnectService` 추가
+- 현재 봇이 연결된 음성 채널의 사람 수를 계산해서 유휴 퇴장 타이머를 예약하거나 취소하도록 구현
+- 타이머 만료 시 채널, 사람 수를 다시 검증한 뒤 `VoiceSessionLifecycleService`를 호출해 공통 종료 경로를 재사용하도록 정리
+- 예약, 취소, 실제 퇴장 여부를 구조 로그로 추적할 수 있도록 `voice-idle transition` 로그 추가
+
+### Stage 38
+
+- `VoiceChannelIdleListener`를 추가해 `GuildVoiceUpdateEvent` 기준으로 guild 단위 유휴 상태를 재평가하도록 연결
+- `AudioNodeComponentConfiguration`에서 유휴 퇴장 스케줄러, 서비스, 리스너를 audio-node 런타임에만 bean으로 등록하도록 정리
+- DLQ replay 모드에서는 유휴 퇴장 bean이 뜨지 않도록 구성하고, 스케줄러 스레드 이름을 `voice-idle-disconnect`로 고정

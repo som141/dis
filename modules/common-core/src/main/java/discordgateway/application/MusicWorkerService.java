@@ -25,6 +25,7 @@ public class MusicWorkerService {
     private final VoiceGateway voiceGateway;
     private final GuildStateRepository guildStateRepository;
     private final PlayerStateRepository playerStateRepository;
+    private final VoiceSessionLifecycleService voiceSessionLifecycleService;
     private final MusicEventPublisher musicEventPublisher;
     private final MusicEventFactory musicEventFactory;
 
@@ -34,6 +35,7 @@ public class MusicWorkerService {
             VoiceGateway voiceGateway,
             GuildStateRepository guildStateRepository,
             PlayerStateRepository playerStateRepository,
+            VoiceSessionLifecycleService voiceSessionLifecycleService,
             MusicEventPublisher musicEventPublisher,
             MusicEventFactory musicEventFactory
     ) {
@@ -42,6 +44,7 @@ public class MusicWorkerService {
         this.voiceGateway = voiceGateway;
         this.guildStateRepository = guildStateRepository;
         this.playerStateRepository = playerStateRepository;
+        this.voiceSessionLifecycleService = voiceSessionLifecycleService;
         this.musicEventPublisher = musicEventPublisher;
         this.musicEventFactory = musicEventFactory;
     }
@@ -118,6 +121,7 @@ public class MusicWorkerService {
 
                     GuildPlayerState state = guildStateRepository.getOrCreate(guild.getIdLong());
                     state.setConnectedVoiceChannelId(audioChannel.getIdLong());
+                    state.setLastTextChannelId(textChannel.getIdLong());
                     guildStateRepository.save(state);
 
                     if (!alreadyConnected) {
@@ -147,17 +151,7 @@ public class MusicWorkerService {
             return CommandResult.ephemeral("현재 봇이 음성 채널에 들어가 있지 않습니다.");
         }
 
-        voiceGateway.disconnect(guild);
-        guildStateRepository.remove(guild.getIdLong());
-        playerStateRepository.remove(guild.getIdLong());
-        musicEventPublisher.publish(
-                musicEventFactory.voiceDisconnected(
-                        guild.getIdLong(),
-                        connectedChannel.getIdLong(),
-                        null,
-                        "leave-command"
-                )
-        );
+        voiceSessionLifecycleService.terminate(guild, null, "leave-command");
         return CommandResult.publicMessage("음성 채널에서 나갔습니다.");
     }
 
@@ -186,6 +180,7 @@ public class MusicWorkerService {
 
                     GuildPlayerState state = guildStateRepository.getOrCreate(guild.getIdLong());
                     state.setConnectedVoiceChannelId(audioChannel.getIdLong());
+                    state.setLastTextChannelId(textChannel.getIdLong());
                     guildStateRepository.save(state);
 
                     if (!alreadyConnected) {
@@ -290,6 +285,7 @@ public class MusicWorkerService {
 
                     GuildPlayerState state = guildStateRepository.getOrCreate(guild.getIdLong());
                     state.setConnectedVoiceChannelId(audioChannel.getIdLong());
+                    state.setLastTextChannelId(textChannel.getIdLong());
                     guildStateRepository.save(state);
 
                     if (!alreadyConnected) {

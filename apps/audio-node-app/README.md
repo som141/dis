@@ -26,6 +26,8 @@
 - `RabbitMusicCommandListener`
 - `PlaybackRecoveryService`
 - `PlaybackRecoveryReadyListener`
+- `VoiceChannelIdleDisconnectService`
+- `VoiceChannelIdleListener`
 
 ### `discordgateway.infrastructure.messaging.rabbit.RabbitMusicCommandListener`
 
@@ -41,6 +43,19 @@
 ### `discordgateway.discord.PlaybackRecoveryReadyListener`
 
 - JDA Ready 이후 recovery 시작
+
+### `discordgateway.audionode.lifecycle.VoiceChannelIdleDisconnectService`
+
+- 현재 봇이 연결된 음성 채널의 사람 수를 계산
+- 사람이 0명이면 유휴 퇴장 타이머를 예약
+- 예약 후 사람이 다시 들어오면 타이머를 취소
+- 타이머 만료 시 `VoiceSessionLifecycleService`를 호출해 수동 `/leave`와 같은 정리 경로를 사용
+- 마지막으로 사용한 텍스트 채널에 유휴 퇴장 안내 메시지를 전송
+
+### `discordgateway.audionode.lifecycle.VoiceChannelIdleListener`
+
+- `GuildVoiceUpdateEvent`가 들어올 때마다 guild 단위로 유휴 상태를 재평가
+- gateway가 아니라 audio-node에서만 등록되는 JDA listener
 
 ## 실제 재생 엔진 위치
 
@@ -84,6 +99,11 @@
 - `app.node-name`
 
 공통 값은 `application-common.yml`을 사용한다.
+
+유휴 퇴장 관련 공통 설정:
+
+- `ops.voice-idle-disconnect-enabled`
+- `ops.voice-idle-timeout`
 
 ## 주요 환경변수
 
