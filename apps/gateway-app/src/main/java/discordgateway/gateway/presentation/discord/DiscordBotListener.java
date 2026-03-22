@@ -1,8 +1,10 @@
 package discordgateway.gateway.presentation.discord;
 
-import discordgateway.common.command.CommandResult;
+import discordgateway.common.command.MusicCommandEnvelope;
 import discordgateway.gateway.application.MusicApplicationService;
 import discordgateway.gateway.application.PlayAutocompleteService;
+import discordgateway.gateway.interaction.InteractionResponseContext;
+import discordgateway.gateway.interaction.PendingInteractionRepository;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.channel.ChannelType;
@@ -10,11 +12,13 @@ import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.interactions.InteractionHook;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.util.Collections;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -22,16 +26,20 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class DiscordBotListener extends ListenerAdapter {
 
     private static final Logger log = LoggerFactory.getLogger(DiscordBotListener.class);
+    private static final Duration PENDING_INTERACTION_TTL = Duration.ofMinutes(15);
 
     private final MusicApplicationService musicApplicationService;
     private final PlayAutocompleteService playAutocompleteService;
+    private final PendingInteractionRepository pendingInteractionRepository;
 
     public DiscordBotListener(
             MusicApplicationService musicApplicationService,
-            PlayAutocompleteService playAutocompleteService
+            PlayAutocompleteService playAutocompleteService,
+            PendingInteractionRepository pendingInteractionRepository
     ) {
         this.musicApplicationService = musicApplicationService;
         this.playAutocompleteService = playAutocompleteService;
+        this.pendingInteractionRepository = pendingInteractionRepository;
     }
 
     @Override
@@ -99,62 +107,6 @@ public class DiscordBotListener extends ListenerAdapter {
                 });
     }
 
-    private void handleLeave(SlashCommandInteractionEvent event) {
-        Guild guild = requireUsableGuild(event);
-        if (guild == null) {
-            return;
-        }
-        reply(event, musicApplicationService.leave(guild));
-    }
-
-    private void handleStop(SlashCommandInteractionEvent event) {
-        Guild guild = requireUsableGuild(event);
-        if (guild == null) {
-            return;
-        }
-        reply(event, musicApplicationService.stop(guild));
-    }
-
-    private void handleSkip(SlashCommandInteractionEvent event) {
-        Guild guild = requireUsableGuild(event);
-        if (guild == null) {
-            return;
-        }
-        reply(event, musicApplicationService.skip(guild));
-    }
-
-    private void handleQueue(SlashCommandInteractionEvent event) {
-        Guild guild = requireUsableGuild(event);
-        if (guild == null) {
-            return;
-        }
-        reply(event, musicApplicationService.queue(guild));
-    }
-
-    private void handleClear(SlashCommandInteractionEvent event) {
-        Guild guild = requireUsableGuild(event);
-        if (guild == null) {
-            return;
-        }
-        reply(event, musicApplicationService.clear(guild));
-    }
-
-    private void handlePause(SlashCommandInteractionEvent event) {
-        Guild guild = requireUsableGuild(event);
-        if (guild == null) {
-            return;
-        }
-        reply(event, musicApplicationService.pause(guild));
-    }
-
-    private void handleResume(SlashCommandInteractionEvent event) {
-        Guild guild = requireUsableGuild(event);
-        if (guild == null) {
-            return;
-        }
-        reply(event, musicApplicationService.resume(guild));
-    }
-
     private void handleJoin(SlashCommandInteractionEvent event) {
         Guild guild = requireUsableGuild(event);
         if (guild == null) {
@@ -166,15 +118,19 @@ public class DiscordBotListener extends ListenerAdapter {
             return;
         }
 
-        event.deferReply(true).queue();
-        musicApplicationService.join(guild, textChannel, event.getUser().getIdLong())
-                .whenComplete((result, err) -> {
-                    if (err != null) {
-                        safeEditOriginal(event, "먼저 음성 채널에 들어가 주세요.");
-                        return;
-                    }
-                    safeEditOriginal(event, result.message());
-                });
+        dispatchDeferred(
+                event,
+                musicApplicationService.prepareJoin(guild, textChannel, event.getUser().getIdLong())
+        );
+    }
+
+    private void handleLeave(SlashCommandInteractionEvent event) {
+        Guild guild = requireUsableGuild(event);
+        if (guild == null) {
+            return;
+        }
+
+        dispatchDeferred(event, musicApplicationService.prepareLeave(guild));
     }
 
     private void handlePlay(SlashCommandInteractionEvent event) {
@@ -191,15 +147,64 @@ public class DiscordBotListener extends ListenerAdapter {
         String query = getStringOption(event, DiscordCommandCatalog.OPT_QUERY, "");
         boolean autoPlay = getBoolOption(event, DiscordCommandCatalog.OPT_AUTOPLAY, false);
 
-        event.deferReply(true).queue();
-        musicApplicationService.play(guild, textChannel, event.getUser().getIdLong(), query, autoPlay)
-                .whenComplete((result, err) -> {
-                    if (err != null) {
-                        safeEditOriginal(event, "재생 요청 처리 중 오류가 발생했습니다: " + err.getMessage());
-                        return;
-                    }
-                    safeEditOriginal(event, result.message());
-                });
+        dispatchDeferred(
+                event,
+                musicApplicationService.preparePlay(guild, textChannel, event.getUser().getIdLong(), query, autoPlay)
+        );
+    }
+
+    private void handleStop(SlashCommandInteractionEvent event) {
+        Guild guild = requireUsableGuild(event);
+        if (guild == null) {
+            return;
+        }
+
+        dispatchDeferred(event, musicApplicationService.prepareStop(guild));
+    }
+
+    private void handleSkip(SlashCommandInteractionEvent event) {
+        Guild guild = requireUsableGuild(event);
+        if (guild == null) {
+            return;
+        }
+
+        dispatchDeferred(event, musicApplicationService.prepareSkip(guild));
+    }
+
+    private void handleQueue(SlashCommandInteractionEvent event) {
+        Guild guild = requireUsableGuild(event);
+        if (guild == null) {
+            return;
+        }
+
+        dispatchDeferred(event, musicApplicationService.prepareQueue(guild));
+    }
+
+    private void handleClear(SlashCommandInteractionEvent event) {
+        Guild guild = requireUsableGuild(event);
+        if (guild == null) {
+            return;
+        }
+
+        dispatchDeferred(event, musicApplicationService.prepareClear(guild));
+    }
+
+    private void handlePause(SlashCommandInteractionEvent event) {
+        Guild guild = requireUsableGuild(event);
+        if (guild == null) {
+            return;
+        }
+
+        dispatchDeferred(event, musicApplicationService.preparePause(guild));
+    }
+
+    private void handleResume(SlashCommandInteractionEvent event) {
+        Guild guild = requireUsableGuild(event);
+        if (guild == null) {
+            return;
+        }
+
+        dispatchDeferred(event, musicApplicationService.prepareResume(guild));
     }
 
     private void handleSfx(SlashCommandInteractionEvent event) {
@@ -215,15 +220,10 @@ public class DiscordBotListener extends ListenerAdapter {
 
         String file = getStringOption(event, DiscordCommandCatalog.OPT_SFX_NAME, "");
 
-        event.deferReply(true).queue();
-        musicApplicationService.playSfx(guild, textChannel, event.getUser().getIdLong(), file)
-                .whenComplete((result, err) -> {
-                    if (err != null) {
-                        safeEditOriginal(event, "효과음 재생 중 오류가 발생했습니다: " + err.getMessage());
-                        return;
-                    }
-                    safeEditOriginal(event, result.message());
-                });
+        dispatchDeferred(
+                event,
+                musicApplicationService.preparePlaySfx(guild, textChannel, event.getUser().getIdLong(), file)
+        );
     }
 
     private void handlePizza(SlashCommandInteractionEvent event) {
@@ -235,17 +235,44 @@ public class DiscordBotListener extends ListenerAdapter {
         ).queue();
     }
 
-    private void reply(SlashCommandInteractionEvent event, CommandResult result) {
-        if (result == null) {
-            event.reply("결과가 없습니다.").setEphemeral(true).queue();
-            return;
-        }
+    private void dispatchDeferred(SlashCommandInteractionEvent event, MusicCommandEnvelope envelope) {
+        event.deferReply(true).queue(
+                hook -> {
+                    long now = System.currentTimeMillis();
+                    pendingInteractionRepository.put(
+                            envelope.message().commandId(),
+                            new InteractionResponseContext(
+                                    event.getToken(),
+                                    event.getName(),
+                                    event.getGuild() != null ? event.getGuild().getIdLong() : 0L,
+                                    event.getChannel().getIdLong(),
+                                    now,
+                                    now + PENDING_INTERACTION_TTL.toMillis()
+                            )
+                    );
 
-        if (result.ephemeral()) {
-            event.reply(result.message()).setEphemeral(true).queue();
-        } else {
-            event.reply(result.message()).queue();
-        }
+                    musicApplicationService.dispatch(envelope).whenComplete((ack, err) -> {
+                        if (err == null) {
+                            return;
+                        }
+                        pendingInteractionRepository.remove(envelope.message().commandId());
+                        safeEditHook(
+                                hook,
+                                "명령 전달에 실패했습니다: " + err.getMessage(),
+                                event.getName(),
+                                event.getGuild() != null ? event.getGuild().getId() : "unknown",
+                                event.getChannel().getId()
+                        );
+                    });
+                },
+                failure -> log.warn(
+                        "Failed to defer interaction. command={} guild={} channel={}",
+                        event.getName(),
+                        event.getGuild() != null ? event.getGuild().getId() : "unknown",
+                        event.getChannel().getId(),
+                        failure
+                )
+        );
     }
 
     private Guild requireUsableGuild(SlashCommandInteractionEvent event) {
@@ -293,28 +320,45 @@ public class DiscordBotListener extends ListenerAdapter {
 
     private void safeEditOriginal(SlashCommandInteractionEvent event, String message) {
         if (event.isAcknowledged()) {
-            event.getHook().editOriginal(message).queue(
-                    null,
-                    failure -> log.warn(
-                            "Failed to edit original interaction response. command={} guild={} channel={}",
-                            event.getName(),
-                            event.getGuild() != null ? event.getGuild().getId() : "unknown",
-                            event.getChannel().getId(),
-                            failure
-                    )
+            safeEditHook(
+                    event.getHook(),
+                    message,
+                    event.getName(),
+                    event.getGuild() != null ? event.getGuild().getId() : "unknown",
+                    event.getChannel().getId()
             );
-        } else {
-            event.reply(message).setEphemeral(true).queue(
-                    null,
-                    failure -> log.warn(
-                            "Failed to send interaction response. command={} guild={} channel={}",
-                            event.getName(),
-                            event.getGuild() != null ? event.getGuild().getId() : "unknown",
-                            event.getChannel().getId(),
-                            failure
-                    )
-            );
+            return;
         }
+
+        event.reply(message).setEphemeral(true).queue(
+                null,
+                failure -> log.warn(
+                        "Failed to send interaction response. command={} guild={} channel={}",
+                        event.getName(),
+                        event.getGuild() != null ? event.getGuild().getId() : "unknown",
+                        event.getChannel().getId(),
+                        failure
+                )
+        );
+    }
+
+    private void safeEditHook(
+            InteractionHook hook,
+            String message,
+            String commandName,
+            String guildId,
+            String channelId
+    ) {
+        hook.editOriginal(message).queue(
+                null,
+                failure -> log.warn(
+                        "Failed to edit original interaction response. command={} guild={} channel={}",
+                        commandName,
+                        guildId,
+                        channelId,
+                        failure
+                )
+        );
     }
 
     private String getStringOption(SlashCommandInteractionEvent event, String name, String def) {

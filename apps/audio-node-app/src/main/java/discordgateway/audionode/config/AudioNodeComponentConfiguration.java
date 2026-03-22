@@ -6,6 +6,7 @@ import discordgateway.playback.application.VoiceSessionLifecycleService;
 import discordgateway.common.command.DiscordReferenceResolver;
 import discordgateway.audionode.lifecycle.VoiceChannelIdleDisconnectService;
 import discordgateway.audionode.lifecycle.VoiceChannelIdleListener;
+import discordgateway.common.bootstrap.AppProperties;
 import discordgateway.common.bootstrap.MessagingProperties;
 import discordgateway.common.bootstrap.OperationsProperties;
 import discordgateway.audionode.recovery.PlaybackRecoveryReadyListener;
@@ -16,6 +17,7 @@ import discordgateway.playback.domain.QueueRepository;
 import discordgateway.infra.audio.PlaybackGateway;
 import discordgateway.infra.audio.VoiceGateway;
 import discordgateway.infra.messaging.rabbit.RabbitMusicCommandListener;
+import discordgateway.infra.messaging.rabbit.RabbitMusicCommandResultPublisher;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -32,12 +34,16 @@ public class AudioNodeComponentConfiguration {
     public RabbitMusicCommandListener rabbitMusicCommandListener(
             MusicWorkerService musicWorkerService,
             ProcessedCommandRepository processedCommandRepository,
-            MessagingProperties messagingProperties
+            MessagingProperties messagingProperties,
+            RabbitMusicCommandResultPublisher rabbitMusicCommandResultPublisher,
+            AppProperties appProperties
     ) {
         return new RabbitMusicCommandListener(
                 musicWorkerService,
                 processedCommandRepository,
-                messagingProperties
+                messagingProperties,
+                rabbitMusicCommandResultPublisher,
+                appProperties
         );
     }
 

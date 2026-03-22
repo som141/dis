@@ -2,171 +2,89 @@
 
 ## 현재 기준 요약
 
-현재 저장소는 아래 상태까지 정리되어 있다.
+현재 저장소는 아래 상태로 정리돼 있다.
 
 - 멀티모듈 구조
   - `modules/common-core`
   - `apps/gateway-app`
   - `apps/audio-node-app`
 - Redis 단일 상태 저장소
-- RabbitMQ command RPC
+- RabbitMQ command transport
+- RabbitMQ command result transport
 - Spring local event
-- command dedup + DLQ 재처리
-- recovery 경로
 - Docker Compose 기반 로컬/원격 배포
 - GitHub Actions 자동 배포
-- observability stack
-  - Prometheus
-  - Loki
-  - Alloy
-  - Grafana
-- 대시보드 / alert provisioning
-- 원격 CI/CD에서 관측성 스택 자동 반영 옵션
+- Grafana / Prometheus / Loki / Alloy 관측성 스택
 
-## Phase 1. 구조 파악과 상태 외부화
+## Stage 1~6
 
-### Stage 1~3
+- 기존 구조 분석
+- queue / player state 외부화
+- Redis source of truth 정리
+- recovery 경로 추가
 
-- 기존 코드 구조 분석
-- 기존 저장소와 책임 분리 상태 확인
-- Stage 3 범위는 이미 반영되어 있음을 확인
+## Stage 7~16
 
-### Stage 4
+- gateway / worker / audio-node 경계 정리
+- Spring Boot 기반 실행 구조로 전환
+- RabbitMQ command transport 보강
+- command dedup / DLQ
+- event outbox, confirm, claim/lease를 도입했다가 이후 단순화 과정에서 제거
 
-- player 상태를 저장소로 분리
-- `PlayerState`, `PlayerStateRepository` 정리
+## Stage 17~24
 
-### Stage 5
-
-- 큐를 저장소 기준으로 전이하도록 정리
-- guild 단위 재생 락 추가
-
-### Stage 6
-
-- `PlaybackRecoveryService`
-- `PlaybackRecoveryReadyListener`
-- Redis 기반 복구 경로 추가
-
-## Phase 2. Worker 분리와 Spring 정리
-
-### Stage 7
-
-- `MusicApplicationService`와 `MusicWorkerService` 역할 분리
-- command bus 경계 도입
-
-### Stage 8
-
-- Spring Boot 기반 bootstrap 전환
-- 설정 클래스로 공통 설정 정리
-
-### Stage 9
-
-- `MusicEvent` 계약 도입
-- 이벤트 문서화 시작
-
-### Stage 10~16
-
-- RabbitMQ command 경로 강화
-- command envelope, trace, correlation 정리
-- command dedup / DLQ 추가
-- event outbox, confirm, claim/lease 등을 도입했다가 이후 구조 단순화 과정에서 제거
-
-## Phase 3. 배포와 운영 보강
-
-### Stage 17~24
-
-- Docker Compose 기반 gateway/audio-node/redis/rabbitmq 분리
-- GitHub Actions 기반 자동 배포
-- `deploy.sh` 도입
+- Docker Compose 기반 gateway / audio-node / redis / rabbitmq 분리
+- GitHub Actions 자동 배포
+- `deploy.sh` 추가
 - DLQ replay 운영 모드
 - smoke check 스크립트
-- legacy 컨테이너 정리 스크립트
-- compose project name 고정
-- `DISCORD_TOKEN` / `TOKEN` fallback 정리
+- 레거시 컨테이너 정리 흐름
 
-## Phase 4. 멀티모듈 전환과 구조 단순화
+## Stage 25~28
 
-### Stage 25
-
-- 단일 앱 구조를 멀티모듈 구조로 전환
+- 멀티모듈 구조 전환
 - `common-core`, `gateway-app`, `audio-node-app` 분리
-- 개별 bootJar / 개별 Dockerfile 정리
+- README와 문서 재정리
+- 미사용 fallback, in-memory 구현, selector 경로 제거
 
-### Stage 26
+## Stage 29~34
 
-- 루트 README, 모듈 README, `docs/` 인덱스 정리
+- observability 방향 수립
+- `/actuator/prometheus` 노출
+- ECS JSON structured logging
+- Prometheus / Loki / Alloy / Grafana 스택 구성
+- Grafana 대시보드와 alert rule provisioning
+- 원격 CI/CD에서 observability 스택도 반영되도록 배포 경로 보강
 
-### Stage 27
-
-- 인메모리 저장소 제거
-- in-process bus 제거
-- role selector 제거
-- event outbox / Rabbit event transport 제거
-- 현재 운영 경로만 남기는 단순화 완료
-
-### Stage 28
-
-- 불필요 파일, 예전 문서, 잔여 산출물 정리
-
-## Phase 5. 관측성
-
-### Stage 29
-
-- 관측성 방향 정리
-- Grafana + Prometheus + Loki + Alloy 채택
-
-### Stage 30
-
-- `/actuator/prometheus` 반영
-- ECS JSON structured logging 반영
-- MDC 기반 `commandId`, `correlationId` 전파
-
-### Stage 31
-
-- `docker-compose`에 observability profile 추가
-- `prometheus`, `loki`, `alloy`, `redis-exporter`, `grafana` 추가
-- datasource provisioning 추가
-
-### Stage 32
-
-- Prometheus alert rules 추가
-- 기본 대시보드 2종 추가
-
-### Stage 33
-
-- Grafana-managed alert rules 추가
-- contact point / notification policy provisioning 추가
-
-### Stage 34
-
-- GitHub Actions와 `deploy.sh`가 `ops/observability/**`를 원격으로 반영하도록 수정
-- `OBSERVABILITY_ENABLED` 기준 자동 기동 추가
-
-## Phase 6. refactor plan 1단계
-
-### Stage 35
+## Stage 35~38
 
 - `VoiceSessionLifecycleService` 추가
-- `/leave`의 종료 정리 로직을 공통 서비스로 이동
-- 공통 종료 경로에서 아래를 한 번에 수행하도록 정리
-  - playback stop
-  - queue clear
-  - voice disconnect
-  - guild state remove
-  - player state remove
-- 향후 audio-node 유휴 퇴장 기능이 같은 종료 서비스를 재사용할 수 있는 기반 마련
+- `ops.voice-idle-disconnect-enabled`, `ops.voice-idle-timeout` 추가
+- `VoiceChannelIdleDisconnectService`, `VoiceChannelIdleListener` 추가
+- 유휴 퇴장 시 마지막 텍스트 채널에 안내 메시지 전송
 
-### Stage 36
+## Stage 39
 
-- `OperationsProperties`에 유휴 퇴장 관련 설정 추가
-- `ops.voice-idle-disconnect-enabled`
-- `ops.voice-idle-timeout`
-- 기본값을 `true`, `5m`으로 고정
-- 공통 설정 파일에도 같은 키를 반영해서 이후 audio-node lifecycle 구현에서 바로 참조할 수 있도록 정리
+- playback 계층의 공개 채널 재생 결과 메시지 제거
+- `PlaybackGateway.loadAndPlay(...)`, `playLocalFile(...)`를 `CompletableFuture<CommandResult>` 기반으로 정리
+- `MusicCommandBus`를 RPC가 아닌 publish-only bus로 전환
+- `MusicCommandEnvelope`, `CommandDispatchAck`, `MusicCommandResultEvent` 추가
+- gateway에 `PendingInteractionRepository`, `InteractionResponseContext`, `RabbitMusicCommandResultListener` 추가
+- gateway가 `deferReply(true)` 후 command를 publish하고 result event를 받아 original ephemeral reply를 수정하도록 변경
+- audio-node가 command 처리 완료 후 `MusicCommandResultEvent`를 RabbitMQ로 발행하도록 변경
+- `CommandDlqReplayService`를 새 envelope 포맷 기준으로 정리
+- README, 아키텍처 문서, 이벤트 계약 문서를 현재 async ephemeral 구조 기준으로 갱신
+
+## Stage 40
+
+- `InteractionResponseContext`를 `InteractionHook` 보관 방식에서 `interactionToken` 보관 방식으로 변경
+- gateway가 pending interaction을 Redis TTL 저장소에 기록하도록 변경
+- `RedisPendingInteractionRepository` 추가
+- result event 소비 시 JDA로 `InteractionHook.from(jda, token)`을 재구성해 original ephemeral reply를 수정하도록 변경
+- gateway 재기동 후에도 interaction token 유효 시간 안에서는 result event를 이어서 처리할 수 있게 정리
 
 ## 현재 남은 작업
 
-- 실제 운영 Discord webhook 연결
 - Loki 기반 로그 알림 확장
 - 봇 전용 비즈니스 메트릭 추가
 - OpenTelemetry + Tempo 도입 검토
@@ -174,29 +92,13 @@
 
 ## 현재 검증 상태
 
-최근 구조 정리와 관측성 작업 기준으로 반복 확인한 항목:
+최근 변경 기준으로 확인한 항목:
 
 - `compileJava`
 - `compileTestJava`
+
+필요 시 추가 확인할 항목:
+
 - `bootJarAll`
-- `docker compose config`
-- `docker compose --profile observability config`
-- 로컬 observability stack 기동
-
-운영 환경에서 별도 확인이 필요한 항목:
-
-- Discord webhook 실제 발송
-- 원격 서버 Grafana 계정 최종 상태
-- 원격 서버 YouTube 재생 성공률
-### Stage 37
-
-- `apps/audio-node-app`에 `VoiceChannelIdleDisconnectService` 추가
-- 현재 봇이 연결된 음성 채널의 사람 수를 계산해서 유휴 퇴장 타이머를 예약하거나 취소하도록 구현
-- 타이머 만료 시 채널, 사람 수를 다시 검증한 뒤 `VoiceSessionLifecycleService`를 호출해 공통 종료 경로를 재사용하도록 정리
-- 예약, 취소, 실제 퇴장 여부를 구조 로그로 추적할 수 있도록 `voice-idle transition` 로그 추가
-
-### Stage 38
-
-- `VoiceChannelIdleListener`를 추가해 `GuildVoiceUpdateEvent` 기준으로 guild 단위 유휴 상태를 재평가하도록 연결
-- `AudioNodeComponentConfiguration`에서 유휴 퇴장 스케줄러, 서비스, 리스너를 audio-node 런타임에만 bean으로 등록하도록 정리
-- DLQ replay 모드에서는 유휴 퇴장 bean이 뜨지 않도록 구성하고, 스케줄러 스레드 이름을 `voice-idle-disconnect`로 고정
+- 로컬 Docker Compose 기동
+- Discord 수동 시나리오 검증

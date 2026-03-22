@@ -2,17 +2,23 @@
 
 ## 1. 현재 이벤트의 역할
 
-현재 `MusicEvent`는 서비스 간 메시지 transport가 아니라, audio-node 내부 상태 변화를 기록하고 관측하기 위한 로컬 이벤트 계약이다.
+현재 저장소에는 두 종류의 이벤트가 있다.
 
-즉 현재 구조에서 이벤트는 아래처럼 사용된다.
+1. 내부 상태 관측용 `MusicEvent`
+2. gateway 응답 완료용 `MusicCommandResultEvent`
 
-- 발행 위치: 공용 재생 코어
-- transport: Spring local event
-- 목적: 구조 로그, 상태 추적, 관측성 보강
+둘은 목적이 다르다.
 
-RabbitMQ event publish는 현재 사용하지 않는다.
+- `MusicEvent`
+  - audio-node 내부 상태 변화를 기록하고 관측하기 위한 이벤트
+  - transport: Spring local event
+- `MusicCommandResultEvent`
+  - audio-node 처리 결과를 gateway로 되돌리기 위한 이벤트
+  - transport: RabbitMQ
 
-## 2. 중심 타입
+## 2. 내부 상태 이벤트
+
+### 대상
 
 - `MusicEvent`
 - `MusicEventFactory`
@@ -20,9 +26,7 @@ RabbitMQ event publish는 현재 사용하지 않는다.
 - `SpringMusicEventPublisher`
 - `MusicEventLogListener`
 
-## 3. 공통 필드
-
-모든 이벤트는 아래 공통 필드를 가진다.
+### 공통 필드
 
 - `eventId`
 - `schemaVersion`
@@ -32,131 +36,90 @@ RabbitMQ event publish는 현재 사용하지 않는다.
 - `correlationId`
 - `eventType`
 
-`schemaVersion`과 `correlationId`는 command trace와 연결된다.
+### 이벤트 종류
 
-## 4. 이벤트 타입
+- `voice.connection.changed`
+- `playback.autoplay.changed`
+- `track.queued`
+- `track.playback.changed`
+- `queue.cleared`
+- `track.load.failed`
 
-### `voice.connection.changed`
-
-음성 채널 연결 또는 해제를 나타낸다.
-
-추가 필드:
-
-- `action`
-- `voiceChannelId`
-- `userId`
-- `reason`
-
-### `playback.autoplay.changed`
-
-자동 재생 on/off 전환을 나타낸다.
-
-추가 필드:
-
-- `enabled`
-
-### `track.queued`
-
-큐 적재를 나타낸다.
-
-추가 필드:
-
-- `identifier`
-- `title`
-- `author`
-- `source`
-
-### `track.playback.changed`
-
-재생 상태 전이를 나타낸다.
-
-추가 필드:
-
-- `state`
-- `identifier`
-- `title`
-- `author`
-- `source`
-- `detail`
-
-가능한 `state`:
-
-- `STARTED`
-- `FINISHED`
-- `STOPPED`
-- `PAUSED`
-- `RESUMED`
-
-### `queue.cleared`
-
-큐 비우기를 나타낸다.
-
-추가 필드:
-
-- `hadEntries`
-- `currentTrackPreserved`
-
-### `track.load.failed`
-
-트랙 로드 실패를 나타낸다.
-
-추가 필드:
-
-- `identifier`
-- `source`
-- `failureType`
-- `message`
-
-## 5. 발행 지점
-
-주요 발행 지점은 아래와 같다.
+### 발행 위치
 
 - `MusicWorkerService`
-  - 음성 채널 연결/해제
-  - autoplay 상태 변경
 - `PlayerManager`
-  - load 실패
 - `TrackScheduler`
-  - queue 적재
-  - 재생 시작
-  - 재생 종료
-  - stop / clear
-  - recovery playback
 
-## 6. producer 값
+### 소비 방식
 
-`MusicEventFactory`는 `app.node-name`을 읽어서 `producer` 값을 만든다.
+현재는 `MusicEventLogListener`가 받아 구조 로그로 남긴다.
+
+## 3. command result 이벤트
+
+### 대상
+
+- `MusicCommandResultEvent`
+- `RabbitMusicCommandResultPublisher`
+- `RabbitMusicCommandResultListener`
+
+### 목적
+
+gateway가 `deferReply(true)`로 시작한 Discord interaction을 나중에 마무리할 수 있게, audio-node 처리 결과를 비동기로 전달한다.
+
+### 필드
+
+- `commandId`
+- `schemaVersion`
+- `occurredAtEpochMs`
+- `producer`
+- `targetNode`
+- `guildId`
+- `success`
+- `message`
+- `ephemeral`
+- `resultType`
+
+### resultType 예시
+
+- `SUCCESS`
+- `FAILED`
+- `IN_PROGRESS`
+- `DUPLICATE_REPLAY`
+
+### 발행 위치
+
+- `RabbitMusicCommandListener`
+
+### 소비 위치
+
+- `gateway-app`의 `RabbitMusicCommandResultListener`
+
+### 사용 방식
+
+1. gateway가 `MusicCommandEnvelope`를 publish
+2. audio-node가 command 처리
+3. audio-node가 `MusicCommandResultEvent` 발행
+4. gateway가 `commandId`로 pending interaction을 찾아 original ephemeral reply를 수정
+
+현재 pending interaction은 Redis에 TTL과 함께 저장되며, 저장되는 값은 `InteractionHook` 객체가 아니라 `interaction token`과 메타데이터다.
+
+## 4. producer 값
+
+`MusicEventFactory`와 command/result 발행 경로는 `app.node-name`을 읽어 `producer` 값을 만든다.
 
 보통 값:
 
 - `gateway-1`
 - `audio-node-1`
 
-현재 재생 관련 이벤트는 대부분 `audio-node-1`로 기록되는 것이 정상이다.
+## 5. correlationId
 
-## 7. correlationId
+`MusicEvent`의 `correlationId`는 현재 command trace의 `commandId`를 따라간다. 따라서 `/play` 하나로 발생한 여러 상태 전이 이벤트를 같은 흐름으로 묶을 수 있다.
 
-`correlationId`는 현재 command trace의 `commandId`를 따라간다. 따라서 `/play` 하나로 발생한 여러 상태 전이 이벤트를 같은 흐름으로 묶을 수 있다.
+## 6. 현재 발행 방식
 
-## 8. 현재 발행 방식
+- `MusicEvent`: Spring local event
+- `MusicCommandResultEvent`: RabbitMQ direct exchange
 
-현재 이벤트는 아래 방식으로 고정되어 있다.
-
-- publish 실패 대비 outbox 없음
-- RabbitMQ event transport 없음
-- Spring local event로만 발행
-
-즉 현재 이벤트 계약은 “외부 서비스 간 전송 계약”보다 “재생 코어의 관측 계약”에 가깝다.
-
-## 9. 로그 관측
-
-`MusicEventLogListener`가 모든 이벤트를 받아 구조 로그로 남긴다.
-
-대표 키:
-
-- `eventType`
-- `schemaVersion`
-- `correlationId`
-- `guildId`
-- `producer`
-- `summary`
+즉 현재 이벤트 계약은 내부 관측과 사용자 응답 완료 목적을 분리해서 사용한다.

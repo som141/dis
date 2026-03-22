@@ -1,5 +1,6 @@
 package discordgateway.infra.audio;
 
+import discordgateway.common.command.CommandResult;
 import discordgateway.playback.audio.PlayerManager;
 import discordgateway.playback.domain.QueueRepository;
 import net.dv8tion.jda.api.entities.Guild;
@@ -30,13 +31,13 @@ public class LavaPlayerPlaybackGateway implements PlaybackGateway {
     }
 
     @Override
-    public void loadAndPlay(TextChannel textChannel, String trackUrl) {
-        playerManager.loadAndPlay(textChannel, trackUrl);
+    public CompletableFuture<CommandResult> loadAndPlay(TextChannel textChannel, String trackUrl) {
+        return playerManager.loadAndPlay(textChannel, trackUrl);
     }
 
     @Override
-    public void playLocalFile(TextChannel textChannel, String fileName) {
-        playerManager.loadAndPlay(textChannel, "resources/" + fileName);
+    public CompletableFuture<CommandResult> playLocalFile(TextChannel textChannel, String fileName) {
+        return playerManager.loadAndPlay(textChannel, "resources/" + fileName);
     }
 
     @Override

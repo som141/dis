@@ -33,13 +33,15 @@ logging:
         root: first
 
 messaging:
-  rpc-timeout-ms: 10000
   command-exchange: music.command.exchange
   command-queue: music.command.queue
   command-routing-key: music.command
   command-dead-letter-exchange: music.command.dlx
   command-dead-letter-queue: music.command.dlq
   command-dead-letter-routing-key: music.command.dead
+  command-result-exchange: music.command.result.exchange
+  command-result-routing-key-prefix: music.command.result.
+  command-result-queue-prefix: music.command.result.
   command-dedup-ttl-ms: 300000
 
 ops:

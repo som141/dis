@@ -19,6 +19,7 @@ import discordgateway.infra.audio.PlaybackGateway;
 import discordgateway.infra.audio.VoiceGateway;
 import discordgateway.infra.discord.JdaDiscordReferenceResolver;
 import discordgateway.infra.discord.JdaRuntimeContext;
+import discordgateway.infra.messaging.rabbit.RabbitMusicCommandResultPublisher;
 import discordgateway.infra.redis.RedisGuildPlaybackLockManager;
 import discordgateway.infra.redis.RedisGuildStateRepository;
 import discordgateway.infra.redis.RedisPlayerStateRepository;
@@ -146,6 +147,14 @@ public class ApplicationFactory {
     @Bean
     public VoiceGateway voiceGateway() {
         return new JdaVoiceGateway();
+    }
+
+    @Bean
+    public RabbitMusicCommandResultPublisher rabbitMusicCommandResultPublisher(
+            org.springframework.amqp.rabbit.core.RabbitTemplate rabbitTemplate,
+            MessagingProperties messagingProperties
+    ) {
+        return new RabbitMusicCommandResultPublisher(rabbitTemplate, messagingProperties);
     }
 
     @Bean

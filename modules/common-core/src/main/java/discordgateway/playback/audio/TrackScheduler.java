@@ -429,9 +429,6 @@ public class TrackScheduler extends AudioEventAdapter {
             public void trackLoaded(AudioTrack audioTrack) {
                 MusicCommandTraceContext.runWith(trace, () -> {
                     startResolvedTrack(lock, version, audioTrack, MusicEvent.TransitionSource.AUTOPLAY);
-                    if (lastChannel != null && !isTransitionCancelled(version)) {
-                        lastChannel.sendMessage("자동 추천 재생: " + audioTrack.getInfo().title).queue();
-                    }
                 });
             }
 
@@ -457,9 +454,6 @@ public class TrackScheduler extends AudioEventAdapter {
                     }
 
                     startResolvedTrack(lock, version, first, MusicEvent.TransitionSource.AUTOPLAY);
-                    if (lastChannel != null && !isTransitionCancelled(version)) {
-                        lastChannel.sendMessage("자동 추천 재생(플레이리스트): " + first.getInfo().title).queue();
-                    }
                 });
             }
 
@@ -477,9 +471,6 @@ public class TrackScheduler extends AudioEventAdapter {
                                 )
                         );
                         clearNowPlaying();
-                        if (lastChannel != null) {
-                            lastChannel.sendMessage("자동 추천 곡을 찾지 못했습니다.").queue();
-                        }
                     }
                     lock.release();
                 });
@@ -499,9 +490,6 @@ public class TrackScheduler extends AudioEventAdapter {
                                 )
                         );
                         clearNowPlaying();
-                        if (lastChannel != null) {
-                            lastChannel.sendMessage("자동 추천 로드 실패: " + e.getMessage()).queue();
-                        }
                     }
                     lock.release();
                 });

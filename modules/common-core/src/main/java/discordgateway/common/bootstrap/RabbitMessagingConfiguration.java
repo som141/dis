@@ -38,6 +38,11 @@ public class RabbitMessagingConfiguration {
                 true,
                 false
         );
+        DirectExchange resultExchange = new DirectExchange(
+                messagingProperties.getCommandResultExchange(),
+                true,
+                false
+        );
         Queue queue = QueueBuilder.durable(messagingProperties.getCommandQueue())
                 .deadLetterExchange(messagingProperties.getCommandDeadLetterExchange())
                 .deadLetterRoutingKey(messagingProperties.getCommandDeadLetterRoutingKey())
@@ -47,6 +52,7 @@ public class RabbitMessagingConfiguration {
         return new Declarables(
                 exchange,
                 deadLetterExchange,
+                resultExchange,
                 queue,
                 deadLetterQueue,
                 BindingBuilder.bind(queue)

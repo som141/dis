@@ -8,12 +8,12 @@ import discordgateway.common.command.MusicCommandTrace;
 import discordgateway.common.command.MusicCommandTraceContext;
 import discordgateway.common.event.MusicEventFactory;
 import discordgateway.common.event.MusicEventPublisher;
-import discordgateway.playback.domain.GuildPlayerState;
-import discordgateway.playback.domain.GuildStateRepository;
-import discordgateway.playback.domain.PlayerStateRepository;
 import discordgateway.infra.audio.PlaybackGateway;
 import discordgateway.infra.audio.PlaybackSnapshot;
 import discordgateway.infra.audio.VoiceGateway;
+import discordgateway.playback.domain.GuildPlayerState;
+import discordgateway.playback.domain.GuildStateRepository;
+import discordgateway.playback.domain.PlayerStateRepository;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import org.slf4j.Logger;
@@ -139,13 +139,10 @@ public class MusicWorkerService {
                                         "join-command"
                                 )
                         );
-                        sendTextChannelMessage(textChannel, "음성 채널 연결: " + audioChannel.getName());
+                        return CommandResult.ephemeral("음성 채널에 연결했습니다: " + audioChannel.getName());
                     }
 
-                    if (alreadyConnected) {
-                        return CommandResult.ephemeral("이미 해당 음성 채널에 연결되어 있습니다.");
-                    }
-                    return CommandResult.ephemeral("음성 채널 연결 요청을 보냈습니다.");
+                    return CommandResult.ephemeral("이미 해당 음성 채널에 연결되어 있습니다.");
                 }));
     }
 
@@ -158,7 +155,7 @@ public class MusicWorkerService {
         }
 
         voiceSessionLifecycleService.terminate(guild, null, "leave-command");
-        return CommandResult.publicMessage("음성 채널에서 나갔습니다.");
+        return CommandResult.ephemeral("음성 채널에서 나갑니다.");
     }
 
     private CompletableFuture<CommandResult> play(MusicCommand.Play command) {
@@ -176,12 +173,12 @@ public class MusicWorkerService {
 
         if (command.query() == null || command.query().isBlank()) {
             return CompletableFuture.completedFuture(
-                    CommandResult.ephemeral("사용법 `/play query:<검색어 또는 URL> autoplay:<true|false>`")
+                    CommandResult.ephemeral("사용법: `/play query:<검색어 또는 URL> autoplay:<true|false>`")
             );
         }
 
         return voiceGateway.findUserAudioChannel(guild, command.userId())
-                .thenApply(audioChannel -> MusicCommandTraceContext.callWith(trace, () -> {
+                .thenCompose(audioChannel -> MusicCommandTraceContext.callWith(trace, () -> {
                     boolean alreadyConnected = voiceGateway.connect(guild, audioChannel);
 
                     GuildPlayerState state = guildStateRepository.getOrCreate(guild.getIdLong());
@@ -212,15 +209,14 @@ public class MusicWorkerService {
                             .addKeyValue("trackUrl", trackUrl)
                             .log("play load scheduled");
 
-                    playbackGateway.loadAndPlay(textChannel, trackUrl);
-                    return CommandResult.ephemeral("재생 요청을 접수했습니다. 결과는 채널 메시지로 안내합니다.");
+                    return playbackGateway.loadAndPlay(textChannel, trackUrl);
                 }));
     }
 
     private CommandResult stop(MusicCommand.Stop command) {
         Guild guild = requireGuild(command.guildId());
         playbackGateway.stop(guild);
-        return CommandResult.ephemeral("재생을 중지하고 대기열을 비웠습니다.");
+        return CommandResult.ephemeral("재생을 중지하고 대기열을 비웁니다.");
     }
 
     private CommandResult skip(MusicCommand.Skip command) {
@@ -243,7 +239,7 @@ public class MusicWorkerService {
     private CommandResult clear(MusicCommand.Clear command) {
         Guild guild = requireGuild(command.guildId());
         playbackGateway.clearQueue(guild);
-        return CommandResult.publicMessage("대기열을 비웠습니다.");
+        return CommandResult.ephemeral("대기열을 비웁니다.");
     }
 
     private CommandResult pause(MusicCommand.Pause command) {
@@ -253,11 +249,11 @@ public class MusicWorkerService {
             return CommandResult.ephemeral("현재 재생 중인 곡이 없습니다.");
         }
         if (snapshot.paused()) {
-            return CommandResult.ephemeral("이미 일시 정지 상태입니다.");
+            return CommandResult.ephemeral("이미 일시정지 상태입니다.");
         }
 
         playbackGateway.pause(guild);
-        return CommandResult.ephemeral("곡을 일시 정지했습니다.");
+        return CommandResult.ephemeral("곡을 일시정지했습니다.");
     }
 
     private CommandResult resume(MusicCommand.Resume command) {
@@ -271,7 +267,7 @@ public class MusicWorkerService {
         }
 
         playbackGateway.resume(guild);
-        return CommandResult.ephemeral("재생을 재개했습니다.");
+        return CommandResult.ephemeral("재생을 다시 시작했습니다.");
     }
 
     private CompletableFuture<CommandResult> playSfx(MusicCommand.PlaySfx command) {
@@ -286,7 +282,7 @@ public class MusicWorkerService {
         }
 
         return voiceGateway.findUserAudioChannel(guild, command.userId())
-                .thenApply(audioChannel -> MusicCommandTraceContext.callWith(trace, () -> {
+                .thenCompose(audioChannel -> MusicCommandTraceContext.callWith(trace, () -> {
                     boolean alreadyConnected = voiceGateway.connect(guild, audioChannel);
 
                     GuildPlayerState state = guildStateRepository.getOrCreate(guild.getIdLong());
@@ -305,8 +301,7 @@ public class MusicWorkerService {
                         );
                     }
 
-                    playbackGateway.playLocalFile(textChannel, command.fileName());
-                    return CommandResult.ephemeral("효과음을 재생합니다: `" + command.fileName() + "`");
+                    return playbackGateway.playLocalFile(textChannel, command.fileName());
                 }));
     }
 
@@ -324,17 +319,5 @@ public class MusicWorkerService {
             throw new IllegalStateException("텍스트 채널 정보를 찾을 수 없습니다.");
         }
         return textChannel;
-    }
-
-    private void sendTextChannelMessage(TextChannel textChannel, String message) {
-        textChannel.sendMessage(message).queue(
-                null,
-                failure -> log.atWarn()
-                        .addKeyValue("guildId", textChannel.getGuild().getIdLong())
-                        .addKeyValue("channelId", textChannel.getIdLong())
-                        .addKeyValue("message", message)
-                        .setCause(failure)
-                        .log("Failed to send follow-up text channel message")
-        );
     }
 }

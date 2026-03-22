@@ -18,6 +18,7 @@ import dev.lavalink.youtube.clients.Tv;
 import dev.lavalink.youtube.clients.TvHtml5Simply;
 import dev.lavalink.youtube.clients.Web;
 import dev.lavalink.youtube.clients.WebEmbedded;
+import discordgateway.common.command.CommandResult;
 import discordgateway.common.command.MusicCommandTrace;
 import discordgateway.common.command.MusicCommandTraceContext;
 import discordgateway.common.event.MusicEvent;
@@ -146,21 +147,20 @@ public class PlayerManager {
         });
     }
 
-    public void loadAndPlay(TextChannel textChannel, String trackUrl) {
+    public CompletableFuture<CommandResult> loadAndPlay(TextChannel textChannel, String trackUrl) {
         final GuildMusicManager musicManager = this.getMusicManager(textChannel.getGuild());
         final long guildId = textChannel.getGuild().getIdLong();
         final MusicCommandTrace trace = MusicCommandTraceContext.current();
+        final CompletableFuture<CommandResult> resultFuture = new CompletableFuture<>();
 
         this.audioPlayerManager.loadItemOrdered(musicManager, trackUrl, new AudioLoadResultHandler() {
             @Override
             public void trackLoaded(AudioTrack audioTrack) {
                 MusicCommandTraceContext.runWith(trace, () -> {
                     boolean queued = musicManager.scheduler.queue(audioTrack, textChannel);
-                    if (queued) {
-                        textChannel.sendMessage("대기열에 추가: " + audioTrack.getInfo().title).queue();
-                    } else {
-                        textChannel.sendMessage("재생: " + audioTrack.getInfo().title).queue();
-                    }
+                    complete(resultFuture, queued
+                            ? CommandResult.ephemeral("대기열에 추가했습니다: " + audioTrack.getInfo().title)
+                            : CommandResult.ephemeral("재생을 시작했습니다: " + audioTrack.getInfo().title));
                 });
             }
 
@@ -177,7 +177,7 @@ public class PlayerManager {
                                         "Playlist did not contain any tracks."
                                 )
                         );
-                        textChannel.sendMessage("플레이리스트가 비어 있습니다.").queue();
+                        complete(resultFuture, CommandResult.ephemeral("플레이리스트가 비어 있습니다."));
                         return;
                     }
 
@@ -186,11 +186,9 @@ public class PlayerManager {
                             : audioPlaylist.getTracks().get(0);
 
                     boolean queued = musicManager.scheduler.queue(firstTrack, textChannel);
-                    if (queued) {
-                        textChannel.sendMessage("대기열에 추가 (플레이리스트): " + firstTrack.getInfo().title).queue();
-                    } else {
-                        textChannel.sendMessage("재생 (플레이리스트): " + firstTrack.getInfo().title).queue();
-                    }
+                    complete(resultFuture, queued
+                            ? CommandResult.ephemeral("대기열에 추가했습니다: " + firstTrack.getInfo().title)
+                            : CommandResult.ephemeral("재생을 시작했습니다: " + firstTrack.getInfo().title));
                 });
             }
 
@@ -206,7 +204,7 @@ public class PlayerManager {
                                     "No matching track was found."
                             )
                     );
-                    textChannel.sendMessage("일치하는 결과가 없습니다. " + trackUrl).queue();
+                    complete(resultFuture, CommandResult.ephemeral("일치하는 결과가 없습니다. " + trackUrl));
                 });
             }
 
@@ -222,10 +220,18 @@ public class PlayerManager {
                                     safeFailureMessage(e)
                             )
                     );
-                    textChannel.sendMessage("재생할 수 없습니다. " + e.getMessage()).queue();
+                    complete(resultFuture, CommandResult.ephemeral("재생할 수 없습니다. " + safeFailureMessage(e)));
                 });
             }
         });
+
+        return resultFuture;
+    }
+
+    private void complete(CompletableFuture<CommandResult> future, CommandResult result) {
+        if (!future.isDone()) {
+            future.complete(result);
+        }
     }
 
     private AudioPlayerManager createAudioPlayerManager(YouTubeProperties youTubeProperties) {

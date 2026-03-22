@@ -1,5 +1,6 @@
 package discordgateway.infra.audio;
 
+import discordgateway.common.command.CommandResult;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.interactions.commands.Command;
@@ -10,8 +11,8 @@ import java.util.concurrent.CompletableFuture;
 public interface PlaybackGateway {
     CompletableFuture<List<Command.Choice>> searchChoices(String query, int limit);
     void setAutoPlay(Guild guild, boolean autoPlay);
-    void loadAndPlay(TextChannel textChannel, String trackUrl);
-    void playLocalFile(TextChannel textChannel, String fileName);
+    CompletableFuture<CommandResult> loadAndPlay(TextChannel textChannel, String trackUrl);
+    CompletableFuture<CommandResult> playLocalFile(TextChannel textChannel, String fileName);
     void stop(Guild guild);
     void skip(Guild guild);
     void clearQueue(Guild guild);

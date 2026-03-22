@@ -1,57 +1,33 @@
 package discordgateway.infra.messaging.rabbit;
 
-import discordgateway.common.command.CommandResult;
-import discordgateway.common.command.MusicCommand;
-import discordgateway.common.command.MusicCommandBus;
-import discordgateway.common.command.MusicCommandMessageFactory;
 import discordgateway.common.bootstrap.MessagingProperties;
+import discordgateway.common.command.CommandDispatchAck;
+import discordgateway.common.command.MusicCommandBus;
+import discordgateway.common.command.MusicCommandEnvelope;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.core.ParameterizedTypeReference;
 
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 
 public class RabbitMusicCommandBus implements MusicCommandBus {
 
-    private static final ParameterizedTypeReference<CommandResult> COMMAND_RESULT_TYPE =
-            new ParameterizedTypeReference<>() {
-            };
-
     private final RabbitTemplate rabbitTemplate;
     private final MessagingProperties messagingProperties;
-    private final MusicCommandMessageFactory messageFactory;
-    private final Executor executor;
 
     public RabbitMusicCommandBus(
             RabbitTemplate rabbitTemplate,
-            MessagingProperties messagingProperties,
-            MusicCommandMessageFactory messageFactory,
-            Executor executor
+            MessagingProperties messagingProperties
     ) {
         this.rabbitTemplate = rabbitTemplate;
         this.messagingProperties = messagingProperties;
-        this.messageFactory = messageFactory;
-        this.executor = executor;
-        this.rabbitTemplate.setReplyTimeout(messagingProperties.getRpcTimeoutMs());
     }
 
     @Override
-    public CompletableFuture<CommandResult> dispatch(MusicCommand command) {
-        return CompletableFuture.supplyAsync(() -> dispatchBlocking(command), executor);
-    }
-
-    private CommandResult dispatchBlocking(MusicCommand command) {
-        CommandResult result = rabbitTemplate.convertSendAndReceiveAsType(
+    public CompletableFuture<CommandDispatchAck> dispatch(MusicCommandEnvelope envelope) {
+        rabbitTemplate.convertAndSend(
                 messagingProperties.getCommandExchange(),
                 messagingProperties.getCommandRoutingKey(),
-                messageFactory.create(command),
-                COMMAND_RESULT_TYPE
+                envelope
         );
-
-        return Objects.requireNonNull(
-                result,
-                () -> "Rabbit command RPC returned no response for command " + command.getClass().getSimpleName()
-        );
+        return CompletableFuture.completedFuture(new CommandDispatchAck(envelope.message().commandId()));
     }
 }

@@ -3,7 +3,7 @@ package discordgateway.infra.messaging.rabbit;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.GetResponse;
-import discordgateway.common.command.MusicCommandMessage;
+import discordgateway.common.command.MusicCommandEnvelope;
 import discordgateway.common.bootstrap.AppProperties;
 import discordgateway.common.bootstrap.MessagingProperties;
 import org.slf4j.Logger;
@@ -18,6 +18,7 @@ import java.util.Map;
 public class CommandDlqReplayService {
 
     private static final Logger log = LoggerFactory.getLogger(CommandDlqReplayService.class);
+    private static final long REPLAY_CONFIRM_TIMEOUT_MS = 5_000L;
 
     private final RabbitTemplate rabbitTemplate;
     private final ObjectMapper objectMapper;
@@ -55,25 +56,26 @@ public class CommandDlqReplayService {
 
                 long deliveryTag = response.getEnvelope().getDeliveryTag();
                 try {
-                    MusicCommandMessage message = objectMapper.readValue(response.getBody(), MusicCommandMessage.class);
-                    byte[] payload = objectMapper.writeValueAsBytes(message);
+                    MusicCommandEnvelope envelope = objectMapper.readValue(response.getBody(), MusicCommandEnvelope.class);
+                    byte[] payload = objectMapper.writeValueAsBytes(envelope);
 
                     channel.basicPublish(
                             messagingProperties.getCommandExchange(),
                             messagingProperties.getCommandRoutingKey(),
-                            buildReplayProperties(message),
+                            buildReplayProperties(envelope),
                             payload
                     );
-                    channel.waitForConfirmsOrDie(messagingProperties.getRpcTimeoutMs());
+                    channel.waitForConfirmsOrDie(REPLAY_CONFIRM_TIMEOUT_MS);
                     channel.basicAck(deliveryTag, false);
 
                     replayed++;
                     log.info(
-                            "command-dlq replayed commandId={} producer={} type={} guild={}",
-                            message.commandId(),
-                            message.producer(),
-                            message.command().getClass().getSimpleName(),
-                            message.command().guildId()
+                            "command-dlq replayed commandId={} producer={} targetNode={} type={} guild={}",
+                            envelope.message().commandId(),
+                            envelope.message().producer(),
+                            envelope.responseTargetNode(),
+                            envelope.message().command().getClass().getSimpleName(),
+                            envelope.message().command().guildId()
                     );
                 } catch (Exception e) {
                     failed++;
@@ -87,18 +89,18 @@ public class CommandDlqReplayService {
         });
     }
 
-    private AMQP.BasicProperties buildReplayProperties(MusicCommandMessage message) {
+    private AMQP.BasicProperties buildReplayProperties(MusicCommandEnvelope envelope) {
         Map<String, Object> headers = new LinkedHashMap<>();
         headers.put("x-replayed-from-dlq", true);
         headers.put("x-replay-node", appProperties.getNodeName());
-        headers.put("x-command-id", message.commandId());
-        headers.put("x-schema-version", message.schemaVersion());
+        headers.put("x-command-id", envelope.message().commandId());
+        headers.put("x-schema-version", envelope.message().schemaVersion());
 
         return new AMQP.BasicProperties.Builder()
                 .contentType("application/json")
                 .contentEncoding(StandardCharsets.UTF_8.name())
                 .deliveryMode(2)
-                .messageId(message.commandId())
+                .messageId(envelope.message().commandId())
                 .timestamp(new Date())
                 .headers(headers)
                 .build();

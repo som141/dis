@@ -26,4 +26,12 @@ public class MusicCommandMessageFactory {
                 command
         );
     }
+
+    public MusicCommandEnvelope createEphemeralEnvelope(MusicCommand command) {
+        return new MusicCommandEnvelope(
+                create(command),
+                producer,
+                MusicCommandResponseMode.EPHEMERAL
+        );
+    }
 }

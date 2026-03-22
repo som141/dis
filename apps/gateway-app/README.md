@@ -2,31 +2,50 @@
 
 ## 역할
 
-`gateway-app`은 Discord 사용자 요청의 진입점이다. 이 모듈은 실제 재생을 직접 수행하지 않고, slash command를 `MusicCommand`로 변환해서 RabbitMQ RPC로 전달한다.
+`gateway-app`은 Discord 사용자 요청의 진입점이다. 이 모듈은 실제 재생을 직접 수행하지 않고, slash command를 `MusicCommandEnvelope`로 변환해서 RabbitMQ로 비동기 publish한다. 이후 audio-node가 발행한 `MusicCommandResultEvent`를 소비해서 original ephemeral reply를 수정한다.
 
 ## 주요 패키지
 
 ### `discordgateway.gateway`
 
 - `GatewayApplication`
-  - gateway-app의 Spring Boot 시작점
+  - gateway-app Spring Boot 시작점
 
 ### `discordgateway.gateway.config`
 
 - `GatewayComponentConfiguration`
   - gateway 전용 bean 조립
+  - pending interaction 저장소
+  - result queue / binding 선언
 
 ### `discordgateway.gateway.application`
 
 - `MusicApplicationService`
-  - Discord 요청을 command로 변환하는 facade
+  - Discord 요청을 `MusicCommandEnvelope`로 바꾸는 facade
 - `PlayAutocompleteService`
-  - `/play` 자동완성 후보 조회
+  - `/play` 자동완성 조회
+
+### `discordgateway.gateway.interaction`
+
+- `InteractionResponseContext`
+  - deferred interaction 응답 정보
+- `PendingInteractionRepository`
+  - `commandId -> InteractionResponseContext`
+- `RedisPendingInteractionRepository`
+  - Redis TTL 기반 구현
+
+### `discordgateway.gateway.messaging`
+
+- `RabbitMusicCommandResultListener`
+  - audio-node가 발행한 command result event 소비
+  - Discord original reply 수정
 
 ### `discordgateway.gateway.presentation.discord`
 
 - `DiscordBotListener`
   - slash command 처리
+  - `deferReply(true)` 수행
+  - pending interaction 등록
 - `DiscordCommandCatalog`
   - 명령 정의
 - `DiscordCommandRegistrationListener`
@@ -36,16 +55,19 @@
 
 1. Discord interaction 수신
 2. 입력 검증
-3. `MusicCommand` 생성
-4. `RabbitMusicCommandBus`로 RPC 전송
-5. 응답을 interaction 응답 또는 follow-up 메시지로 정리
+3. `deferReply(true)` 수행
+4. `MusicCommandEnvelope` 생성
+5. `RabbitMusicCommandBus`로 command publish
+6. `RabbitMusicCommandResultListener`가 result event 수신
+7. original ephemeral reply 수정
 
 ## 고정된 의존 경로
 
-- command bus: RabbitMQ RPC
+- command bus: RabbitMQ async publish
+- command result consumer: RabbitMQ
 - 상태 저장소 직접 접근: 없음
-- 이벤트 소비: 없음
-- in-memory fallback: 없음
+- pending interaction 저장소: Redis
+- 이벤트 소비 범위: command result 전용
 
 ## 설정
 
@@ -55,7 +77,7 @@
 
 공통 설정은 `modules/common-core/src/main/resources/application-common.yml`에서 읽는다.
 
-## 주요 환경 변수
+## 주요 환경변수
 
 - `DISCORD_TOKEN`
 - `TOKEN`
@@ -88,15 +110,17 @@ java -jar apps/gateway-app/build/libs/gateway-app.jar
 - `/actuator/info`
 - `/actuator/prometheus`
 
-구조 로그 키:
+주요 로그:
 
 - `startup-config`
-- `music-command`
-- `music-event`
+- `music-command dispatch`
+- `music-command result dropped`
+- `music-command result reply edit failed`
 
 ## 확인 포인트
 
-정상 기동 시 gateway 로그에서 보통 아래가 보인다.
+정상 기동 후 gateway 로그에서 보통 아래가 보인다.
 
 - `application=gateway-app`
 - `commandBus=RabbitMusicCommandBus`
+- result queue 이름

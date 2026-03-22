@@ -2,12 +2,13 @@
 
 ## 1. 현재 목표 구조
 
-현재 코드베이스는 아래 목표에 맞춰 정리되어 있다.
+현재 코드베이스는 아래 방향으로 정리돼 있다.
 
-- Discord 명령 진입점과 실제 재생 실행 노드를 분리한다.
-- Redis를 단일 상태 저장소로 사용한다.
-- RabbitMQ를 command transport로 사용한다.
-- 선택형 fallback 경로를 제거하고 운영 경로만 남긴다.
+- Discord 명령 진입과 실제 재생 실행 노드를 분리
+- Redis를 단일 상태 저장소로 사용
+- RabbitMQ를 command transport와 command result transport로 사용
+- 공개 채널 메시지 대신 Discord ephemeral 응답 중심으로 UX 통일
+- fallback 경로를 제거하고 실제 운영 경로만 남김
 
 ## 2. 모듈 구조
 
@@ -30,20 +31,24 @@ deploy.sh
 - slash command 수신
 - autocomplete
 - 입력 검증
-- command 생성
+- command envelope 생성
 - RabbitMQ producer
+- pending interaction 관리
+- command result event 소비
 
 ### `apps/audio-node-app`
 
 - RabbitMQ consumer
 - recovery 시작
 - 실제 재생 실행
+- command result event 발행
+- 유휴 음성 채널 퇴장
 
 ### `modules/common-core`
 
-- 공용 command/event 모델
+- 공용 command / event 모델
 - worker 로직
-- 재생 엔진
+- playback 엔진
 - Redis repository
 - RabbitMQ command infrastructure
 - 공통 bootstrap
@@ -52,11 +57,12 @@ deploy.sh
 
 ### command 경계
 
-- 모델: `MusicCommand`, `MusicCommandMessage`
+- 모델: `MusicCommand`, `MusicCommandMessage`, `MusicCommandEnvelope`
 - producer: `RabbitMusicCommandBus`
 - consumer: `RabbitMusicCommandListener`
+- result: `MusicCommandResultEvent`, `RabbitMusicCommandResultPublisher`
 
-현재 command 경로는 RabbitMQ RPC로 고정되어 있다.
+현재 command 경로는 RabbitMQ async publish + result event로 고정되어 있다.
 
 ### worker 경계
 
@@ -71,7 +77,7 @@ deploy.sh
 - `TrackScheduler`
 - `GuildMusicManager`
 
-실제 트랙 로드, 재생, 큐 전이, stop, skip, clear, recovery playback은 이쪽에서 처리한다.
+실제 곡 로드, 재생, 큐 전이, stop, skip, clear, recovery playback은 이쪽에서 처리된다.
 
 ### state 경계
 
@@ -87,7 +93,7 @@ deploy.sh
 
 ### 앱 전용 설정
 
-각 앱은 `spring.application.name`과 `app.node-name`만 직접 가진다.
+각 앱은 `spring.application.name`과 `app.node-name`을 직접 가진다.
 
 - `apps/gateway-app/src/main/resources/application.yml`
 - `apps/audio-node-app/src/main/resources/application.yml`
@@ -99,17 +105,25 @@ deploy.sh
 - Discord token
 - actuator
 - structured logging
-- RabbitMQ command 설정
+- RabbitMQ command / result 설정
 - DLQ replay 설정
+- voice idle disconnect 설정
 
-## 6. 현재 남아 있는 transport
+## 6. 현재 transport
 
 ### command
 
 - producer: gateway-app
 - consumer: audio-node-app
-- transport: RabbitMQ RPC
+- transport: RabbitMQ async publish
 - 보강: dedup + DLQ
+
+### command result
+
+- producer: audio-node-app
+- consumer: gateway-app
+- transport: RabbitMQ direct exchange
+- 목적: original ephemeral reply 수정
 
 ### event
 
@@ -129,24 +143,27 @@ deploy.sh
 - role 기반 런타임 분기
 - store selector
 - event transport selector
+- RabbitMQ RPC
+- playback 계층의 공개 채널 재생 결과 메시지
 
-즉 현재 코드는 “지금 실제로 도는 경로만 남긴 구조”다.
+즉 현재 코드는 실제로 운영하는 경로만 남긴 상태다.
 
 ## 8. 장점
 
 - bootstrap이 단순하다.
-- 현재 운영 경로가 코드에서 명확하다.
 - Redis가 source of truth라는 점이 분명하다.
-- gateway와 audio-node 책임이 코드와 디렉터리 모두에서 명확하다.
-- 문서화와 운영 런북이 실제 코드와 맞추기 쉬워졌다.
+- gateway와 audio-node 책임이 코드와 디렉터리에서 명확하다.
+- command publish와 result consume 흐름이 분리돼 있다.
+- 사용자 응답 정책이 ephemeral 기준으로 정리돼 있다.
 
 ## 9. 주의점
 
-- `gateway-app`과 `audio-node-app`은 같은 Discord 토큰으로 각각 JDA 세션을 연다.
-- autocomplete 때문에 gateway가 공용 playback 검색 코드를 일부 참조한다.
-- YouTube 재생 성공 여부는 서버 네트워크 환경의 영향을 크게 받는다.
-- Grafana 관리자 계정은 env를 바꾼다고 기존 볼륨에 자동 반영되지 않는다.
+- pending interaction 저장소는 Redis TTL 기반이라 gateway 재기동 후에도 interaction token 만료 전까지 result event를 이어받을 수 있다.
+- 다만 Discord interaction token 자체는 15분 제한이 있으므로 장기 지연 결과는 복구되지 않는다.
+- autocomplete 때문에 gateway가 일부 playback 검색 코드를 참조한다.
+- YouTube 재생 성공 여부는 서버 네트워크 환경 영향이 크다.
+- Grafana 관리자 계정은 env를 바꿔도 기존 볼륨에는 자동 반영되지 않는다.
 
 ## 10. 결론
 
-현재 코드베이스는 “공용 코어 + 두 실행 앱” 구조를 유지하면서도, 운영에 쓰지 않는 fallback과 선택형 분기를 제거한 상태다. 구조, 배포, 운영, 관측성 문서도 이 기준으로 정리해야 일관성이 유지된다.
+현재 코드베이스는 `공용 코어 + 두 실행 앱` 구조를 유지하면서도, 실제 운영 경로만 남긴 단순화된 아키텍처로 정리돼 있다. 특히 최근 변경으로 command 흐름이 RPC에서 비동기 publish/result event 구조로 바뀌었고, Discord 응답도 ephemeral 중심으로 일관되게 맞춰졌다.

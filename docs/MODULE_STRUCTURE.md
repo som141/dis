@@ -2,13 +2,13 @@
 
 ## 개요
 
-현재 저장소는 공용 코어와 두 실행 앱으로 분리되어 있다.
+현재 저장소는 공용 코어와 두 실행 앱으로 분리돼 있다.
 
 - `modules/common-core`
 - `apps/gateway-app`
 - `apps/audio-node-app`
 
-핵심 원칙은 두 가지다.
+원칙은 두 가지다.
 
 1. 실행 단위는 앱 모듈에 둔다.
 2. 공용 계약과 재생 코어는 `common-core`에 둔다.
@@ -21,6 +21,8 @@ apps/
     src/main/java/discordgateway/gateway/
       application/
       config/
+      interaction/
+      messaging/
       presentation/discord/
   audio-node-app/
     src/main/java/discordgateway/audionode/
@@ -50,7 +52,8 @@ modules/
 
 - gateway 전용 진입점
 - Discord interaction 처리
-- command 생성
+- command envelope 생성
+- pending interaction / result consumer
 
 ### `discordgateway.audionode.*`
 
@@ -83,15 +86,16 @@ modules/
 ### `modules/common-core`
 
 - 공용 계약과 코어 로직 제공
-- 실행 진입점은 없음
-- 최종 산출물은 앱 모듈에서 만든다
+- 실행 진입점 없음
+- 최종 산출물은 앱 모듈이 만든다
 
 ### `apps/gateway-app`
 
 - Discord slash command 수신
 - autocomplete 처리
 - 입력 검증
-- `MusicCommand` 생성 후 RabbitMQ RPC 전송
+- `MusicCommandEnvelope` 생성 후 RabbitMQ publish
+- result event를 받아 original ephemeral reply 수정
 
 ### `apps/audio-node-app`
 
@@ -99,6 +103,7 @@ modules/
 - 실제 재생과 음성 연결 실행
 - recovery 수행
 - 유휴 음성 채널 자동 퇴장 수행
+- 처리 결과를 result event로 발행
 
 ## 빌드
 
@@ -127,4 +132,4 @@ Audio Node만:
 
 ## 정리 기준
 
-이번 패키지 재정리의 목적은 “기능이 어디에 속하는지 패키지 이름만 보고도 구분되게 만드는 것”이다. 즉 예전처럼 `application`, `discord`, `infrastructure` 같은 넓은 이름을 앱 경계 바깥으로 공유하지 않고, 앱 경계와 공용 경계를 패키지 루트에서 바로 드러내도록 정리했다.
+이번 패키지 재정리의 목적은 소스가 어디에 속하는지 패키지 이름만 보고도 구분되게 만드는 것이다. 예전처럼 `application`, `discord`, `infrastructure` 같은 넓은 이름으로 경계가 섞이지 않도록, 앱 경계와 공용 경계를 패키지 루트에서 바로 드러내는 쪽으로 정리했다.
