@@ -31,6 +31,7 @@ subprojects {
 tasks.register('bootJarAll') {
     dependsOn(
             ':apps:gateway-app:bootJar',
-            ':apps:audio-node-app:bootJar'
+            ':apps:audio-node-app:bootJar',
+            ':apps:stock-node-app:bootJar'
     )
 }

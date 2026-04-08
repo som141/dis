@@ -1,0 +1,14 @@
+plugins {
+    id 'java-library'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+dependencies {
+    api platform('org.springframework.boot:spring-boot-dependencies:3.5.5')
+    api 'com.fasterxml.jackson.core:jackson-annotations'
+}

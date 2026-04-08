@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: stock-node-app
+  rabbitmq:
+    host: ${RABBITMQ_HOST:rabbitmq}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+
+server:
+  port: ${HEALTH_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+
+app:
+  node-name: ${APP_NODE_NAME:stock-node-1}
+
+stock:
+  messaging:
+    command-exchange: ${STOCK_COMMAND_EXCHANGE:stock.command.exchange}
+    command-queue: ${STOCK_COMMAND_QUEUE:stock.command.queue}
+    command-routing-key: ${STOCK_COMMAND_ROUTING_KEY:stock.command}
+    command-result-exchange: ${STOCK_COMMAND_RESULT_EXCHANGE:stock.command.result.exchange}
+    command-result-routing-key-prefix: ${STOCK_COMMAND_RESULT_ROUTING_KEY_PREFIX:stock.command.result.}
+  storage:
+    postgres-host: ${POSTGRES_HOST:postgres}
+    postgres-port: ${POSTGRES_PORT:5432}
+    postgres-database: ${POSTGRES_DB:stock}
+    postgres-user: ${POSTGRES_USER:stock}
+    postgres-password: ${POSTGRES_PASSWORD:stock}
+    redis-host: ${REDIS_HOST:redis}
+    redis-port: ${REDIS_PORT:6379}

@@ -34,6 +34,22 @@ services:
       timeout: 5s
       retries: 20
 
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-stock}
+      POSTGRES_USER: ${POSTGRES_USER:-stock}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-stock}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-stock} -d ${POSTGRES_DB:-stock}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
   gateway:
     build:
       context: .
@@ -98,6 +114,37 @@ services:
       HEALTH_PORT: 8080
     ports:
       - "8082:8080"
+    restart: unless-stopped
+
+  stock-node:
+    build:
+      context: .
+      dockerfile: apps/stock-node-app/Dockerfile
+    image: ${STOCK_NODE_IMAGE_NAME:-discord-stock-node}:${STOCK_NODE_IMAGE_TAG:-local}
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ""
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-guest}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-stock}
+      POSTGRES_USER: ${POSTGRES_USER:-stock}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-stock}
+      APP_NODE_NAME: stock-node-1
+      HEALTH_PORT: 8080
+    ports:
+      - "8083:8080"
     restart: unless-stopped
 
   prometheus:
@@ -195,6 +242,7 @@ services:
 volumes:
   redis-data:
   rabbitmq-data:
+  postgres-data:
   prometheus-data:
   loki-data:
   grafana-data:

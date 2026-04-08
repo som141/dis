@@ -7,6 +7,7 @@ ENV_FILE="${CURRENT_DIR}/.env"
 COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-discord-bot}"
 GATEWAY_HEALTH_URL="${GATEWAY_HEALTH_URL:-http://127.0.0.1:8081/actuator/health}"
 AUDIO_NODE_HEALTH_URL="${AUDIO_NODE_HEALTH_URL:-http://127.0.0.1:8082/actuator/health}"
+STOCK_NODE_HEALTH_URL="${STOCK_NODE_HEALTH_URL:-http://127.0.0.1:8083/actuator/health}"
 
 if [[ ! -d "${CURRENT_DIR}" ]]; then
   echo "missing current release directory: ${CURRENT_DIR}"
@@ -19,15 +20,19 @@ if [[ ! -f "${ENV_FILE}" ]]; then
 fi
 
 pushd "${CURRENT_DIR}" >/dev/null
-echo "[1/3] docker compose ps"
+echo "[1/4] docker compose ps"
 docker compose --project-name "${COMPOSE_PROJECT_NAME}" --env-file .env ps
 
-echo "[2/3] gateway health"
+echo "[2/4] gateway health"
 curl -fsS "${GATEWAY_HEALTH_URL}"
 echo
 
-echo "[3/3] audio-node health"
+echo "[3/4] audio-node health"
 curl -fsS "${AUDIO_NODE_HEALTH_URL}"
+echo
+
+echo "[4/4] stock-node health"
+curl -fsS "${STOCK_NODE_HEALTH_URL}"
 echo
 popd >/dev/null
 

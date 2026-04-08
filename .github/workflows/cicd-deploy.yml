@@ -19,6 +19,7 @@ jobs:
     env:
       GATEWAY_IMAGE_NAME: discord-gateway
       AUDIO_NODE_IMAGE_NAME: discord-audio-node
+      STOCK_NODE_IMAGE_NAME: discord-stock-node
       COMPOSE_PROJECT_NAME: discord-bot
       DEPLOY_DIR: /home/ubuntu/dis-bot
 
@@ -42,12 +43,14 @@ jobs:
         run: |
           docker build -f apps/gateway-app/Dockerfile -t "${GATEWAY_IMAGE_NAME}:${{ github.sha }}" .
           docker build -f apps/audio-node-app/Dockerfile -t "${AUDIO_NODE_IMAGE_NAME}:${{ github.sha }}" .
+          docker build -f apps/stock-node-app/Dockerfile -t "${STOCK_NODE_IMAGE_NAME}:${{ github.sha }}" .
 
       - name: Save Docker images to tar.gz
         run: |
           mkdir -p out
           docker save "${GATEWAY_IMAGE_NAME}:${{ github.sha }}" | gzip > "out/${GATEWAY_IMAGE_NAME}-${{ github.sha }}.tar.gz"
           docker save "${AUDIO_NODE_IMAGE_NAME}:${{ github.sha }}" | gzip > "out/${AUDIO_NODE_IMAGE_NAME}-${{ github.sha }}.tar.gz"
+          docker save "${STOCK_NODE_IMAGE_NAME}:${{ github.sha }}" | gzip > "out/${STOCK_NODE_IMAGE_NAME}-${{ github.sha }}.tar.gz"
 
       - name: Create env file
         env:
@@ -61,6 +64,9 @@ jobs:
           YOUTUBE_REMOTE_CIPHER_USER_AGENT: ${{ secrets.YOUTUBE_REMOTE_CIPHER_USER_AGENT }}
           RABBITMQ_USERNAME: ${{ secrets.RABBITMQ_USERNAME }}
           RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD }}
+          POSTGRES_DB: ${{ vars.POSTGRES_DB || 'stock' }}
+          POSTGRES_USER: ${{ vars.POSTGRES_USER || 'stock' }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD || vars.POSTGRES_PASSWORD || 'stock' }}
           APP_ENV: ${{ vars.APP_ENV || 'prod' }}
           OBSERVABILITY_ENABLED: ${{ vars.OBSERVABILITY_ENABLED || 'true' }}
           GRAFANA_IMAGE: ${{ vars.GRAFANA_IMAGE }}
@@ -83,6 +89,8 @@ jobs:
             printf "GATEWAY_IMAGE_TAG=%s\n" "${{ github.sha }}"
             printf "AUDIO_NODE_IMAGE_NAME=%s\n" "${AUDIO_NODE_IMAGE_NAME}"
             printf "AUDIO_NODE_IMAGE_TAG=%s\n" "${{ github.sha }}"
+            printf "STOCK_NODE_IMAGE_NAME=%s\n" "${STOCK_NODE_IMAGE_NAME}"
+            printf "STOCK_NODE_IMAGE_TAG=%s\n" "${{ github.sha }}"
             printf "COMPOSE_PROJECT_NAME=%s\n" "${COMPOSE_PROJECT_NAME}"
             printf "APP_ENV=%s\n" "${APP_ENV}"
             printf "OBSERVABILITY_ENABLED=%s\n" "${OBSERVABILITY_ENABLED}"
@@ -97,6 +105,9 @@ jobs:
             printf "YOUTUBE_OAUTH_INIT=false\n"
             printf "RABBITMQ_USERNAME=%s\n" "${RABBITMQ_USERNAME}"
             printf "RABBITMQ_PASSWORD=%s\n" "${RABBITMQ_PASSWORD}"
+            printf "POSTGRES_DB=%s\n" "${POSTGRES_DB}"
+            printf "POSTGRES_USER=%s\n" "${POSTGRES_USER}"
+            printf "POSTGRES_PASSWORD=%s\n" "${POSTGRES_PASSWORD}"
             printf "GRAFANA_IMAGE=%s\n" "${GRAFANA_IMAGE}"
             printf "PROMETHEUS_IMAGE=%s\n" "${PROMETHEUS_IMAGE}"
             printf "LOKI_IMAGE=%s\n" "${LOKI_IMAGE}"
@@ -147,6 +158,10 @@ jobs:
 
           scp -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \
             "out/${AUDIO_NODE_IMAGE_NAME}-${{ github.sha }}.tar.gz" \
+            "${SSH_USER}@${SSH_HOST}:${DEPLOY_DIR}/incoming/"
+
+          scp -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \
+            "out/${STOCK_NODE_IMAGE_NAME}-${{ github.sha }}.tar.gz" \
             "${SSH_USER}@${SSH_HOST}:${DEPLOY_DIR}/incoming/"
 
           scp -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \
