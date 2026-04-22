@@ -39,6 +39,16 @@ jobs:
           chmod +x ./gradlew
           ./gradlew clean test bootJarAll --no-daemon
 
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-test-reports-${{ github.sha }}
+          path: |
+            **/build/reports/tests/test/**
+            **/build/test-results/test/**
+          if-no-files-found: ignore
+
       - name: Build Docker images
         run: |
           docker build -f apps/gateway-app/Dockerfile -t "${GATEWAY_IMAGE_NAME}:${{ github.sha }}" .
