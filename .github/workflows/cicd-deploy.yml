@@ -34,10 +34,10 @@ jobs:
           java-version: "21"
           cache: gradle
 
-      - name: Build with Gradle
+      - name: Test and build with Gradle
         run: |
           chmod +x ./gradlew
-          ./gradlew clean compileTestJava bootJarAll --no-daemon
+          ./gradlew clean test bootJarAll --no-daemon
 
       - name: Build Docker images
         run: |

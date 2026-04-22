@@ -34,3 +34,5 @@
 
 - [CODEX_WORK_LOG.md](CODEX_WORK_LOG.md)
   - 단계별 작업 기록과 현재 잔여 이슈
+- [STOCK_WEEK0_REPORT.md](STOCK_WEEK0_REPORT.md)
+  - 주식 시스템 0주차 스켈레톤 작업 보고서
