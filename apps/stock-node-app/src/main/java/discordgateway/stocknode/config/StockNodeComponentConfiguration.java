@@ -6,22 +6,31 @@ import discordgateway.stocknode.application.BalanceQueryService;
 import discordgateway.stocknode.application.DailyAllowanceService;
 import discordgateway.stocknode.application.PortfolioQueryService;
 import discordgateway.stocknode.application.PortfolioService;
+import discordgateway.stocknode.application.RankingService;
+import discordgateway.stocknode.application.SnapshotScheduler;
+import discordgateway.stocknode.application.SnapshotService;
 import discordgateway.stocknode.application.StockAccountApplicationService;
 import discordgateway.stocknode.application.StockCommandApplicationService;
 import discordgateway.stocknode.application.StockResponseFormatter;
 import discordgateway.stocknode.application.TradeExecutionService;
 import discordgateway.stocknode.application.TradeHistoryQueryService;
 import discordgateway.stocknode.bootstrap.StockNodeStorageProperties;
+import discordgateway.stocknode.bootstrap.StockProviderProperties;
 import discordgateway.stocknode.bootstrap.StockQuoteProperties;
 import discordgateway.stocknode.cache.QuoteRepository;
+import discordgateway.stocknode.cache.RankingCacheRepository;
 import discordgateway.stocknode.cache.RedisQuoteRepository;
+import discordgateway.stocknode.cache.RedisRankingCacheRepository;
 import discordgateway.stocknode.cache.StockRedisKeyFactory;
 import discordgateway.stocknode.lock.QuoteLockService;
 import discordgateway.stocknode.lock.RedisLockService;
+import discordgateway.stocknode.persistence.repository.AccountSnapshotRepository;
 import discordgateway.stocknode.persistence.repository.AllowanceLedgerRepository;
 import discordgateway.stocknode.persistence.repository.StockAccountRepository;
 import discordgateway.stocknode.persistence.repository.StockPositionRepository;
 import discordgateway.stocknode.persistence.repository.TradeLedgerRepository;
+import discordgateway.stocknode.quote.provider.AlphaVantageQuoteProvider;
+import discordgateway.stocknode.quote.provider.FallbackQuoteProvider;
 import discordgateway.stocknode.quote.provider.MockQuoteProvider;
 import discordgateway.stocknode.quote.provider.QuoteProvider;
 import discordgateway.stocknode.quote.service.ProviderRateLimitService;
@@ -39,6 +48,7 @@ import java.time.Clock;
 @EnableConfigurationProperties({
         StockMessagingProperties.class,
         StockNodeStorageProperties.class,
+        StockProviderProperties.class,
         StockQuoteProperties.class
 })
 public class StockNodeComponentConfiguration {
@@ -70,6 +80,15 @@ public class StockNodeComponentConfiguration {
     }
 
     @Bean
+    public RankingCacheRepository rankingCacheRepository(
+            StringRedisTemplate stringRedisTemplate,
+            ObjectMapper objectMapper,
+            StockRedisKeyFactory stockRedisKeyFactory
+    ) {
+        return new RedisRankingCacheRepository(stringRedisTemplate, objectMapper, stockRedisKeyFactory);
+    }
+
+    @Bean
     public QuoteLockService quoteLockService(
             StringRedisTemplate stringRedisTemplate,
             StockRedisKeyFactory stockRedisKeyFactory,
@@ -96,8 +115,38 @@ public class StockNodeComponentConfiguration {
     }
 
     @Bean
-    public QuoteProvider quoteProvider(Clock stockClock) {
+    public MockQuoteProvider mockQuoteProvider(Clock stockClock) {
         return new MockQuoteProvider(stockClock);
+    }
+
+    @Bean
+    public AlphaVantageQuoteProvider alphaVantageQuoteProvider(
+            ObjectMapper objectMapper,
+            StockProviderProperties stockProviderProperties,
+            Clock stockClock
+    ) {
+        return new AlphaVantageQuoteProvider(objectMapper, stockProviderProperties, stockClock);
+    }
+
+    @Bean
+    public QuoteProvider quoteProvider(
+            MockQuoteProvider mockQuoteProvider,
+            AlphaVantageQuoteProvider alphaVantageQuoteProvider,
+            StockProviderProperties stockProviderProperties
+    ) {
+        String providerType = stockProviderProperties.getType() == null
+                ? "mock"
+                : stockProviderProperties.getType().trim().toLowerCase();
+
+        return switch (providerType) {
+            case "mock" -> mockQuoteProvider;
+            case "alphavantage" -> new FallbackQuoteProvider(
+                    alphaVantageQuoteProvider,
+                    mockQuoteProvider,
+                    stockProviderProperties.isFallbackToMock()
+            );
+            default -> throw new IllegalArgumentException("Unsupported stock quote provider type: " + providerType);
+        };
     }
 
     @Bean
@@ -124,12 +173,14 @@ public class StockNodeComponentConfiguration {
             StockAccountApplicationService stockAccountApplicationService,
             StockAccountRepository stockAccountRepository,
             AllowanceLedgerRepository allowanceLedgerRepository,
+            RankingCacheRepository rankingCacheRepository,
             Clock stockClock
     ) {
         return new DailyAllowanceService(
                 stockAccountApplicationService,
                 stockAccountRepository,
                 allowanceLedgerRepository,
+                rankingCacheRepository,
                 stockClock
         );
     }
@@ -141,6 +192,7 @@ public class StockNodeComponentConfiguration {
             StockPositionRepository stockPositionRepository,
             TradeLedgerRepository tradeLedgerRepository,
             QuoteService quoteService,
+            RankingCacheRepository rankingCacheRepository,
             StockQuoteProperties stockQuoteProperties,
             Clock stockClock
     ) {
@@ -150,6 +202,7 @@ public class StockNodeComponentConfiguration {
                 stockPositionRepository,
                 tradeLedgerRepository,
                 quoteService,
+                rankingCacheRepository,
                 stockQuoteProperties,
                 stockClock
         );
@@ -190,6 +243,51 @@ public class StockNodeComponentConfiguration {
     }
 
     @Bean
+    public SnapshotService snapshotService(
+            StockAccountRepository stockAccountRepository,
+            AccountSnapshotRepository accountSnapshotRepository,
+            DailyAllowanceService dailyAllowanceService,
+            PortfolioService portfolioService,
+            Clock stockClock
+    ) {
+        return new SnapshotService(
+                stockAccountRepository,
+                accountSnapshotRepository,
+                dailyAllowanceService,
+                portfolioService,
+                stockClock
+        );
+    }
+
+    @Bean
+    public SnapshotScheduler snapshotScheduler(SnapshotService snapshotService) {
+        return new SnapshotScheduler(snapshotService);
+    }
+
+    @Bean
+    public RankingService rankingService(
+            StockAccountRepository stockAccountRepository,
+            AllowanceLedgerRepository allowanceLedgerRepository,
+            DailyAllowanceService dailyAllowanceService,
+            PortfolioService portfolioService,
+            SnapshotService snapshotService,
+            RankingCacheRepository rankingCacheRepository,
+            StockQuoteProperties stockQuoteProperties,
+            Clock stockClock
+    ) {
+        return new RankingService(
+                stockAccountRepository,
+                allowanceLedgerRepository,
+                dailyAllowanceService,
+                portfolioService,
+                snapshotService,
+                rankingCacheRepository,
+                stockQuoteProperties,
+                stockClock
+        );
+    }
+
+    @Bean
     public StockResponseFormatter stockResponseFormatter() {
         return new StockResponseFormatter();
     }
@@ -201,6 +299,7 @@ public class StockNodeComponentConfiguration {
             BalanceQueryService balanceQueryService,
             PortfolioQueryService portfolioQueryService,
             TradeHistoryQueryService tradeHistoryQueryService,
+            RankingService rankingService,
             StockResponseFormatter stockResponseFormatter,
             StockQuoteProperties stockQuoteProperties,
             Clock stockClock,
@@ -212,6 +311,7 @@ public class StockNodeComponentConfiguration {
                 balanceQueryService,
                 portfolioQueryService,
                 tradeHistoryQueryService,
+                rankingService,
                 stockResponseFormatter,
                 stockQuoteProperties,
                 stockClock,

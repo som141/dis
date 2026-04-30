@@ -15,51 +15,51 @@ public class StockResponseFormatter {
 
     public String formatQuote(String market, String symbol, StockQuoteResult result) {
         return new StringJoiner(System.lineSeparator())
-                .add("시세 조회")
-                .add("- 시장: " + market)
-                .add("- 종목: " + symbol)
-                .add("- 가격: " + formatMoney(result.quote().price()))
-                .add("- 시각: " + TIME_FORMATTER.format(result.quote().quotedAt().atOffset(ZoneOffset.UTC)))
-                .add("- 상태: " + freshnessLabel(result.fresh()) + " / " + sourceLabel(result.source()))
+                .add("stock quote")
+                .add("- market: " + market)
+                .add("- symbol: " + symbol)
+                .add("- price: " + formatMoney(result.quote().price()))
+                .add("- quotedAt: " + TIME_FORMATTER.format(result.quote().quotedAt().atOffset(ZoneOffset.UTC)))
+                .add("- status: " + freshnessLabel(result.fresh()) + " / " + sourceLabel(result.source()))
                 .toString();
     }
 
     public String formatTrade(TradeExecutionResult result) {
         StringJoiner joiner = new StringJoiner(System.lineSeparator())
-                .add(result.side() == TradeSide.BUY ? "매수 완료" : "매도 완료")
-                .add("- 시장: " + result.market())
-                .add("- 종목: " + result.symbol())
-                .add("- 체결가: " + formatMoney(result.unitPrice()))
-                .add("- 체결수량: " + formatQuantity(result.executedQuantity()))
-                .add("- 체결금액: " + formatMoney(result.settledAmount()))
-                .add("- 남은 현금: " + formatMoney(result.remainingCash()))
-                .add("- 남은 보유수량: " + formatQuantity(result.remainingPositionQuantity()));
+                .add(result.side() == TradeSide.BUY ? "buy completed" : "sell completed")
+                .add("- market: " + result.market())
+                .add("- symbol: " + result.symbol())
+                .add("- unitPrice: " + formatMoney(result.unitPrice()))
+                .add("- executedQuantity: " + formatQuantity(result.executedQuantity()))
+                .add("- settledAmount: " + formatMoney(result.settledAmount()))
+                .add("- remainingCash: " + formatMoney(result.remainingCash()))
+                .add("- remainingPositionQuantity: " + formatQuantity(result.remainingPositionQuantity()));
         if (result.side() == TradeSide.BUY && result.requestedAmount() != null) {
-            joiner.add("- 요청 금액: " + formatMoney(result.requestedAmount()));
+            joiner.add("- requestedAmount: " + formatMoney(result.requestedAmount()));
         }
         if (result.side() == TradeSide.SELL && result.requestedQuantity() != null) {
-            joiner.add("- 요청 수량: " + formatQuantity(result.requestedQuantity()));
+            joiner.add("- requestedQuantity: " + formatQuantity(result.requestedQuantity()));
         }
         return joiner.toString();
     }
 
     public String formatBalance(BalanceView balanceView) {
         return new StringJoiner(System.lineSeparator())
-                .add("잔고 조회")
-                .add("- 계좌 ID: " + balanceView.accountId())
-                .add("- 현금: " + formatMoney(balanceView.cashBalance()))
+                .add("stock balance")
+                .add("- accountId: " + balanceView.accountId())
+                .add("- cash: " + formatMoney(balanceView.cashBalance()))
                 .toString();
     }
 
     public String formatPortfolio(PortfolioView portfolioView) {
         StringJoiner joiner = new StringJoiner(System.lineSeparator())
-                .add("포트폴리오 조회")
-                .add("- 현금: " + formatMoney(portfolioView.cashBalance()))
-                .add("- 평가금액: " + formatMoney(portfolioView.totalMarketValue()))
-                .add("- 총자산: " + formatMoney(portfolioView.totalEquity()))
-                .add("- 평가손익: " + formatMoney(portfolioView.totalProfitLoss()));
+                .add("stock portfolio")
+                .add("- cash: " + formatMoney(portfolioView.cashBalance()))
+                .add("- marketValue: " + formatMoney(portfolioView.totalMarketValue()))
+                .add("- totalEquity: " + formatMoney(portfolioView.totalEquity()))
+                .add("- profitLoss: " + formatMoney(portfolioView.totalProfitLoss()));
         if (portfolioView.positions().isEmpty()) {
-            return joiner.add("- 보유 종목이 없습니다.").toString();
+            return joiner.add("- no holdings").toString();
         }
 
         for (PortfolioPositionView position : portfolioView.positions()) {
@@ -79,11 +79,11 @@ public class StockResponseFormatter {
 
     public String formatHistory(TradeHistoryView tradeHistoryView) {
         StringJoiner joiner = new StringJoiner(System.lineSeparator())
-                .add("거래내역 조회")
-                .add("- 계좌 ID: " + tradeHistoryView.accountId())
-                .add("- 현금: " + formatMoney(tradeHistoryView.cashBalance()));
+                .add("stock history")
+                .add("- accountId: " + tradeHistoryView.accountId())
+                .add("- cash: " + formatMoney(tradeHistoryView.cashBalance()));
         if (tradeHistoryView.entries().isEmpty()) {
-            return joiner.add("- 거래 내역이 없습니다.").toString();
+            return joiner.add("- no trade history").toString();
         }
 
         for (TradeHistoryEntryView entry : tradeHistoryView.entries()) {
@@ -100,15 +100,39 @@ public class StockResponseFormatter {
         return joiner.toString();
     }
 
+    public String formatRanking(RankingView rankingView) {
+        StringJoiner joiner = new StringJoiner(System.lineSeparator())
+                .add("stock ranking")
+                .add("- period: " + rankingView.period())
+                .add("- generatedAt: " + TIME_FORMATTER.format(rankingView.generatedAt().atOffset(ZoneOffset.UTC)));
+        if (rankingView.entries().isEmpty()) {
+            return joiner.add("- no ranked accounts").toString();
+        }
+
+        int index = 1;
+        for (RankingEntryView entry : rankingView.entries()) {
+            joiner.add(String.format(
+                    Locale.ROOT,
+                    "- #%d user=%d return=%s%% equity=%s baseline=%s",
+                    index++,
+                    entry.userId(),
+                    formatPercent(entry.returnRatePercent()),
+                    formatMoney(entry.totalEquity()),
+                    formatMoney(entry.baselineEquity())
+            ));
+        }
+        return joiner.toString();
+    }
+
     public String formatNotImplemented(String commandName) {
-        return "아직 구현되지 않은 stock 명령입니다: " + commandName;
+        return "stock command is not implemented yet: " + commandName;
     }
 
     public String formatFailure(Throwable throwable) {
         if (throwable == null || throwable.getMessage() == null || throwable.getMessage().isBlank()) {
-            return "stock 명령 처리 중 알 수 없는 오류가 발생했습니다.";
+            return "stock command failed with an unknown error.";
         }
-        return "stock 명령 처리 중 오류가 발생했습니다: " + throwable.getMessage();
+        return "stock command failed: " + throwable.getMessage();
     }
 
     private String freshnessLabel(boolean fresh) {
@@ -125,5 +149,9 @@ public class StockResponseFormatter {
 
     private String formatQuantity(BigDecimal value) {
         return value.setScale(8, java.math.RoundingMode.HALF_UP).toPlainString();
+    }
+
+    private String formatPercent(BigDecimal value) {
+        return value.setScale(4, java.math.RoundingMode.HALF_UP).toPlainString();
     }
 }

@@ -2,6 +2,7 @@ package discordgateway.stocknode.application;
 
 import discordgateway.stocknode.persistence.entity.AllowanceLedgerEntity;
 import discordgateway.stocknode.persistence.entity.StockAccountEntity;
+import discordgateway.stocknode.cache.RankingCacheRepository;
 import discordgateway.stocknode.persistence.repository.AllowanceLedgerRepository;
 import discordgateway.stocknode.persistence.repository.StockAccountRepository;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,17 +20,20 @@ public class DailyAllowanceService {
     private final StockAccountApplicationService stockAccountApplicationService;
     private final StockAccountRepository stockAccountRepository;
     private final AllowanceLedgerRepository allowanceLedgerRepository;
+    private final RankingCacheRepository rankingCacheRepository;
     private final Clock clock;
 
     public DailyAllowanceService(
             StockAccountApplicationService stockAccountApplicationService,
             StockAccountRepository stockAccountRepository,
             AllowanceLedgerRepository allowanceLedgerRepository,
+            RankingCacheRepository rankingCacheRepository,
             Clock clock
     ) {
         this.stockAccountApplicationService = stockAccountApplicationService;
         this.stockAccountRepository = stockAccountRepository;
         this.allowanceLedgerRepository = allowanceLedgerRepository;
+        this.rankingCacheRepository = rankingCacheRepository;
         this.clock = clock;
     }
 
@@ -69,5 +73,6 @@ public class DailyAllowanceService {
                         now
                 )
         );
+        rankingCacheRepository.evictGuild(account.getGuildId());
     }
 }

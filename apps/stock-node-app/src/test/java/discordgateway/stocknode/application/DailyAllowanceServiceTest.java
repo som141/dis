@@ -1,6 +1,7 @@
 package discordgateway.stocknode.application;
 
 import discordgateway.stocknode.persistence.entity.StockAccountEntity;
+import discordgateway.stocknode.cache.RankingCacheRepository;
 import discordgateway.stocknode.persistence.repository.AllowanceLedgerRepository;
 import discordgateway.stocknode.persistence.repository.StockAccountRepository;
 import org.junit.jupiter.api.Test;
@@ -34,6 +35,9 @@ class DailyAllowanceServiceTest {
     @Mock
     private AllowanceLedgerRepository allowanceLedgerRepository;
 
+    @Mock
+    private RankingCacheRepository rankingCacheRepository;
+
     @Test
     void grantsAllowanceOncePerDay() {
         MutableClock clock = new MutableClock(Instant.parse("2026-04-30T00:10:00Z"));
@@ -47,6 +51,7 @@ class DailyAllowanceServiceTest {
                 stockAccountApplicationService,
                 stockAccountRepository,
                 allowanceLedgerRepository,
+                rankingCacheRepository,
                 clock
         );
 
@@ -56,6 +61,7 @@ class DailyAllowanceServiceTest {
         assertThat(account.getCashBalance()).isEqualByComparingTo("10000.0000");
         verify(stockAccountRepository, times(1)).save(account);
         verify(allowanceLedgerRepository, times(1)).save(any());
+        verify(rankingCacheRepository, times(1)).evictGuild(1001L);
     }
 
     @Test
@@ -71,6 +77,7 @@ class DailyAllowanceServiceTest {
                 stockAccountApplicationService,
                 stockAccountRepository,
                 allowanceLedgerRepository,
+                rankingCacheRepository,
                 clock
         );
 
@@ -81,6 +88,7 @@ class DailyAllowanceServiceTest {
         assertThat(account.getCashBalance()).isEqualByComparingTo("20000.0000");
         verify(stockAccountRepository, times(2)).save(account);
         verify(allowanceLedgerRepository, times(2)).save(any());
+        verify(rankingCacheRepository, times(2)).evictGuild(1001L);
     }
 
     private static StockAccountEntity account(Long id, BigDecimal cashBalance) {

@@ -85,7 +85,7 @@ class StockMessagingIntegrationTest extends StockNodeMessagingIntegrationTestSup
 
         assertThat(event.success()).isTrue();
         assertThat(event.resultType()).isEqualTo("QUOTE");
-        assertThat(event.message()).contains("시세 조회");
+        assertThat(event.message()).contains("stock quote");
         assertThat(event.message()).contains("AAPL");
     }
 
@@ -112,8 +112,24 @@ class StockMessagingIntegrationTest extends StockNodeMessagingIntegrationTestSup
         ));
         assertThat(historyEvent.success()).isTrue();
         assertThat(historyEvent.resultType()).isEqualTo("HISTORY");
-        assertThat(historyEvent.message()).contains("거래내역 조회");
+        assertThat(historyEvent.message()).contains("stock history");
         assertThat(historyEvent.message()).contains("BUY AAPL");
+    }
+
+    @Test
+    void processesRankCommandEndToEnd() {
+        StockCommandResultEvent event = sendAndReceive(new StockCommandEnvelope(
+                "cmd-rank",
+                1,
+                Instant.now().toEpochMilli(),
+                "gateway",
+                new StockCommand.Rank(1001L, 2002L, "day"),
+                RESPONSE_NODE
+        ));
+
+        assertThat(event.success()).isTrue();
+        assertThat(event.resultType()).isEqualTo("RANK");
+        assertThat(event.message()).contains("stock ranking");
     }
 
     private StockCommandResultEvent sendAndReceive(StockCommandEnvelope envelope) {

@@ -16,6 +16,7 @@ public class StockCommandApplicationService {
     private final BalanceQueryService balanceQueryService;
     private final PortfolioQueryService portfolioQueryService;
     private final TradeHistoryQueryService tradeHistoryQueryService;
+    private final RankingService rankingService;
     private final StockResponseFormatter stockResponseFormatter;
     private final StockQuoteProperties stockQuoteProperties;
     private final Clock clock;
@@ -27,6 +28,7 @@ public class StockCommandApplicationService {
             BalanceQueryService balanceQueryService,
             PortfolioQueryService portfolioQueryService,
             TradeHistoryQueryService tradeHistoryQueryService,
+            RankingService rankingService,
             StockResponseFormatter stockResponseFormatter,
             StockQuoteProperties stockQuoteProperties,
             Clock clock,
@@ -37,6 +39,7 @@ public class StockCommandApplicationService {
         this.balanceQueryService = balanceQueryService;
         this.portfolioQueryService = portfolioQueryService;
         this.tradeHistoryQueryService = tradeHistoryQueryService;
+        this.rankingService = rankingService;
         this.stockResponseFormatter = stockResponseFormatter;
         this.stockQuoteProperties = stockQuoteProperties;
         this.clock = clock;
@@ -108,10 +111,12 @@ public class StockCommandApplicationService {
                     ),
                     "HISTORY"
             );
-            case StockCommand.Rank rank -> failure(
+            case StockCommand.Rank rank -> success(
                     envelope,
-                    stockResponseFormatter.formatNotImplemented("rank(" + rank.period() + ")"),
-                    "NOT_IMPLEMENTED"
+                    stockResponseFormatter.formatRanking(
+                            rankingService.getRanking(rank.guildId(), rank.period())
+                    ),
+                    "RANK"
             );
         };
     }

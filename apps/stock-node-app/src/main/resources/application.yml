@@ -66,3 +66,10 @@ stock:
     lock-poll-interval: ${STOCK_QUOTE_LOCK_POLL_INTERVAL:25ms}
     provider-per-minute-limit: ${STOCK_PROVIDER_PER_MINUTE_LIMIT:60}
     provider-per-day-limit: ${STOCK_PROVIDER_PER_DAY_LIMIT:5000}
+  provider:
+    type: ${STOCK_PROVIDER_TYPE:mock}
+    fallback-to-mock: ${STOCK_PROVIDER_FALLBACK_TO_MOCK:true}
+    timeout: ${STOCK_PROVIDER_TIMEOUT:3s}
+    alpha-vantage-base-url: ${ALPHAVANTAGE_BASE_URL:https://www.alphavantage.co}
+    alpha-vantage-api-key: ${ALPHAVANTAGE_API_KEY:}
+    alpha-vantage-entitlement: ${ALPHAVANTAGE_ENTITLEMENT:}

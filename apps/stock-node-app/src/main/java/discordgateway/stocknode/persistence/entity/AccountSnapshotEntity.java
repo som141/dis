@@ -64,4 +64,28 @@ public class AccountSnapshotEntity extends BaseTimeEntity {
     ) {
         return new AccountSnapshotEntity(account, snapshotAt, cashBalance, portfolioValue, totalEquity);
     }
+
+    public Long getId() {
+        return id;
+    }
+
+    public StockAccountEntity getAccount() {
+        return account;
+    }
+
+    public Instant getSnapshotAt() {
+        return snapshotAt;
+    }
+
+    public BigDecimal getCashBalance() {
+        return cashBalance;
+    }
+
+    public BigDecimal getPortfolioValue() {
+        return portfolioValue;
+    }
+
+    public BigDecimal getTotalEquity() {
+        return totalEquity;
+    }
 }

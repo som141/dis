@@ -27,7 +27,7 @@ class StockResponseFormatterTest {
                 )
         );
 
-        assertThat(message).contains("시세 조회");
+        assertThat(message).contains("stock quote");
         assertThat(message).contains("AAPL");
         assertThat(message).contains("provider_refresh");
     }
@@ -68,9 +68,29 @@ class StockResponseFormatterTest {
                 ))
         ));
 
-        assertThat(portfolio).contains("포트폴리오 조회");
+        assertThat(portfolio).contains("stock portfolio");
         assertThat(portfolio).contains("AAPL");
-        assertThat(history).contains("거래내역 조회");
+        assertThat(history).contains("stock history");
         assertThat(history).contains("BUY AAPL");
+    }
+
+    @Test
+    void formatsRankingResponse() {
+        String ranking = formatter.formatRanking(new RankingView(
+                1001L,
+                "day",
+                Instant.parse("2026-04-30T01:00:00Z"),
+                List.of(new RankingEntryView(
+                        1L,
+                        2002L,
+                        new BigDecimal("10100.0000"),
+                        new BigDecimal("10000.0000"),
+                        new BigDecimal("1.0000")
+                ))
+        ));
+
+        assertThat(ranking).contains("stock ranking");
+        assertThat(ranking).contains("user=2002");
+        assertThat(ranking).contains("1.0000%");
     }
 }

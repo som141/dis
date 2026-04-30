@@ -1,6 +1,7 @@
 package discordgateway.stocknode.application;
 
 import discordgateway.stocknode.bootstrap.StockQuoteProperties;
+import discordgateway.stocknode.cache.RankingCacheRepository;
 import discordgateway.stocknode.persistence.entity.StockAccountEntity;
 import discordgateway.stocknode.persistence.entity.StockPositionEntity;
 import discordgateway.stocknode.persistence.entity.TradeLedgerEntity;
@@ -24,6 +25,7 @@ public class TradeExecutionService {
     private final StockPositionRepository stockPositionRepository;
     private final TradeLedgerRepository tradeLedgerRepository;
     private final QuoteService quoteService;
+    private final RankingCacheRepository rankingCacheRepository;
     private final StockQuoteProperties stockQuoteProperties;
     private final Clock clock;
 
@@ -33,6 +35,7 @@ public class TradeExecutionService {
             StockPositionRepository stockPositionRepository,
             TradeLedgerRepository tradeLedgerRepository,
             QuoteService quoteService,
+            RankingCacheRepository rankingCacheRepository,
             StockQuoteProperties stockQuoteProperties,
             Clock clock
     ) {
@@ -41,6 +44,7 @@ public class TradeExecutionService {
         this.stockPositionRepository = stockPositionRepository;
         this.tradeLedgerRepository = tradeLedgerRepository;
         this.quoteService = quoteService;
+        this.rankingCacheRepository = rankingCacheRepository;
         this.stockQuoteProperties = stockQuoteProperties;
         this.clock = clock;
     }
@@ -85,6 +89,7 @@ public class TradeExecutionService {
                         clock.instant()
                 )
         );
+        rankingCacheRepository.evictGuild(guildId);
 
         return new TradeExecutionResult(
                 account.getId(),
@@ -144,6 +149,7 @@ public class TradeExecutionService {
                         clock.instant()
                 )
         );
+        rankingCacheRepository.evictGuild(guildId);
 
         return new TradeExecutionResult(
                 account.getId(),

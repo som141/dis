@@ -1,6 +1,7 @@
 package discordgateway.stocknode.application;
 
 import discordgateway.stocknode.bootstrap.StockQuoteProperties;
+import discordgateway.stocknode.cache.RankingCacheRepository;
 import discordgateway.stocknode.persistence.entity.StockAccountEntity;
 import discordgateway.stocknode.persistence.entity.StockPositionEntity;
 import discordgateway.stocknode.persistence.repository.StockAccountRepository;
@@ -48,6 +49,9 @@ class TradeExecutionServiceTest {
     @Mock
     private QuoteService quoteService;
 
+    @Mock
+    private RankingCacheRepository rankingCacheRepository;
+
     private TradeExecutionService tradeExecutionService;
     private final StockQuoteProperties stockQuoteProperties = new StockQuoteProperties();
     private final Clock clock = Clock.fixed(Instant.parse("2026-04-30T01:00:00Z"), ZoneOffset.UTC);
@@ -61,6 +65,7 @@ class TradeExecutionServiceTest {
                 stockPositionRepository,
                 tradeLedgerRepository,
                 quoteService,
+                rankingCacheRepository,
                 stockQuoteProperties,
                 clock
         );
@@ -84,6 +89,7 @@ class TradeExecutionServiceTest {
         assertThat(result.remainingPositionAverageCost()).isEqualByComparingTo("200.0000");
         verify(stockPositionRepository).save(any(StockPositionEntity.class));
         verify(tradeLedgerRepository).save(any());
+        verify(rankingCacheRepository).evictGuild(1001L);
     }
 
     @Test
@@ -104,6 +110,7 @@ class TradeExecutionServiceTest {
         assertThat(result.remainingPositionQuantity()).isEqualByComparingTo("0.00000000");
         verify(stockPositionRepository).delete(position);
         verify(tradeLedgerRepository).save(any());
+        verify(rankingCacheRepository).evictGuild(1001L);
     }
 
     @Test

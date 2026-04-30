@@ -8,4 +8,6 @@ import java.util.Optional;
 public interface StockAccountRepository extends JpaRepository<StockAccountEntity, Long> {
 
     Optional<StockAccountEntity> findByGuildIdAndUserId(long guildId, long userId);
+
+    java.util.List<StockAccountEntity> findAllByGuildIdOrderByIdAsc(long guildId);
 }

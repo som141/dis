@@ -19,10 +19,9 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -45,6 +44,9 @@ class StockCommandApplicationServiceTest {
     private TradeHistoryQueryService tradeHistoryQueryService;
 
     @Mock
+    private RankingService rankingService;
+
+    @Mock
     private StockResponseFormatter stockResponseFormatter;
 
     private StockCommandApplicationService stockCommandApplicationService;
@@ -59,6 +61,7 @@ class StockCommandApplicationServiceTest {
                 balanceQueryService,
                 portfolioQueryService,
                 tradeHistoryQueryService,
+                rankingService,
                 stockResponseFormatter,
                 stockQuoteProperties,
                 Clock.fixed(Instant.parse("2026-04-30T01:00:00Z"), ZoneOffset.UTC),
@@ -130,7 +133,7 @@ class StockCommandApplicationServiceTest {
     }
 
     @Test
-    void returnsNotImplementedForRank() {
+    void dispatchesRankCommand() {
         StockCommandEnvelope envelope = new StockCommandEnvelope(
                 "cmd-3",
                 1,
@@ -139,12 +142,25 @@ class StockCommandApplicationServiceTest {
                 new StockCommand.Rank(1001L, 2002L, "day"),
                 "gateway-1"
         );
-        when(stockResponseFormatter.formatNotImplemented("rank(day)")).thenReturn("todo");
+        RankingView rankingView = new RankingView(
+                1001L,
+                "day",
+                Instant.parse("2026-04-30T01:00:00Z"),
+                List.of(new RankingEntryView(
+                        1L,
+                        2002L,
+                        new BigDecimal("10100.0000"),
+                        new BigDecimal("10000.0000"),
+                        new BigDecimal("1.0000")
+                ))
+        );
+        when(rankingService.getRanking(1001L, "day")).thenReturn(rankingView);
+        when(stockResponseFormatter.formatRanking(rankingView)).thenReturn("rank message");
 
         StockCommandResultEvent event = stockCommandApplicationService.handle(envelope);
 
-        assertThat(event.success()).isFalse();
-        assertThat(event.resultType()).isEqualTo("NOT_IMPLEMENTED");
-        assertThat(event.message()).isEqualTo("todo");
+        assertThat(event.success()).isTrue();
+        assertThat(event.resultType()).isEqualTo("RANK");
+        assertThat(event.message()).isEqualTo("rank message");
     }
 }

@@ -54,3 +54,7 @@
   - 주식 시스템 5주차 gateway `/stock` 연동 작업 분해와 검증 기준
 - [STOCK_WEEK5_REPORT.md](STOCK_WEEK5_REPORT.md)
   - 주식 시스템 5주차 gateway `/stock` 연동 구현 및 검증 보고서
+- [STOCK_WEEK6_WEEK8_TASK_BREAKDOWN.md](STOCK_WEEK6_WEEK8_TASK_BREAKDOWN.md)
+  - 주식 시스템 6주차-8주차 작업 분해와 검증 기준
+- [STOCK_WEEK6_WEEK8_REPORT.md](STOCK_WEEK6_WEEK8_REPORT.md)
+  - 주식 시스템 6주차-8주차 구현 및 검증 보고서

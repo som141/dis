@@ -328,3 +328,52 @@ bash /home/ubuntu/dis-bot/current/ops/smoke-check.sh
 - [관측성 계획](docs/OBSERVABILITY_PLAN.md)
 - [관측성 스택 안내](ops/observability/README.md)
 - [작업 로그](docs/CODEX_WORK_LOG.md)
+
+## 13. Stock Commands
+
+현재 `/stock` 하위 명령은 아래를 지원합니다.
+
+- `/stock quote symbol:<ticker>`
+- `/stock buy symbol:<ticker> amount:<cash>`
+- `/stock sell symbol:<ticker> quantity:<qty>`
+- `/stock balance`
+- `/stock portfolio`
+- `/stock history [limit]`
+- `/stock rank period:<day|week|all>`
+
+구현 경계는 아래와 같습니다.
+
+- `gateway-app`
+  - Discord slash command 진입
+  - stock command envelope publish
+  - stock result event 수신 후 interaction reply edit
+- `stock-node-app`
+  - quote / buy / sell / balance / portfolio / history / rank 처리
+  - PostgreSQL persistence
+  - Redis quote cache / rank cache
+
+## 14. Stock Provider
+
+stock quote provider는 설정으로 바꿀 수 있습니다.
+
+기본값:
+
+```env
+STOCK_PROVIDER_TYPE=mock
+```
+
+실제 provider 사용 예시:
+
+```env
+STOCK_PROVIDER_TYPE=alphavantage
+STOCK_PROVIDER_FALLBACK_TO_MOCK=true
+ALPHAVANTAGE_API_KEY=<your-key>
+ALPHAVANTAGE_ENTITLEMENT=
+```
+
+현재 지원 provider 타입:
+
+- `mock`
+- `alphavantage`
+
+`alphavantage` 호출 실패 시 `STOCK_PROVIDER_FALLBACK_TO_MOCK=true`면 mock provider로 fallback 합니다.
