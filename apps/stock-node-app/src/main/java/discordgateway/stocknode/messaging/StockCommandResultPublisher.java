@@ -1,17 +1,17 @@
 package discordgateway.stocknode.messaging;
 
 import discordgateway.stock.event.StockCommandResultEvent;
-import discordgateway.stocknode.bootstrap.StockNodeMessagingProperties;
+import discordgateway.stock.messaging.StockMessagingProperties;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 
 public class StockCommandResultPublisher {
 
     private final RabbitTemplate rabbitTemplate;
-    private final StockNodeMessagingProperties messagingProperties;
+    private final StockMessagingProperties messagingProperties;
 
     public StockCommandResultPublisher(
             RabbitTemplate rabbitTemplate,
-            StockNodeMessagingProperties messagingProperties
+            StockMessagingProperties messagingProperties
     ) {
         this.rabbitTemplate = rabbitTemplate;
         this.messagingProperties = messagingProperties;

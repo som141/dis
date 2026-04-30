@@ -3,7 +3,7 @@ package discordgateway.stocknode.integration;
 import discordgateway.stock.command.StockCommand;
 import discordgateway.stock.command.StockCommandEnvelope;
 import discordgateway.stock.event.StockCommandResultEvent;
-import discordgateway.stocknode.bootstrap.StockNodeMessagingProperties;
+import discordgateway.stock.messaging.StockMessagingProperties;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,7 +43,7 @@ class StockMessagingIntegrationTest extends StockNodeMessagingIntegrationTestSup
     private AmqpAdmin amqpAdmin;
 
     @Autowired
-    private StockNodeMessagingProperties messagingProperties;
+    private StockMessagingProperties messagingProperties;
 
     private String resultQueueName;
 

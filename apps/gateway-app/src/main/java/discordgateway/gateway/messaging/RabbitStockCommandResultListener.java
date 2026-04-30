@@ -1,21 +1,21 @@
 package discordgateway.gateway.messaging;
 
-import discordgateway.common.command.MusicCommandResultEvent;
 import discordgateway.gateway.interaction.InteractionResponseContext;
 import discordgateway.gateway.interaction.InteractionResponseEditor;
 import discordgateway.gateway.interaction.PendingInteractionRepository;
+import discordgateway.stock.event.StockCommandResultEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 
-public class RabbitMusicCommandResultListener {
+public class RabbitStockCommandResultListener {
 
-    private static final Logger log = LoggerFactory.getLogger(RabbitMusicCommandResultListener.class);
+    private static final Logger log = LoggerFactory.getLogger(RabbitStockCommandResultListener.class);
 
     private final PendingInteractionRepository pendingInteractionRepository;
     private final InteractionResponseEditor interactionResponseEditor;
 
-    public RabbitMusicCommandResultListener(
+    public RabbitStockCommandResultListener(
             PendingInteractionRepository pendingInteractionRepository,
             InteractionResponseEditor interactionResponseEditor
     ) {
@@ -23,15 +23,15 @@ public class RabbitMusicCommandResultListener {
         this.interactionResponseEditor = interactionResponseEditor;
     }
 
-    @RabbitListener(queues = "#{gatewayCommandResultQueue.name}")
-    public void handle(MusicCommandResultEvent event) {
+    @RabbitListener(queues = "#{gatewayStockCommandResultQueue.name}")
+    public void handle(StockCommandResultEvent event) {
         InteractionResponseContext context = pendingInteractionRepository.take(event.commandId());
         if (context == null) {
             log.atWarn()
                     .addKeyValue("commandId", event.commandId())
                     .addKeyValue("guildId", event.guildId())
                     .addKeyValue("resultType", event.resultType())
-                    .log("music-command result dropped because pending interaction was not found");
+                    .log("stock-command result dropped because pending interaction was not found");
             return;
         }
 

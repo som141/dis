@@ -6,3 +6,12 @@ spring:
 
 app:
   node-name: ${APP_NODE_NAME:gateway-1}
+
+stock:
+  messaging:
+    command-exchange: ${STOCK_COMMAND_EXCHANGE:stock.command.exchange}
+    command-queue: ${STOCK_COMMAND_QUEUE:stock.command.queue}
+    command-routing-key: ${STOCK_COMMAND_ROUTING_KEY:stock.command}
+    command-result-exchange: ${STOCK_COMMAND_RESULT_EXCHANGE:stock.command.result.exchange}
+    command-result-routing-key-prefix: ${STOCK_COMMAND_RESULT_ROUTING_KEY_PREFIX:stock.command.result.}
+    command-result-queue-prefix: ${STOCK_COMMAND_RESULT_QUEUE_PREFIX:stock.command.result.}

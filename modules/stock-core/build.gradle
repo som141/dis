@@ -11,4 +11,5 @@ java {
 dependencies {
     api platform('org.springframework.boot:spring-boot-dependencies:3.5.5')
     api 'com.fasterxml.jackson.core:jackson-annotations'
+    compileOnly 'org.springframework.boot:spring-boot'
 }

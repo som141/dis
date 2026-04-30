@@ -1,7 +1,7 @@
 package discordgateway.stocknode.messaging;
 
 import discordgateway.stock.event.StockCommandResultEvent;
-import discordgateway.stocknode.bootstrap.StockNodeMessagingProperties;
+import discordgateway.stock.messaging.StockMessagingProperties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -18,7 +18,7 @@ class StockCommandResultPublisherTest {
 
     @Test
     void publishesToTargetNodeRoutingKey() {
-        StockNodeMessagingProperties messagingProperties = new StockNodeMessagingProperties();
+        StockMessagingProperties messagingProperties = new StockMessagingProperties();
         StockCommandResultPublisher publisher = new StockCommandResultPublisher(rabbitTemplate, messagingProperties);
         StockCommandResultEvent event = new StockCommandResultEvent(
                 "cmd-1",

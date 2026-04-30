@@ -1,15 +1,16 @@
-package discordgateway.stocknode.bootstrap;
+package discordgateway.stock.messaging;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "stock.messaging")
-public class StockNodeMessagingProperties {
+public class StockMessagingProperties {
 
     private String commandExchange = "stock.command.exchange";
     private String commandQueue = "stock.command.queue";
     private String commandRoutingKey = "stock.command";
     private String commandResultExchange = "stock.command.result.exchange";
     private String commandResultRoutingKeyPrefix = "stock.command.result.";
+    private String commandResultQueuePrefix = "stock.command.result.";
 
     public String getCommandExchange() {
         return commandExchange;
@@ -51,7 +52,19 @@ public class StockNodeMessagingProperties {
         this.commandResultRoutingKeyPrefix = commandResultRoutingKeyPrefix;
     }
 
+    public String getCommandResultQueuePrefix() {
+        return commandResultQueuePrefix;
+    }
+
+    public void setCommandResultQueuePrefix(String commandResultQueuePrefix) {
+        this.commandResultQueuePrefix = commandResultQueuePrefix;
+    }
+
     public String commandResultRoutingKey(String nodeName) {
         return commandResultRoutingKeyPrefix + nodeName;
+    }
+
+    public String commandResultQueue(String nodeName) {
+        return commandResultQueuePrefix + nodeName + ".queue";
     }
 }

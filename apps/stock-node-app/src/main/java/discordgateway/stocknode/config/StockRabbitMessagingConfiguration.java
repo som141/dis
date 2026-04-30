@@ -1,7 +1,7 @@
 package discordgateway.stocknode.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import discordgateway.stocknode.bootstrap.StockNodeMessagingProperties;
+import discordgateway.stock.messaging.StockMessagingProperties;
 import discordgateway.stocknode.messaging.StockCommandListener;
 import discordgateway.stocknode.messaging.StockCommandResultPublisher;
 import discordgateway.stocknode.application.StockCommandApplicationService;
@@ -28,7 +28,7 @@ public class StockRabbitMessagingConfiguration {
 
     @Bean
     @ConditionalOnProperty(prefix = "stock.messaging", name = "enabled", havingValue = "true", matchIfMissing = true)
-    public Declarables stockRabbitDeclarables(StockNodeMessagingProperties messagingProperties) {
+    public Declarables stockRabbitDeclarables(StockMessagingProperties messagingProperties) {
         DirectExchange commandExchange = new DirectExchange(messagingProperties.getCommandExchange(), true, false);
         DirectExchange resultExchange = new DirectExchange(messagingProperties.getCommandResultExchange(), true, false);
         Queue commandQueue = QueueBuilder.durable(messagingProperties.getCommandQueue()).build();
@@ -46,7 +46,7 @@ public class StockRabbitMessagingConfiguration {
     @ConditionalOnProperty(prefix = "stock.messaging", name = "enabled", havingValue = "true", matchIfMissing = true)
     public StockCommandResultPublisher stockCommandResultPublisher(
             RabbitTemplate rabbitTemplate,
-            StockNodeMessagingProperties messagingProperties
+            StockMessagingProperties messagingProperties
     ) {
         return new StockCommandResultPublisher(rabbitTemplate, messagingProperties);
     }

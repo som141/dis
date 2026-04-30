@@ -3,8 +3,10 @@ package discordgateway.gateway.presentation.discord;
 import discordgateway.common.command.MusicCommandEnvelope;
 import discordgateway.gateway.application.MusicApplicationService;
 import discordgateway.gateway.application.PlayAutocompleteService;
+import discordgateway.gateway.application.StockApplicationService;
 import discordgateway.gateway.interaction.InteractionResponseContext;
 import discordgateway.gateway.interaction.PendingInteractionRepository;
+import discordgateway.stock.command.StockCommandEnvelope;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.channel.ChannelType;
@@ -18,9 +20,12 @@ import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.Collections;
+import java.util.Locale;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class DiscordBotListener extends ListenerAdapter {
@@ -29,15 +34,18 @@ public class DiscordBotListener extends ListenerAdapter {
     private static final Duration PENDING_INTERACTION_TTL = Duration.ofMinutes(15);
 
     private final MusicApplicationService musicApplicationService;
+    private final StockApplicationService stockApplicationService;
     private final PlayAutocompleteService playAutocompleteService;
     private final PendingInteractionRepository pendingInteractionRepository;
 
     public DiscordBotListener(
             MusicApplicationService musicApplicationService,
+            StockApplicationService stockApplicationService,
             PlayAutocompleteService playAutocompleteService,
             PendingInteractionRepository pendingInteractionRepository
     ) {
         this.musicApplicationService = musicApplicationService;
+        this.stockApplicationService = stockApplicationService;
         this.playAutocompleteService = playAutocompleteService;
         this.pendingInteractionRepository = pendingInteractionRepository;
     }
@@ -45,7 +53,7 @@ public class DiscordBotListener extends ListenerAdapter {
     @Override
     public void onSlashCommandInteraction(@NotNull SlashCommandInteractionEvent event) {
         if (!event.isFromGuild()) {
-            event.reply("이 명령은 서버 텍스트 채널에서만 사용할 수 있습니다.")
+            event.reply("This command is only available in guild text channels.")
                     .setEphemeral(true)
                     .queue();
             return;
@@ -64,15 +72,16 @@ public class DiscordBotListener extends ListenerAdapter {
                 case DiscordCommandCatalog.CMD_RESUME -> handleResume(event);
                 case DiscordCommandCatalog.CMD_SFX -> handleSfx(event);
                 case DiscordCommandCatalog.CMD_PIZZA -> handlePizza(event);
-                default -> event.reply("알 수 없는 명령입니다.").setEphemeral(true).queue();
+                case DiscordCommandCatalog.CMD_STOCK -> handleStock(event);
+                default -> event.reply("Unknown command.").setEphemeral(true).queue();
             }
         } catch (Exception e) {
             if (!event.isAcknowledged()) {
-                event.reply("명령 처리 중 오류가 발생했습니다: " + e.getMessage())
+                event.reply("Command handling failed: " + e.getMessage())
                         .setEphemeral(true)
                         .queue();
             } else {
-                safeEditOriginal(event, "명령 처리 중 오류가 발생했습니다: " + e.getMessage());
+                safeEditOriginal(event, "Command handling failed: " + e.getMessage());
             }
             log.error("Slash command handling failed. command={}", event.getName(), e);
         }
@@ -235,12 +244,71 @@ public class DiscordBotListener extends ListenerAdapter {
         ).queue();
     }
 
+    private void handleStock(SlashCommandInteractionEvent event) {
+        Guild guild = requireUsableGuild(event);
+        if (guild == null) {
+            return;
+        }
+
+        String subcommand = event.getSubcommandName();
+        if (subcommand == null || subcommand.isBlank()) {
+            event.reply("stock subcommand is required.").setEphemeral(true).queue();
+            return;
+        }
+
+        long guildId = guild.getIdLong();
+        long requesterId = event.getUser().getIdLong();
+
+        StockCommandEnvelope envelope = switch (subcommand) {
+            case DiscordCommandCatalog.SUB_QUOTE -> stockApplicationService.prepareQuote(
+                    guildId,
+                    requesterId,
+                    getRequiredStringOption(event, DiscordCommandCatalog.OPT_SYMBOL)
+            );
+            case DiscordCommandCatalog.SUB_BUY -> stockApplicationService.prepareBuy(
+                    guildId,
+                    requesterId,
+                    getRequiredStringOption(event, DiscordCommandCatalog.OPT_SYMBOL),
+                    parseDecimalOption(event, DiscordCommandCatalog.OPT_AMOUNT)
+            );
+            case DiscordCommandCatalog.SUB_SELL -> stockApplicationService.prepareSell(
+                    guildId,
+                    requesterId,
+                    getRequiredStringOption(event, DiscordCommandCatalog.OPT_SYMBOL),
+                    parseDecimalOption(event, DiscordCommandCatalog.OPT_QUANTITY)
+            );
+            case DiscordCommandCatalog.SUB_BALANCE -> stockApplicationService.prepareBalance(guildId, requesterId);
+            case DiscordCommandCatalog.SUB_PORTFOLIO -> stockApplicationService.preparePortfolio(guildId, requesterId);
+            case DiscordCommandCatalog.SUB_HISTORY -> stockApplicationService.prepareHistory(
+                    guildId,
+                    requesterId,
+                    getIntegerOption(event, DiscordCommandCatalog.OPT_LIMIT)
+            );
+            case DiscordCommandCatalog.SUB_RANK -> stockApplicationService.prepareRank(
+                    guildId,
+                    requesterId,
+                    getRequiredStringOption(event, DiscordCommandCatalog.OPT_PERIOD)
+            );
+            default -> throw new IllegalArgumentException("Unknown stock subcommand: " + subcommand);
+        };
+
+        dispatchDeferred(event, envelope.commandId(), stockApplicationService.dispatch(envelope));
+    }
+
     private void dispatchDeferred(SlashCommandInteractionEvent event, MusicCommandEnvelope envelope) {
+        dispatchDeferred(event, envelope.message().commandId(), musicApplicationService.dispatch(envelope));
+    }
+
+    private void dispatchDeferred(
+            SlashCommandInteractionEvent event,
+            String commandId,
+            CompletableFuture<?> dispatchFuture
+    ) {
         event.deferReply(true).queue(
                 hook -> {
                     long now = System.currentTimeMillis();
                     pendingInteractionRepository.put(
-                            envelope.message().commandId(),
+                            commandId,
                             new InteractionResponseContext(
                                     event.getToken(),
                                     event.getName(),
@@ -251,14 +319,14 @@ public class DiscordBotListener extends ListenerAdapter {
                             )
                     );
 
-                    musicApplicationService.dispatch(envelope).whenComplete((ack, err) -> {
+                    dispatchFuture.whenComplete((ignored, err) -> {
                         if (err == null) {
                             return;
                         }
-                        pendingInteractionRepository.remove(envelope.message().commandId());
+                        pendingInteractionRepository.remove(commandId);
                         safeEditHook(
                                 hook,
-                                "명령 전달에 실패했습니다: " + err.getMessage(),
+                                "Command dispatch failed: " + err.getMessage(),
                                 event.getName(),
                                 event.getGuild() != null ? event.getGuild().getId() : "unknown",
                                 event.getChannel().getId()
@@ -277,7 +345,7 @@ public class DiscordBotListener extends ListenerAdapter {
 
     private Guild requireUsableGuild(SlashCommandInteractionEvent event) {
         if (!event.isFromGuild() || event.getGuild() == null) {
-            event.reply("이 명령은 서버에서만 사용할 수 있습니다.")
+            event.reply("This command is only available in guilds.")
                     .setEphemeral(true)
                     .queue();
             return null;
@@ -289,7 +357,7 @@ public class DiscordBotListener extends ListenerAdapter {
 
     private TextChannel requireUsableTextChannel(SlashCommandInteractionEvent event, Guild guild) {
         if (event.getChannelType() != ChannelType.TEXT) {
-            event.reply("이 명령은 일반 텍스트 채널에서만 사용할 수 있습니다.")
+            event.reply("This command is only available in text channels.")
                     .setEphemeral(true)
                     .queue();
             return null;
@@ -311,7 +379,7 @@ public class DiscordBotListener extends ListenerAdapter {
         try {
             return event.getChannel().asTextChannel();
         } catch (Exception e) {
-            event.reply("텍스트 채널 정보를 가져오지 못했습니다.")
+            event.reply("Failed to resolve text channel information.")
                     .setEphemeral(true)
                     .queue();
             return null;
@@ -369,5 +437,34 @@ public class DiscordBotListener extends ListenerAdapter {
     private boolean getBoolOption(SlashCommandInteractionEvent event, String name, boolean def) {
         OptionMapping optionMapping = event.getOption(name);
         return optionMapping != null ? optionMapping.getAsBoolean() : def;
+    }
+
+    private String getRequiredStringOption(SlashCommandInteractionEvent event, String name) {
+        OptionMapping optionMapping = event.getOption(name);
+        if (optionMapping == null) {
+            throw new IllegalArgumentException("Missing option: " + name);
+        }
+        String value = optionMapping.getAsString();
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("Blank option: " + name);
+        }
+        return value.trim();
+    }
+
+    private Integer getIntegerOption(SlashCommandInteractionEvent event, String name) {
+        OptionMapping optionMapping = event.getOption(name);
+        return optionMapping != null ? optionMapping.getAsInt() : null;
+    }
+
+    private BigDecimal parseDecimalOption(SlashCommandInteractionEvent event, String name) {
+        String raw = getRequiredStringOption(event, name);
+        try {
+            return new BigDecimal(raw);
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException(
+                    String.format(Locale.ROOT, "Invalid decimal option %s: %s", name, raw),
+                    exception
+            );
+        }
     }
 }

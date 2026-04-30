@@ -1,6 +1,7 @@
 package discordgateway.stocknode.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import discordgateway.stock.messaging.StockMessagingProperties;
 import discordgateway.stocknode.application.BalanceQueryService;
 import discordgateway.stocknode.application.DailyAllowanceService;
 import discordgateway.stocknode.application.PortfolioQueryService;
@@ -10,7 +11,6 @@ import discordgateway.stocknode.application.StockCommandApplicationService;
 import discordgateway.stocknode.application.StockResponseFormatter;
 import discordgateway.stocknode.application.TradeExecutionService;
 import discordgateway.stocknode.application.TradeHistoryQueryService;
-import discordgateway.stocknode.bootstrap.StockNodeMessagingProperties;
 import discordgateway.stocknode.bootstrap.StockNodeStorageProperties;
 import discordgateway.stocknode.bootstrap.StockQuoteProperties;
 import discordgateway.stocknode.cache.QuoteRepository;
@@ -37,7 +37,7 @@ import java.time.Clock;
 
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties({
-        StockNodeMessagingProperties.class,
+        StockMessagingProperties.class,
         StockNodeStorageProperties.class,
         StockQuoteProperties.class
 })
