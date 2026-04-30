@@ -56,6 +56,43 @@ public class StockResponseFormatter {
         return builder.append("```").toString();
     }
 
+    public String formatWatchlist(StockListView stockListView) {
+        StringJoiner joiner = new StringJoiner(System.lineSeparator())
+                .add("US Top10 by market cap")
+                .add("```text");
+
+        for (StockListItemView item : stockListView.items()) {
+            if (!item.quoteReady()) {
+                joiner.add(String.format(
+                        Locale.ROOT,
+                        "%2d. %-34s (%-6s) - quote pending",
+                        item.rankNo(),
+                        item.name(),
+                        item.symbol()
+                ));
+                continue;
+            }
+
+            String staleSuffix = item.fresh() ? "" : "  [stale]";
+            joiner.add(String.format(
+                    Locale.ROOT,
+                    "%2d. %-34s (%-6s) - $%s / %s%s",
+                    item.rankNo(),
+                    item.name(),
+                    item.symbol(),
+                    formatMoney(item.price()),
+                    formatSignedPercent(item.changeRate()),
+                    staleSuffix
+            ));
+        }
+
+        return joiner
+                .add("```")
+                .add("Data: Finnhub REST API")
+                .add("Refresh: every 20 seconds")
+                .toString();
+    }
+
     public String formatTrade(TradeExecutionResult result) {
         StringJoiner joiner = new StringJoiner(System.lineSeparator())
                 .add(result.side() == TradeSide.BUY ? "buy completed" : "sell completed")
@@ -185,5 +222,13 @@ public class StockResponseFormatter {
 
     private String formatPercent(BigDecimal value) {
         return value.setScale(4, java.math.RoundingMode.HALF_UP).toPlainString();
+    }
+
+    private String formatSignedPercent(BigDecimal value) {
+        if (value == null) {
+            return "n/a";
+        }
+        BigDecimal normalized = value.setScale(2, java.math.RoundingMode.HALF_UP);
+        return (normalized.signum() > 0 ? "+" : "") + normalized.toPlainString() + "%";
     }
 }

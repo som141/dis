@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import discordgateway.stock.messaging.StockMessagingProperties;
 import discordgateway.stocknode.application.BalanceQueryService;
 import discordgateway.stocknode.application.DailyAllowanceService;
+import discordgateway.stocknode.application.FinnhubTop10RefreshScheduler;
 import discordgateway.stocknode.application.PortfolioQueryService;
 import discordgateway.stocknode.application.PortfolioService;
 import discordgateway.stocknode.application.RankingService;
@@ -11,11 +12,14 @@ import discordgateway.stocknode.application.SnapshotScheduler;
 import discordgateway.stocknode.application.SnapshotService;
 import discordgateway.stocknode.application.StockAccountApplicationService;
 import discordgateway.stocknode.application.StockCommandApplicationService;
+import discordgateway.stocknode.application.StockListQueryService;
 import discordgateway.stocknode.application.StockResponseFormatter;
+import discordgateway.stocknode.application.StockWatchlistService;
 import discordgateway.stocknode.application.TradeExecutionService;
 import discordgateway.stocknode.application.TradeHistoryQueryService;
+import discordgateway.stocknode.bootstrap.FinnhubProperties;
+import discordgateway.stocknode.bootstrap.StockMarketDataProperties;
 import discordgateway.stocknode.bootstrap.StockNodeStorageProperties;
-import discordgateway.stocknode.bootstrap.StockProviderProperties;
 import discordgateway.stocknode.bootstrap.StockQuoteProperties;
 import discordgateway.stocknode.cache.QuoteRepository;
 import discordgateway.stocknode.cache.RankingCacheRepository;
@@ -28,11 +32,14 @@ import discordgateway.stocknode.persistence.repository.AccountSnapshotRepository
 import discordgateway.stocknode.persistence.repository.AllowanceLedgerRepository;
 import discordgateway.stocknode.persistence.repository.StockAccountRepository;
 import discordgateway.stocknode.persistence.repository.StockPositionRepository;
+import discordgateway.stocknode.persistence.repository.StockWatchlistRepository;
 import discordgateway.stocknode.persistence.repository.TradeLedgerRepository;
-import discordgateway.stocknode.quote.provider.AlphaVantageQuoteProvider;
-import discordgateway.stocknode.quote.provider.FallbackQuoteProvider;
+import discordgateway.stocknode.quote.finnhub.FinnhubClient;
+import discordgateway.stocknode.quote.finnhub.FinnhubQuoteMapper;
+import discordgateway.stocknode.quote.provider.FinnhubQuoteProvider;
 import discordgateway.stocknode.quote.provider.MockQuoteProvider;
 import discordgateway.stocknode.quote.provider.QuoteProvider;
+import discordgateway.stocknode.quote.service.MarketQuoteRefreshService;
 import discordgateway.stocknode.quote.service.ProviderRateLimitService;
 import discordgateway.stocknode.quote.service.ProviderRateLimiter;
 import discordgateway.stocknode.quote.service.QuoteService;
@@ -41,6 +48,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.Clock;
 
@@ -48,8 +56,9 @@ import java.time.Clock;
 @EnableConfigurationProperties({
         StockMessagingProperties.class,
         StockNodeStorageProperties.class,
-        StockProviderProperties.class,
-        StockQuoteProperties.class
+        StockQuoteProperties.class,
+        StockMarketDataProperties.class,
+        FinnhubProperties.class
 })
 public class StockNodeComponentConfiguration {
 
@@ -58,6 +67,11 @@ public class StockNodeComponentConfiguration {
             StockAccountRepository stockAccountRepository
     ) {
         return new StockAccountApplicationService(stockAccountRepository);
+    }
+
+    @Bean
+    public StockWatchlistService stockWatchlistService(StockWatchlistRepository stockWatchlistRepository) {
+        return new StockWatchlistService(stockWatchlistRepository);
     }
 
     @Bean
@@ -120,31 +134,56 @@ public class StockNodeComponentConfiguration {
     }
 
     @Bean
-    public AlphaVantageQuoteProvider alphaVantageQuoteProvider(
-            ObjectMapper objectMapper,
-            StockProviderProperties stockProviderProperties,
-            Clock stockClock
+    public WebClient finnhubWebClient(FinnhubProperties finnhubProperties) {
+        return WebClient.builder()
+                .baseUrl(finnhubProperties.getBaseUrl())
+                .build();
+    }
+
+    @Bean
+    public FinnhubClient finnhubClient(WebClient finnhubWebClient, FinnhubProperties finnhubProperties) {
+        return new FinnhubClient(finnhubWebClient, finnhubProperties);
+    }
+
+    @Bean
+    public FinnhubQuoteMapper finnhubQuoteMapper(Clock stockClock) {
+        return new FinnhubQuoteMapper(stockClock);
+    }
+
+    @Bean
+    public FinnhubQuoteProvider finnhubQuoteProvider(
+            FinnhubClient finnhubClient,
+            FinnhubQuoteMapper finnhubQuoteMapper,
+            StockWatchlistService stockWatchlistService,
+            FinnhubProperties finnhubProperties
     ) {
-        return new AlphaVantageQuoteProvider(objectMapper, stockProviderProperties, stockClock);
+        return new FinnhubQuoteProvider(
+                finnhubClient,
+                finnhubQuoteMapper,
+                stockWatchlistService,
+                finnhubProperties
+        );
     }
 
     @Bean
     public QuoteProvider quoteProvider(
             MockQuoteProvider mockQuoteProvider,
-            AlphaVantageQuoteProvider alphaVantageQuoteProvider,
-            StockProviderProperties stockProviderProperties
+            FinnhubQuoteProvider finnhubQuoteProvider,
+            StockQuoteProperties stockQuoteProperties,
+            FinnhubProperties finnhubProperties
     ) {
-        String providerType = stockProviderProperties.getType() == null
+        String providerType = stockQuoteProperties.getProvider() == null
                 ? "mock"
-                : stockProviderProperties.getType().trim().toLowerCase();
+                : stockQuoteProperties.getProvider().trim().toLowerCase();
+
+        if ("finnhub".equals(providerType)
+                && (finnhubProperties.getApiKey() == null || finnhubProperties.getApiKey().isBlank())) {
+            throw new IllegalStateException("FINNHUB_API_KEY must be set when stock.quote.provider=finnhub");
+        }
 
         return switch (providerType) {
             case "mock" -> mockQuoteProvider;
-            case "alphavantage" -> new FallbackQuoteProvider(
-                    alphaVantageQuoteProvider,
-                    mockQuoteProvider,
-                    stockProviderProperties.isFallbackToMock()
-            );
+            case "finnhub" -> finnhubQuoteProvider;
             default -> throw new IllegalArgumentException("Unsupported stock quote provider type: " + providerType);
         };
     }
@@ -152,13 +191,26 @@ public class StockNodeComponentConfiguration {
     @Bean
     public QuoteService quoteService(
             QuoteRepository quoteRepository,
+            StockQuoteProperties stockQuoteProperties,
+            Clock stockClock
+    ) {
+        return new QuoteService(
+                quoteRepository,
+                stockQuoteProperties,
+                stockClock
+        );
+    }
+
+    @Bean
+    public MarketQuoteRefreshService marketQuoteRefreshService(
+            QuoteRepository quoteRepository,
             QuoteLockService quoteLockService,
             QuoteProvider quoteProvider,
             ProviderRateLimiter providerRateLimiter,
             StockQuoteProperties stockQuoteProperties,
             Clock stockClock
     ) {
-        return new QuoteService(
+        return new MarketQuoteRefreshService(
                 quoteRepository,
                 quoteLockService,
                 quoteProvider,
@@ -188,6 +240,7 @@ public class StockNodeComponentConfiguration {
     @Bean
     public TradeExecutionService tradeExecutionService(
             DailyAllowanceService dailyAllowanceService,
+            StockWatchlistService stockWatchlistService,
             StockAccountRepository stockAccountRepository,
             StockPositionRepository stockPositionRepository,
             TradeLedgerRepository tradeLedgerRepository,
@@ -198,6 +251,7 @@ public class StockNodeComponentConfiguration {
     ) {
         return new TradeExecutionService(
                 dailyAllowanceService,
+                stockWatchlistService,
                 stockAccountRepository,
                 stockPositionRepository,
                 tradeLedgerRepository,
@@ -224,6 +278,15 @@ public class StockNodeComponentConfiguration {
     @Bean
     public BalanceQueryService balanceQueryService(DailyAllowanceService dailyAllowanceService) {
         return new BalanceQueryService(dailyAllowanceService);
+    }
+
+    @Bean
+    public StockListQueryService stockListQueryService(
+            StockWatchlistService stockWatchlistService,
+            QuoteService quoteService,
+            StockMarketDataProperties stockMarketDataProperties
+    ) {
+        return new StockListQueryService(stockWatchlistService, quoteService, stockMarketDataProperties);
     }
 
     @Bean
@@ -265,6 +328,23 @@ public class StockNodeComponentConfiguration {
     }
 
     @Bean
+    public FinnhubTop10RefreshScheduler finnhubTop10RefreshScheduler(
+            StockWatchlistService stockWatchlistService,
+            MarketQuoteRefreshService marketQuoteRefreshService,
+            StockMarketDataProperties stockMarketDataProperties,
+            StockQuoteProperties stockQuoteProperties,
+            Clock stockClock
+    ) {
+        return new FinnhubTop10RefreshScheduler(
+                stockWatchlistService,
+                marketQuoteRefreshService,
+                stockMarketDataProperties,
+                stockQuoteProperties,
+                stockClock
+        );
+    }
+
+    @Bean
     public RankingService rankingService(
             StockAccountRepository stockAccountRepository,
             AllowanceLedgerRepository allowanceLedgerRepository,
@@ -299,6 +379,8 @@ public class StockNodeComponentConfiguration {
             BalanceQueryService balanceQueryService,
             PortfolioQueryService portfolioQueryService,
             TradeHistoryQueryService tradeHistoryQueryService,
+            StockListQueryService stockListQueryService,
+            StockWatchlistService stockWatchlistService,
             RankingService rankingService,
             StockResponseFormatter stockResponseFormatter,
             StockQuoteProperties stockQuoteProperties,
@@ -311,6 +393,8 @@ public class StockNodeComponentConfiguration {
                 balanceQueryService,
                 portfolioQueryService,
                 tradeHistoryQueryService,
+                stockListQueryService,
+                stockWatchlistService,
                 rankingService,
                 stockResponseFormatter,
                 stockQuoteProperties,

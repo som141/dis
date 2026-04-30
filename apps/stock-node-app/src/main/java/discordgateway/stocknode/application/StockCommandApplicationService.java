@@ -18,6 +18,8 @@ public class StockCommandApplicationService {
     private final BalanceQueryService balanceQueryService;
     private final PortfolioQueryService portfolioQueryService;
     private final TradeHistoryQueryService tradeHistoryQueryService;
+    private final StockListQueryService stockListQueryService;
+    private final StockWatchlistService stockWatchlistService;
     private final RankingService rankingService;
     private final StockResponseFormatter stockResponseFormatter;
     private final StockQuoteProperties stockQuoteProperties;
@@ -30,6 +32,8 @@ public class StockCommandApplicationService {
             BalanceQueryService balanceQueryService,
             PortfolioQueryService portfolioQueryService,
             TradeHistoryQueryService tradeHistoryQueryService,
+            StockListQueryService stockListQueryService,
+            StockWatchlistService stockWatchlistService,
             RankingService rankingService,
             StockResponseFormatter stockResponseFormatter,
             StockQuoteProperties stockQuoteProperties,
@@ -41,6 +45,8 @@ public class StockCommandApplicationService {
         this.balanceQueryService = balanceQueryService;
         this.portfolioQueryService = portfolioQueryService;
         this.tradeHistoryQueryService = tradeHistoryQueryService;
+        this.stockListQueryService = stockListQueryService;
+        this.stockWatchlistService = stockWatchlistService;
         this.rankingService = rankingService;
         this.stockResponseFormatter = stockResponseFormatter;
         this.stockQuoteProperties = stockQuoteProperties;
@@ -52,6 +58,9 @@ public class StockCommandApplicationService {
         StockCommand command = envelope.command();
         return switch (command) {
             case StockCommand.Quote quote -> {
+                quote.symbols().forEach(symbol ->
+                        stockWatchlistService.validateTradable(stockQuoteProperties.getDefaultMarket(), symbol)
+                );
                 List<StockQuoteResult> quotes = quote.symbols().stream()
                         .map(symbol -> quoteService.getQuote(
                                 stockQuoteProperties.getDefaultMarket(),
@@ -69,9 +78,14 @@ public class StockCommandApplicationService {
                                 stockQuoteProperties.getDefaultMarket(),
                                 quote.symbols(),
                                 quotes
-                        );
+                );
                 yield success(envelope, message, "QUOTE");
             }
+            case StockCommand.ListQuotes ignored -> success(
+                    envelope,
+                    stockResponseFormatter.formatWatchlist(stockListQueryService.getUsTopList()),
+                    "LIST"
+            );
             case StockCommand.Buy buy -> success(
                     envelope,
                     stockResponseFormatter.formatTrade(

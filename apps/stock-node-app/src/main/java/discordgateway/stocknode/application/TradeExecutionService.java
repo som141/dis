@@ -21,6 +21,7 @@ import java.time.Clock;
 public class TradeExecutionService {
 
     private final DailyAllowanceService dailyAllowanceService;
+    private final StockWatchlistService stockWatchlistService;
     private final StockAccountRepository stockAccountRepository;
     private final StockPositionRepository stockPositionRepository;
     private final TradeLedgerRepository tradeLedgerRepository;
@@ -31,6 +32,7 @@ public class TradeExecutionService {
 
     public TradeExecutionService(
             DailyAllowanceService dailyAllowanceService,
+            StockWatchlistService stockWatchlistService,
             StockAccountRepository stockAccountRepository,
             StockPositionRepository stockPositionRepository,
             TradeLedgerRepository tradeLedgerRepository,
@@ -40,6 +42,7 @@ public class TradeExecutionService {
             Clock clock
     ) {
         this.dailyAllowanceService = dailyAllowanceService;
+        this.stockWatchlistService = stockWatchlistService;
         this.stockAccountRepository = stockAccountRepository;
         this.stockPositionRepository = stockPositionRepository;
         this.tradeLedgerRepository = tradeLedgerRepository;
@@ -52,6 +55,7 @@ public class TradeExecutionService {
     @Transactional
     public TradeExecutionResult buy(long guildId, long userId, String symbol, BigDecimal amount) {
         validatePositive(amount, "buy amount");
+        stockWatchlistService.validateTradable(stockQuoteProperties.getDefaultMarket(), symbol);
         StockAccountEntity account = dailyAllowanceService.ensureSettledAccount(guildId, userId);
         StockQuoteResult quoteResult = quoteService.getQuote(
                 stockQuoteProperties.getDefaultMarket(),
@@ -112,6 +116,7 @@ public class TradeExecutionService {
     @Transactional
     public TradeExecutionResult sell(long guildId, long userId, String symbol, BigDecimal quantity) {
         validatePositive(quantity, "sell quantity");
+        stockWatchlistService.validateTradable(stockQuoteProperties.getDefaultMarket(), symbol);
         StockAccountEntity account = dailyAllowanceService.ensureSettledAccount(guildId, userId);
         String normalizedSymbol = StockQuote.normalizeSymbol(symbol);
         StockPositionEntity position = stockPositionRepository.findByAccountIdAndSymbol(account.getId(), normalizedSymbol)
@@ -177,7 +182,11 @@ public class TradeExecutionService {
 
     private void ensureFreshQuote(StockQuoteResult quoteResult, String symbol) {
         if (!quoteResult.fresh()) {
-            throw new StaleQuoteException("Trade quote is stale for " + StockQuote.normalizeSymbol(symbol));
+            throw new StaleQuoteException(
+                    "Current quote is older than the 45 second trade freshness limit for "
+                            + StockQuote.normalizeSymbol(symbol)
+                            + ". Please try again shortly."
+            );
         }
     }
 

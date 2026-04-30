@@ -56,7 +56,7 @@ class RedisQuoteRepositoryTest {
         redisQuoteRepository.save(stockQuote, Duration.ofMinutes(10));
 
         verify(valueOperations).set(
-                eq("stock:quote:us:AAPL"),
+                eq("stock:quote:US:AAPL"),
                 contains("\"symbol\":\"AAPL\""),
                 eq(Duration.ofMinutes(10))
         );
@@ -70,7 +70,7 @@ class RedisQuoteRepositoryTest {
                 new BigDecimal("123.45"),
                 Instant.parse("2026-04-22T07:00:00Z")
         );
-        when(valueOperations.get("stock:quote:us:AAPL"))
+        when(valueOperations.get("stock:quote:US:AAPL"))
                 .thenReturn(objectMapper.writeValueAsString(stockQuote));
 
         assertThat(redisQuoteRepository.find("us", "aapl"))

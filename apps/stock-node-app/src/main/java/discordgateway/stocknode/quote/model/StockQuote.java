@@ -9,7 +9,14 @@ public record StockQuote(
         String market,
         String symbol,
         BigDecimal price,
-        Instant quotedAt
+        Instant quotedAt,
+        String provider,
+        BigDecimal changeAmount,
+        BigDecimal changeRate,
+        BigDecimal high,
+        BigDecimal low,
+        BigDecimal open,
+        BigDecimal previousClose
 ) {
 
     public StockQuote {
@@ -17,6 +24,10 @@ public record StockQuote(
         symbol = normalizeSymbol(symbol);
         price = Objects.requireNonNull(price, "price");
         quotedAt = Objects.requireNonNull(quotedAt, "quotedAt");
+    }
+
+    public StockQuote(String market, String symbol, BigDecimal price, Instant quotedAt) {
+        this(market, symbol, price, quotedAt, null, null, null, null, null, null, null);
     }
 
     public static String normalizeMarket(String market) {

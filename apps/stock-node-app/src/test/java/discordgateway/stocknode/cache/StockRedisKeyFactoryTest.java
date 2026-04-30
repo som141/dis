@@ -14,9 +14,9 @@ class StockRedisKeyFactoryTest {
     @Test
     void buildsNormalizedRedisKeys() {
         assertThat(stockRedisKeyFactory.quoteKey("US", "aapl"))
-                .isEqualTo("stock:quote:us:AAPL");
+                .isEqualTo("stock:quote:US:AAPL");
         assertThat(stockRedisKeyFactory.quoteLockKey("US", "aapl"))
-                .isEqualTo("stock:quote:lock:us:AAPL");
+                .isEqualTo("stock:quote:lock:US:AAPL");
         assertThat(stockRedisKeyFactory.providerMinuteLimitKey("Mock", Instant.parse("2026-04-22T07:05:31Z")))
                 .isEqualTo("stock:provider:mock:minute:202604220705");
         assertThat(stockRedisKeyFactory.providerDayLimitKey("Mock", LocalDate.parse("2026-04-22")))

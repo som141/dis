@@ -6,11 +6,11 @@ import discordgateway.stocknode.bootstrap.StockQuoteProperties;
 import discordgateway.stocknode.cache.QuoteRepository;
 import discordgateway.stocknode.cache.RedisQuoteRepository;
 import discordgateway.stocknode.cache.StockRedisKeyFactory;
+import discordgateway.stocknode.application.QuoteNotReadyException;
 import discordgateway.stocknode.lock.QuoteLockHandle;
 import discordgateway.stocknode.lock.QuoteLockService;
 import discordgateway.stocknode.lock.RedisLockService;
 import discordgateway.stocknode.quote.model.StockQuote;
-import discordgateway.stocknode.quote.provider.MockQuoteProvider;
 import discordgateway.stocknode.quote.service.ProviderRateLimitService;
 import discordgateway.stocknode.quote.service.ProviderRateLimiter;
 import discordgateway.stocknode.quote.service.QuoteService;
@@ -29,15 +29,9 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class StockRedisIntegrationTest extends StockNodeIntegrationTestSupport {
@@ -51,7 +45,6 @@ class StockRedisIntegrationTest extends StockNodeIntegrationTestSupport {
     private QuoteRepository quoteRepository;
     private QuoteLockService quoteLockService;
     private ProviderRateLimiter providerRateLimiter;
-    private MockQuoteProvider mockQuoteProvider;
     private QuoteService quoteService;
 
     @BeforeEach
@@ -78,12 +71,8 @@ class StockRedisIntegrationTest extends StockNodeIntegrationTestSupport {
                 stockRedisKeyFactory,
                 stockQuoteProperties
         );
-        mockQuoteProvider = new MockQuoteProvider(clock);
         quoteService = new QuoteService(
                 quoteRepository,
-                quoteLockService,
-                mockQuoteProvider,
-                providerRateLimiter,
                 stockQuoteProperties,
                 clock
         );
@@ -142,33 +131,23 @@ class StockRedisIntegrationTest extends StockNodeIntegrationTestSupport {
     }
 
     @Test
-    void deduplicatesConcurrentQuoteRefreshOnRealRedis() throws Exception {
-        ExecutorService executorService = Executors.newFixedThreadPool(4);
-        CountDownLatch startLatch = new CountDownLatch(1);
-        try {
-            int initialInvocationCount = mockQuoteProvider.invocationCount();
-            List<Future<StockQuoteResult>> futures = new ArrayList<>();
-            for (int index = 0; index < 4; index++) {
-                futures.add(executorService.submit(() -> {
-                    startLatch.await();
-                    return quoteService.getQuote("US", "AAPL", QuoteUsage.QUERY);
-                }));
-            }
+    void returnsStaleCachedQuoteWithoutRefreshingProvider() {
+        quoteRepository.save(
+                new StockQuote("US", "AAPL", new BigDecimal("150.00"), clock.instant().minusSeconds(50)),
+                Duration.ofMinutes(10)
+        );
 
-            startLatch.countDown();
+        StockQuoteResult result = quoteService.getQuote("US", "AAPL", QuoteUsage.QUERY);
 
-            List<StockQuoteResult> results = collect(futures);
+        assertThat(result.quote().symbol()).isEqualTo("AAPL");
+        assertThat(result.fresh()).isFalse();
+        assertThat(result.source()).isEqualTo(QuoteSource.CACHE_STALE);
+    }
 
-            assertThat(mockQuoteProvider.invocationCount() - initialInvocationCount).isEqualTo(1);
-            assertThat(results).hasSize(4);
-            assertThat(results).allSatisfy(result -> {
-                assertThat(result.quote().symbol()).isEqualTo("AAPL");
-                assertThat(result.fresh()).isTrue();
-                assertThat(result.source()).isIn(QuoteSource.PROVIDER_MISS, QuoteSource.CACHE_FRESH);
-            });
-        } finally {
-            executorService.shutdownNow();
-        }
+    @Test
+    void rejectsMissingCachedQuote() {
+        assertThatThrownBy(() -> quoteService.getQuote("US", "NVDA", QuoteUsage.QUERY))
+                .isInstanceOf(QuoteNotReadyException.class);
     }
 
     private static StockQuoteProperties quoteProperties() {
@@ -185,12 +164,4 @@ class StockRedisIntegrationTest extends StockNodeIntegrationTestSupport {
         return properties;
     }
 
-    private static List<StockQuoteResult> collect(List<Future<StockQuoteResult>> futures)
-            throws InterruptedException, ExecutionException {
-        List<StockQuoteResult> results = new ArrayList<>();
-        for (Future<StockQuoteResult> future : futures) {
-            results.add(future.get());
-        }
-        return results;
-    }
 }

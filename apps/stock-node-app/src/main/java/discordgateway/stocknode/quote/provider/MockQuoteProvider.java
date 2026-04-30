@@ -32,7 +32,19 @@ public class MockQuoteProvider implements QuoteProvider {
                 1_000
         );
         BigDecimal price = BigDecimal.valueOf(100 + normalizedHash).setScale(2);
-        return new StockQuote(market, symbol, price, clock.instant());
+        return new StockQuote(
+                market,
+                symbol,
+                price,
+                clock.instant(),
+                providerName(),
+                BigDecimal.ZERO.setScale(2),
+                BigDecimal.ZERO.setScale(2),
+                price,
+                price,
+                price,
+                price
+        );
     }
 
     public int invocationCount() {

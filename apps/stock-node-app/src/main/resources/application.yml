@@ -56,20 +56,22 @@ stock:
     redis-host: ${REDIS_HOST:redis}
     redis-port: ${REDIS_PORT:6379}
   quote:
+    provider: ${STOCK_QUOTE_PROVIDER:mock}
     default-market: ${STOCK_DEFAULT_MARKET:us}
-    cache-ttl: ${STOCK_QUOTE_CACHE_TTL:10m}
-    query-freshness: ${STOCK_QUERY_FRESHNESS:30s}
-    trade-freshness: ${STOCK_TRADE_FRESHNESS:5s}
+    cache-ttl: ${STOCK_QUOTE_CACHE_TTL:60s}
+    freshness: ${STOCK_QUOTE_FRESHNESS:45s}
+    trade-freshness: ${STOCK_QUOTE_TRADE_FRESHNESS:45s}
     rank-freshness: ${STOCK_RANK_FRESHNESS:5m}
     lock-ttl: ${STOCK_QUOTE_LOCK_TTL:3s}
     lock-wait-timeout: ${STOCK_QUOTE_LOCK_WAIT_TIMEOUT:1s}
     lock-poll-interval: ${STOCK_QUOTE_LOCK_POLL_INTERVAL:25ms}
     provider-per-minute-limit: ${STOCK_PROVIDER_PER_MINUTE_LIMIT:60}
     provider-per-day-limit: ${STOCK_PROVIDER_PER_DAY_LIMIT:5000}
-  provider:
-    type: ${STOCK_PROVIDER_TYPE:mock}
-    fallback-to-mock: ${STOCK_PROVIDER_FALLBACK_TO_MOCK:true}
-    timeout: ${STOCK_PROVIDER_TIMEOUT:3s}
-    alpha-vantage-base-url: ${ALPHAVANTAGE_BASE_URL:https://www.alphavantage.co}
-    alpha-vantage-api-key: ${ALPHAVANTAGE_API_KEY:}
-    alpha-vantage-entitlement: ${ALPHAVANTAGE_ENTITLEMENT:}
+  market-data:
+    enabled: ${STOCK_MARKET_DATA_ENABLED:true}
+    market: ${STOCK_MARKET:US}
+    refresh-fixed-delay-ms: ${STOCK_MARKET_REFRESH_DELAY_MS:20000}
+    top-rank-limit: ${STOCK_TOP_RANK_LIMIT:10}
+  finnhub:
+    base-url: ${FINNHUB_BASE_URL:https://finnhub.io/api/v1}
+    api-key: ${FINNHUB_API_KEY:}

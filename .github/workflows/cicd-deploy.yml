@@ -92,6 +92,16 @@ jobs:
           GRAFANA_ALERT_DISCORD_WEBHOOK_URL: ${{ secrets.GRAFANA_ALERT_DISCORD_WEBHOOK_URL || 'https://example.invalid/discord-webhook' }}
           GRAFANA_ALERT_DISCORD_AVATAR_URL: ${{ vars.GRAFANA_ALERT_DISCORD_AVATAR_URL }}
           GRAFANA_ALERT_DISCORD_USE_USERNAME: ${{ vars.GRAFANA_ALERT_DISCORD_USE_USERNAME || 'true' }}
+          STOCK_QUOTE_PROVIDER: ${{ vars.STOCK_QUOTE_PROVIDER || secrets.STOCK_QUOTE_PROVIDER || 'mock' }}
+          STOCK_QUOTE_CACHE_TTL: ${{ vars.STOCK_QUOTE_CACHE_TTL || '60s' }}
+          STOCK_QUOTE_FRESHNESS: ${{ vars.STOCK_QUOTE_FRESHNESS || '45s' }}
+          STOCK_QUOTE_TRADE_FRESHNESS: ${{ vars.STOCK_QUOTE_TRADE_FRESHNESS || '45s' }}
+          STOCK_MARKET_DATA_ENABLED: ${{ vars.STOCK_MARKET_DATA_ENABLED || 'true' }}
+          STOCK_MARKET: ${{ vars.STOCK_MARKET || 'US' }}
+          STOCK_MARKET_REFRESH_DELAY_MS: ${{ vars.STOCK_MARKET_REFRESH_DELAY_MS || '20000' }}
+          STOCK_TOP_RANK_LIMIT: ${{ vars.STOCK_TOP_RANK_LIMIT || '10' }}
+          FINNHUB_BASE_URL: ${{ vars.FINNHUB_BASE_URL || 'https://finnhub.io/api/v1' }}
+          FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
         run: |
           mkdir -p out
           {
@@ -131,6 +141,16 @@ jobs:
             printf "GRAFANA_ALERT_DISCORD_WEBHOOK_URL=%s\n" "${GRAFANA_ALERT_DISCORD_WEBHOOK_URL}"
             printf "GRAFANA_ALERT_DISCORD_AVATAR_URL=%s\n" "${GRAFANA_ALERT_DISCORD_AVATAR_URL}"
             printf "GRAFANA_ALERT_DISCORD_USE_USERNAME=%s\n" "${GRAFANA_ALERT_DISCORD_USE_USERNAME}"
+            printf "STOCK_QUOTE_PROVIDER=%s\n" "${STOCK_QUOTE_PROVIDER}"
+            printf "STOCK_QUOTE_CACHE_TTL=%s\n" "${STOCK_QUOTE_CACHE_TTL}"
+            printf "STOCK_QUOTE_FRESHNESS=%s\n" "${STOCK_QUOTE_FRESHNESS}"
+            printf "STOCK_QUOTE_TRADE_FRESHNESS=%s\n" "${STOCK_QUOTE_TRADE_FRESHNESS}"
+            printf "STOCK_MARKET_DATA_ENABLED=%s\n" "${STOCK_MARKET_DATA_ENABLED}"
+            printf "STOCK_MARKET=%s\n" "${STOCK_MARKET}"
+            printf "STOCK_MARKET_REFRESH_DELAY_MS=%s\n" "${STOCK_MARKET_REFRESH_DELAY_MS}"
+            printf "STOCK_TOP_RANK_LIMIT=%s\n" "${STOCK_TOP_RANK_LIMIT}"
+            printf "FINNHUB_BASE_URL=%s\n" "${FINNHUB_BASE_URL}"
+            printf "FINNHUB_API_KEY=%s\n" "${FINNHUB_API_KEY}"
           } > out/.env.cicd
 
       - name: Prepare SSH

@@ -57,6 +57,10 @@ public class StockApplicationService {
         return stockCommandMessageFactory.createEnvelope(new StockCommand.Balance(guildId, requesterId));
     }
 
+    public StockCommandEnvelope prepareList(long guildId, long requesterId) {
+        return stockCommandMessageFactory.createEnvelope(new StockCommand.ListQuotes(guildId, requesterId));
+    }
+
     public StockCommandEnvelope preparePortfolio(long guildId, long requesterId) {
         return stockCommandMessageFactory.createEnvelope(new StockCommand.Portfolio(guildId, requesterId));
     }

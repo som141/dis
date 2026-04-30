@@ -59,6 +59,24 @@ class StockResponseFormatterTest {
     }
 
     @Test
+    void formatsWatchlistResponse() {
+        String message = formatter.formatWatchlist(new StockListView(
+                "US",
+                List.of(
+                        new StockListItemView(1, "US", "NVDA", "NVIDIA Corporation", new BigDecimal("216.61"), new BigDecimal("4.00"), true, true),
+                        new StockListItemView(2, "US", "AAPL", "Apple Inc.", null, null, false, false),
+                        new StockListItemView(3, "US", "MSFT", "Microsoft Corporation", new BigDecimal("300.00"), new BigDecimal("-1.25"), true, false)
+                )
+        ));
+
+        assertThat(message).contains("US Top10 by market cap");
+        assertThat(message).contains("NVIDIA Corporation");
+        assertThat(message).contains("quote pending");
+        assertThat(message).contains("[stale]");
+        assertThat(message).contains("Finnhub REST API");
+    }
+
+    @Test
     void formatsPortfolioAndHistoryResponses() {
         String portfolio = formatter.formatPortfolio(new PortfolioView(
                 1L,

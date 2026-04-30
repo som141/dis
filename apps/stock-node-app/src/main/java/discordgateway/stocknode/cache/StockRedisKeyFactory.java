@@ -35,7 +35,7 @@ public class StockRedisKeyFactory {
     }
 
     private String normalizeMarket(String market) {
-        return StockQuote.normalizeMarket(market);
+        return Objects.requireNonNull(market, "market").trim().toUpperCase(Locale.ROOT);
     }
 
     private String normalizeSymbol(String symbol) {

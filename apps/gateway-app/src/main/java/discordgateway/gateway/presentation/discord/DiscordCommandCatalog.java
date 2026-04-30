@@ -36,6 +36,7 @@ public final class DiscordCommandCatalog {
     public static final String OPT_PERIOD = "period";
 
     public static final String SUB_QUOTE = "quote";
+    public static final String SUB_LIST = "list";
     public static final String SUB_BUY = "buy";
     public static final String SUB_SELL = "sell";
     public static final String SUB_BALANCE = "balance";
@@ -47,54 +48,57 @@ public final class DiscordCommandCatalog {
     }
 
     public static List<CommandData> commands() {
-        OptionData playQuery = new OptionData(OptionType.STRING, OPT_QUERY, "검색어 또는 URL", true)
+        OptionData playQuery = new OptionData(OptionType.STRING, OPT_QUERY, "Search term or URL", true)
                 .setAutoComplete(true);
 
-        OptionData playAuto = new OptionData(OptionType.BOOLEAN, OPT_AUTOPLAY, "곡이 끝나면 자동 추천 재생", false);
+        OptionData playAuto = new OptionData(OptionType.BOOLEAN, OPT_AUTOPLAY, "Auto-play recommended tracks", false);
 
-        OptionData sfxName = new OptionData(OptionType.STRING, OPT_SFX_NAME, "재생할 효과음", true)
+        OptionData sfxName = new OptionData(OptionType.STRING, OPT_SFX_NAME, "Sound effect name", true)
                 .addChoice("gsuck", "gsuck.mp3")
                 .addChoice("smbj", "smbj.mp3");
 
-        SubcommandData stockQuote = new SubcommandData(SUB_QUOTE, "종목 시세를 조회합니다")
-                .addOption(OptionType.STRING, OPT_SYMBOL, "조회할 종목 심볼", true);
+        SubcommandData stockQuote = new SubcommandData(SUB_QUOTE, "Show one or more cached stock quotes")
+                .addOption(OptionType.STRING, OPT_SYMBOL, "Ticker or comma/space separated tickers", true);
 
-        SubcommandData stockBuy = new SubcommandData(SUB_BUY, "금액 기준으로 종목을 매수합니다")
-                .addOption(OptionType.STRING, OPT_SYMBOL, "매수할 종목 심볼", true)
-                .addOption(OptionType.STRING, OPT_AMOUNT, "매수 금액", true);
+        SubcommandData stockList = new SubcommandData(SUB_LIST, "Show the US Top10 stock watchlist");
 
-        SubcommandData stockSell = new SubcommandData(SUB_SELL, "수량 기준으로 종목을 매도합니다")
-                .addOption(OptionType.STRING, OPT_SYMBOL, "매도할 종목 심볼", true)
-                .addOption(OptionType.STRING, OPT_QUANTITY, "매도 수량", true);
+        SubcommandData stockBuy = new SubcommandData(SUB_BUY, "Buy a stock by cash amount")
+                .addOption(OptionType.STRING, OPT_SYMBOL, "Ticker symbol", true)
+                .addOption(OptionType.STRING, OPT_AMOUNT, "Cash amount to spend", true);
 
-        SubcommandData stockBalance = new SubcommandData(SUB_BALANCE, "현재 현금 잔고를 조회합니다");
+        SubcommandData stockSell = new SubcommandData(SUB_SELL, "Sell a stock by quantity")
+                .addOption(OptionType.STRING, OPT_SYMBOL, "Ticker symbol", true)
+                .addOption(OptionType.STRING, OPT_QUANTITY, "Quantity to sell", true);
 
-        SubcommandData stockPortfolio = new SubcommandData(SUB_PORTFOLIO, "보유 포트폴리오를 조회합니다");
+        SubcommandData stockBalance = new SubcommandData(SUB_BALANCE, "Show current cash balance");
 
-        SubcommandData stockHistory = new SubcommandData(SUB_HISTORY, "최근 거래 내역을 조회합니다")
-                .addOption(OptionType.INTEGER, OPT_LIMIT, "조회할 최대 건수", false);
+        SubcommandData stockPortfolio = new SubcommandData(SUB_PORTFOLIO, "Show current portfolio");
 
-        SubcommandData stockRank = new SubcommandData(SUB_RANK, "랭킹 기능 준비 상태를 조회합니다")
-                .addOptions(new OptionData(OptionType.STRING, OPT_PERIOD, "랭킹 기간", true)
+        SubcommandData stockHistory = new SubcommandData(SUB_HISTORY, "Show recent trade history")
+                .addOption(OptionType.INTEGER, OPT_LIMIT, "Maximum number of entries", false);
+
+        SubcommandData stockRank = new SubcommandData(SUB_RANK, "Show guild stock ranking")
+                .addOptions(new OptionData(OptionType.STRING, OPT_PERIOD, "Ranking period", true)
                         .addChoice("day", "day")
                         .addChoice("week", "week")
                         .addChoice("all", "all"));
 
         return List.of(
-                Commands.slash(CMD_JOIN, "현재 음성 채널로 봇을 입장시킵니다"),
-                Commands.slash(CMD_LEAVE, "봇을 음성 채널에서 퇴장시킵니다"),
-                Commands.slash(CMD_PLAY, "음악을 재생합니다").addOptions(playQuery, playAuto),
-                Commands.slash(CMD_STOP, "재생을 중지하고 큐를 비웁니다"),
-                Commands.slash(CMD_SKIP, "다음 곡으로 건너뜁니다"),
-                Commands.slash(CMD_QUEUE, "현재 대기열을 표시합니다"),
-                Commands.slash(CMD_CLEAR, "대기열을 비웁니다(재생 중인 곡은 유지)"),
-                Commands.slash(CMD_PAUSE, "현재 곡을 일시정지합니다"),
-                Commands.slash(CMD_RESUME, "일시정지를 해제합니다"),
-                Commands.slash(CMD_SFX, "로컬 효과음을 재생합니다").addOptions(sfxName),
-                Commands.slash(CMD_PIZZA, "피자 이미지를 출력합니다"),
-                Commands.slash(CMD_STOCK, "모의투자 명령")
+                Commands.slash(CMD_JOIN, "Join the current voice channel"),
+                Commands.slash(CMD_LEAVE, "Leave the current voice channel"),
+                Commands.slash(CMD_PLAY, "Play a track").addOptions(playQuery, playAuto),
+                Commands.slash(CMD_STOP, "Stop playback and clear the queue"),
+                Commands.slash(CMD_SKIP, "Skip the current track"),
+                Commands.slash(CMD_QUEUE, "Show the current queue"),
+                Commands.slash(CMD_CLEAR, "Clear the queued tracks"),
+                Commands.slash(CMD_PAUSE, "Pause playback"),
+                Commands.slash(CMD_RESUME, "Resume playback"),
+                Commands.slash(CMD_SFX, "Play a sound effect").addOptions(sfxName),
+                Commands.slash(CMD_PIZZA, "Show the pizza image"),
+                Commands.slash(CMD_STOCK, "Mock stock game commands")
                         .addSubcommands(
                                 stockQuote,
+                                stockList,
                                 stockBuy,
                                 stockSell,
                                 stockBalance,

@@ -40,7 +40,7 @@ class RedisLockServiceTest {
 
     @Test
     void acquiresQuoteLockWhenRedisReturnsTrue() {
-        when(valueOperations.setIfAbsent(eq("stock:quote:lock:us:AAPL"), anyString(), eq(Duration.ofSeconds(3))))
+        when(valueOperations.setIfAbsent(eq("stock:quote:lock:US:AAPL"), anyString(), eq(Duration.ofSeconds(3))))
                 .thenReturn(true);
 
         assertThat(redisLockService.tryAcquire("US", "aapl")).isPresent();
@@ -49,13 +49,13 @@ class RedisLockServiceTest {
     @Test
     void releasesOnlyOwnedLock() {
         QuoteLockHandle quoteLockHandle = new QuoteLockHandle(
-                "stock:quote:lock:us:AAPL",
+                "stock:quote:lock:US:AAPL",
                 "owner-token"
         );
         when(valueOperations.get(quoteLockHandle.key())).thenReturn("owner-token");
 
         redisLockService.release(quoteLockHandle);
 
-        verify(stringRedisTemplate).delete("stock:quote:lock:us:AAPL");
+        verify(stringRedisTemplate).delete("stock:quote:lock:US:AAPL");
     }
 }

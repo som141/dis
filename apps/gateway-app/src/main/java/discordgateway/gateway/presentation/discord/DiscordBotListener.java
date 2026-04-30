@@ -266,6 +266,7 @@ public class DiscordBotListener extends ListenerAdapter {
                     requesterId,
                     getRequiredStringOption(event, DiscordCommandCatalog.OPT_SYMBOL)
             );
+            case DiscordCommandCatalog.SUB_LIST -> stockApplicationService.prepareList(guildId, requesterId);
             case DiscordCommandCatalog.SUB_BUY -> stockApplicationService.prepareBuy(
                     guildId,
                     requesterId,

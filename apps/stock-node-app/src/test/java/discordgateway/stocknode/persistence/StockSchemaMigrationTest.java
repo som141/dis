@@ -22,6 +22,7 @@ class StockSchemaMigrationTest {
         assertThat(tableExists("TRADE_LEDGER")).isTrue();
         assertThat(tableExists("ALLOWANCE_LEDGER")).isTrue();
         assertThat(tableExists("ACCOUNT_SNAPSHOT")).isTrue();
+        assertThat(tableExists("STOCK_WATCHLIST")).isTrue();
     }
 
     private boolean tableExists(String tableName) {

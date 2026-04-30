@@ -7,16 +7,25 @@ import java.time.Duration;
 @ConfigurationProperties(prefix = "stock.quote")
 public class StockQuoteProperties {
 
+    private String provider = "mock";
     private String defaultMarket = "us";
-    private Duration cacheTtl = Duration.ofMinutes(10);
-    private Duration queryFreshness = Duration.ofSeconds(30);
-    private Duration tradeFreshness = Duration.ofSeconds(5);
+    private Duration cacheTtl = Duration.ofSeconds(60);
+    private Duration freshness = Duration.ofSeconds(45);
+    private Duration tradeFreshness = Duration.ofSeconds(45);
     private Duration rankFreshness = Duration.ofMinutes(5);
     private Duration lockTtl = Duration.ofSeconds(3);
     private Duration lockWaitTimeout = Duration.ofSeconds(1);
     private Duration lockPollInterval = Duration.ofMillis(25);
     private long providerPerMinuteLimit = 60;
     private long providerPerDayLimit = 5_000;
+
+    public String getProvider() {
+        return provider;
+    }
+
+    public void setProvider(String provider) {
+        this.provider = provider;
+    }
 
     public String getDefaultMarket() {
         return defaultMarket;
@@ -34,12 +43,12 @@ public class StockQuoteProperties {
         this.cacheTtl = cacheTtl;
     }
 
-    public Duration getQueryFreshness() {
-        return queryFreshness;
+    public Duration getFreshness() {
+        return freshness;
     }
 
-    public void setQueryFreshness(Duration queryFreshness) {
-        this.queryFreshness = queryFreshness;
+    public void setFreshness(Duration freshness) {
+        this.freshness = freshness;
     }
 
     public Duration getTradeFreshness() {
@@ -48,6 +57,14 @@ public class StockQuoteProperties {
 
     public void setTradeFreshness(Duration tradeFreshness) {
         this.tradeFreshness = tradeFreshness;
+    }
+
+    public Duration getQueryFreshness() {
+        return freshness;
+    }
+
+    public void setQueryFreshness(Duration queryFreshness) {
+        this.freshness = queryFreshness;
     }
 
     public Duration getRankFreshness() {

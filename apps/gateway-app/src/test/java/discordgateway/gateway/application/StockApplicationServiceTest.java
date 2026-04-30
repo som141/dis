@@ -65,6 +65,18 @@ class StockApplicationServiceTest {
     }
 
     @Test
+    void preparesListCommand() {
+        StockApplicationService service = new StockApplicationService(
+                envelope -> CompletableFuture.completedFuture(null),
+                new StockCommandMessageFactory("gateway-1")
+        );
+
+        StockCommandEnvelope envelope = service.prepareList(10L, 20L);
+
+        assertThat(envelope.command()).isEqualTo(new StockCommand.ListQuotes(10L, 20L));
+    }
+
+    @Test
     void dispatchDelegatesToStockCommandBus() {
         StockCommandBus stockCommandBus = mock(StockCommandBus.class);
         StockCommandEnvelope envelope = new StockCommandEnvelope(

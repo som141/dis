@@ -44,6 +44,12 @@ class StockCommandApplicationServiceTest {
     private TradeHistoryQueryService tradeHistoryQueryService;
 
     @Mock
+    private StockListQueryService stockListQueryService;
+
+    @Mock
+    private StockWatchlistService stockWatchlistService;
+
+    @Mock
     private RankingService rankingService;
 
     @Mock
@@ -61,6 +67,8 @@ class StockCommandApplicationServiceTest {
                 balanceQueryService,
                 portfolioQueryService,
                 tradeHistoryQueryService,
+                stockListQueryService,
+                stockWatchlistService,
                 rankingService,
                 stockResponseFormatter,
                 stockQuoteProperties,
@@ -84,6 +92,7 @@ class StockCommandApplicationServiceTest {
                 QuoteSource.CACHE_FRESH,
                 true
         );
+        when(stockWatchlistService.validateTradable("us", "AAPL")).thenReturn(null);
         when(quoteService.getQuote("us", "AAPL", QuoteUsage.QUERY)).thenReturn(stockQuoteResult);
         when(stockResponseFormatter.formatQuote("us", "AAPL", stockQuoteResult)).thenReturn("quote message");
 
@@ -115,6 +124,8 @@ class StockCommandApplicationServiceTest {
                 QuoteSource.PROVIDER_REFRESH,
                 true
         );
+        when(stockWatchlistService.validateTradable("us", "AAPL")).thenReturn(null);
+        when(stockWatchlistService.validateTradable("us", "MSFT")).thenReturn(null);
         when(quoteService.getQuote("us", "AAPL", QuoteUsage.QUERY)).thenReturn(aaplQuote);
         when(quoteService.getQuote("us", "MSFT", QuoteUsage.QUERY)).thenReturn(msftQuote);
         when(stockResponseFormatter.formatQuoteTable("us", List.of("AAPL", "MSFT"), List.of(aaplQuote, msftQuote)))
@@ -125,8 +136,31 @@ class StockCommandApplicationServiceTest {
         assertThat(event.success()).isTrue();
         assertThat(event.resultType()).isEqualTo("QUOTE");
         assertThat(event.message()).isEqualTo("quote table");
+        verify(stockWatchlistService).validateTradable("us", "AAPL");
+        verify(stockWatchlistService).validateTradable("us", "MSFT");
         verify(quoteService).getQuote("us", "AAPL", QuoteUsage.QUERY);
         verify(quoteService).getQuote("us", "MSFT", QuoteUsage.QUERY);
+    }
+
+    @Test
+    void dispatchesListCommand() {
+        StockCommandEnvelope envelope = new StockCommandEnvelope(
+                "cmd-list",
+                1,
+                1_234L,
+                "gateway",
+                new StockCommand.ListQuotes(1001L, 2002L),
+                "gateway-1"
+        );
+        StockListView stockListView = new StockListView("US", List.of());
+        when(stockListQueryService.getUsTopList()).thenReturn(stockListView);
+        when(stockResponseFormatter.formatWatchlist(stockListView)).thenReturn("list message");
+
+        StockCommandResultEvent event = stockCommandApplicationService.handle(envelope);
+
+        assertThat(event.success()).isTrue();
+        assertThat(event.resultType()).isEqualTo("LIST");
+        assertThat(event.message()).isEqualTo("list message");
     }
 
     @Test

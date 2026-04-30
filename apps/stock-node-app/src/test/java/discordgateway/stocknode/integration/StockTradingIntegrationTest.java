@@ -8,6 +8,8 @@ import discordgateway.stocknode.application.TradeExecutionResult;
 import discordgateway.stocknode.application.TradeExecutionService;
 import discordgateway.stocknode.application.TradeHistoryQueryService;
 import discordgateway.stocknode.application.TradeHistoryView;
+import discordgateway.stocknode.cache.QuoteRepository;
+import discordgateway.stocknode.quote.model.StockQuote;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +19,8 @@ import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -40,9 +44,13 @@ class StockTradingIntegrationTest extends StockNodeIntegrationTestSupport {
     @Autowired
     private TradeHistoryQueryService tradeHistoryQueryService;
 
+    @Autowired
+    private QuoteRepository quoteRepository;
+
     @BeforeEach
     void cleanTables() {
         jdbcTemplate.execute("TRUNCATE TABLE account_snapshot, allowance_ledger, trade_ledger, stock_position, stock_account RESTART IDENTITY CASCADE");
+        quoteRepository.save(new StockQuote("US", "AAPL", new BigDecimal("200.00"), Instant.now()), Duration.ofSeconds(60));
     }
 
     @Test

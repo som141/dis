@@ -9,6 +9,7 @@ import java.util.List;
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "commandType")
 @JsonSubTypes({
         @JsonSubTypes.Type(value = StockCommand.Quote.class, name = "quote"),
+        @JsonSubTypes.Type(value = StockCommand.ListQuotes.class, name = "list"),
         @JsonSubTypes.Type(value = StockCommand.Buy.class, name = "buy"),
         @JsonSubTypes.Type(value = StockCommand.Sell.class, name = "sell"),
         @JsonSubTypes.Type(value = StockCommand.Balance.class, name = "balance"),
@@ -18,6 +19,7 @@ import java.util.List;
 })
 public sealed interface StockCommand permits
         StockCommand.Quote,
+        StockCommand.ListQuotes,
         StockCommand.Buy,
         StockCommand.Sell,
         StockCommand.Balance,
@@ -33,6 +35,12 @@ public sealed interface StockCommand permits
             long guildId,
             long requesterId,
             List<String> symbols
+    ) implements StockCommand {
+    }
+
+    record ListQuotes(
+            long guildId,
+            long requesterId
     ) implements StockCommand {
     }
 

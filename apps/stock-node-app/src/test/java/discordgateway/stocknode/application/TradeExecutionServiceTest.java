@@ -50,6 +50,9 @@ class TradeExecutionServiceTest {
     private QuoteService quoteService;
 
     @Mock
+    private StockWatchlistService stockWatchlistService;
+
+    @Mock
     private RankingCacheRepository rankingCacheRepository;
 
     private TradeExecutionService tradeExecutionService;
@@ -61,6 +64,7 @@ class TradeExecutionServiceTest {
         stockQuoteProperties.setDefaultMarket("us");
         tradeExecutionService = new TradeExecutionService(
                 dailyAllowanceService,
+                stockWatchlistService,
                 stockAccountRepository,
                 stockPositionRepository,
                 tradeLedgerRepository,
@@ -74,6 +78,7 @@ class TradeExecutionServiceTest {
     @Test
     void buyUsesAmountContractAndUpdatesBalanceAndPosition() {
         StockAccountEntity account = account(10L, "10000.0000");
+        when(stockWatchlistService.validateTradable("us", "aapl")).thenReturn(null);
         when(dailyAllowanceService.ensureSettledAccount(1001L, 2002L)).thenReturn(account);
         when(quoteService.getQuote("us", "aapl", QuoteUsage.TRADE)).thenReturn(
                 freshQuote("us", "AAPL", "200.00")
@@ -97,6 +102,7 @@ class TradeExecutionServiceTest {
         StockAccountEntity account = account(10L, "9000.0000");
         StockPositionEntity position = StockPositionEntity.create(account, "AAPL");
         position.applyBuy(new BigDecimal("5.00000000"), new BigDecimal("200.00"));
+        when(stockWatchlistService.validateTradable("us", "AAPL")).thenReturn(null);
         when(dailyAllowanceService.ensureSettledAccount(1001L, 2002L)).thenReturn(account);
         when(stockPositionRepository.findByAccountIdAndSymbol(10L, "AAPL")).thenReturn(Optional.of(position));
         when(quoteService.getQuote("us", "AAPL", QuoteUsage.TRADE)).thenReturn(
@@ -118,6 +124,7 @@ class TradeExecutionServiceTest {
         StockAccountEntity account = account(10L, "10000.0000");
         StockPositionEntity position = StockPositionEntity.create(account, "AAPL");
         position.applyBuy(new BigDecimal("1.00000000"), new BigDecimal("200.00"));
+        when(stockWatchlistService.validateTradable("us", "AAPL")).thenReturn(null);
         when(dailyAllowanceService.ensureSettledAccount(1001L, 2002L)).thenReturn(account);
         when(quoteService.getQuote("us", "AAPL", QuoteUsage.TRADE)).thenReturn(
                 new StockQuoteResult(

@@ -334,6 +334,7 @@ bash /home/ubuntu/dis-bot/current/ops/smoke-check.sh
 현재 `/stock` 하위 명령은 아래를 지원합니다.
 
 - `/stock quote symbol:<ticker[,ticker...]>`
+- `/stock list`
 - `/stock buy symbol:<ticker> amount:<cash>`
 - `/stock sell symbol:<ticker> quantity:<qty>`
 - `/stock balance`
@@ -342,6 +343,52 @@ bash /home/ubuntu/dis-bot/current/ops/smoke-check.sh
 - `/stock rank period:<day|week|all>`
 
 `/stock quote` supports one symbol or a comma/space separated list such as `AAPL,MSFT,NVDA`.
+`/stock list` shows the seeded US Top10 watchlist with cached quote, stale, or pending state.
+
+## 15. Finnhub Cache-First Market Data
+
+This stock feature uses Finnhub REST API for market data refresh and remains a mock investment game.
+
+Runtime behavior:
+
+- US Top10 watchlist quotes refresh every 20 seconds
+- Discord stock commands do not call external APIs directly
+- Redis quote TTL is 60 seconds
+- trade execution requires quote freshness within 45 seconds
+- stale cached quotes may still be shown for read-only commands
+- this is not a real brokerage or real order system
+
+Required env for Finnhub mode:
+
+```env
+STOCK_QUOTE_PROVIDER=finnhub
+FINNHUB_API_KEY=<your-key>
+STOCK_MARKET_DATA_ENABLED=true
+STOCK_MARKET=US
+STOCK_MARKET_REFRESH_DELAY_MS=20000
+STOCK_QUOTE_CACHE_TTL=60s
+STOCK_QUOTE_FRESHNESS=45s
+STOCK_QUOTE_TRADE_FRESHNESS=45s
+```
+
+Default local mode:
+
+```env
+STOCK_QUOTE_PROVIDER=mock
+```
+
+Seeded US Top10 watchlist:
+
+1. `NVDA` - NVIDIA Corporation
+2. `GOOGL` - Alphabet Inc.
+3. `AAPL` - Apple Inc.
+4. `MSFT` - Microsoft Corporation
+5. `AMZN` - Amazon.com, Inc.
+6. `AVGO` - Broadcom Inc.
+7. `TSM` - Taiwan Semiconductor Manufacturing Company Limited
+8. `META` - Meta Platforms, Inc.
+9. `TSLA` - Tesla, Inc.
+10. `BRK.B` - Berkshire Hathaway Inc.
 
 구현 경계는 아래와 같습니다.
 

@@ -19,6 +19,7 @@ class DiscordCommandCatalogTest {
                 .extracting(SubcommandData::getName)
                 .containsExactlyInAnyOrder(
                         DiscordCommandCatalog.SUB_QUOTE,
+                        DiscordCommandCatalog.SUB_LIST,
                         DiscordCommandCatalog.SUB_BUY,
                         DiscordCommandCatalog.SUB_SELL,
                         DiscordCommandCatalog.SUB_BALANCE,

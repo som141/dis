@@ -161,4 +161,65 @@ class DiscordBotListenerStockTest {
         verify(stockApplicationService).dispatch(envelope);
         verify(pendingInteractionRepository).put(eq("command-2"), any(InteractionResponseContext.class));
     }
+
+    @Test
+    void dispatchesStockListThroughDeferredInteraction() {
+        MusicApplicationService musicApplicationService = mock(MusicApplicationService.class);
+        StockApplicationService stockApplicationService = mock(StockApplicationService.class);
+        PlayAutocompleteService playAutocompleteService = mock(PlayAutocompleteService.class);
+        PendingInteractionRepository pendingInteractionRepository = mock(PendingInteractionRepository.class);
+        DiscordBotListener listener = new DiscordBotListener(
+                musicApplicationService,
+                stockApplicationService,
+                playAutocompleteService,
+                pendingInteractionRepository
+        );
+
+        SlashCommandInteractionEvent event = mock(SlashCommandInteractionEvent.class);
+        Guild guild = mock(Guild.class);
+        JDA jda = mock(JDA.class);
+        User user = mock(User.class);
+        MessageChannelUnion channel = mock(MessageChannelUnion.class);
+        ReplyCallbackAction replyCallbackAction = mock(ReplyCallbackAction.class);
+        InteractionHook hook = mock(InteractionHook.class);
+
+        when(event.isFromGuild()).thenReturn(true);
+        when(event.getName()).thenReturn(DiscordCommandCatalog.CMD_STOCK);
+        when(event.getSubcommandName()).thenReturn(DiscordCommandCatalog.SUB_LIST);
+        when(event.getGuild()).thenReturn(guild);
+        when(event.getJDA()).thenReturn(jda);
+        when(event.getUser()).thenReturn(user);
+        when(event.getChannel()).thenReturn(channel);
+        when(event.getToken()).thenReturn("token-1");
+        when(guild.getIdLong()).thenReturn(10L);
+        when(user.getIdLong()).thenReturn(20L);
+        when(jda.getGuildById(10L)).thenReturn(guild);
+        when(channel.getIdLong()).thenReturn(30L);
+        when(channel.getId()).thenReturn("30");
+        when(guild.getId()).thenReturn("10");
+        when(event.deferReply(true)).thenReturn(replyCallbackAction);
+
+        StockCommandEnvelope envelope = new StockCommandEnvelope(
+                "command-3",
+                1,
+                1L,
+                "gateway-1",
+                new StockCommand.ListQuotes(10L, 20L),
+                "gateway-1"
+        );
+        when(stockApplicationService.prepareList(10L, 20L)).thenReturn(envelope);
+        when(stockApplicationService.dispatch(envelope)).thenReturn(CompletableFuture.completedFuture(null));
+
+        doAnswer(invocation -> {
+            Consumer<InteractionHook> success = invocation.getArgument(0);
+            success.accept(hook);
+            return null;
+        }).when(replyCallbackAction).queue(any(), any());
+
+        listener.onSlashCommandInteraction(event);
+
+        verify(stockApplicationService).prepareList(10L, 20L);
+        verify(stockApplicationService).dispatch(envelope);
+        verify(pendingInteractionRepository).put(eq("command-3"), any(InteractionResponseContext.class));
+    }
 }

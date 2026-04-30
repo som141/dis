@@ -4,6 +4,8 @@ import discordgateway.stock.command.StockCommand;
 import discordgateway.stock.command.StockCommandEnvelope;
 import discordgateway.stock.event.StockCommandResultEvent;
 import discordgateway.stock.messaging.StockMessagingProperties;
+import discordgateway.stocknode.cache.QuoteRepository;
+import discordgateway.stocknode.quote.model.StockQuote;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -46,6 +48,9 @@ class StockMessagingIntegrationTest extends StockNodeMessagingIntegrationTestSup
     @Autowired
     private StockMessagingProperties messagingProperties;
 
+    @Autowired
+    private QuoteRepository quoteRepository;
+
     private String resultQueueName;
 
     @BeforeEach
@@ -64,6 +69,8 @@ class StockMessagingIntegrationTest extends StockNodeMessagingIntegrationTestSup
             channel.queuePurge(messagingProperties.getCommandQueue());
             return null;
         });
+        cacheQuote("AAPL", "200.00");
+        cacheQuote("MSFT", "300.00");
     }
 
     @AfterEach
@@ -107,6 +114,24 @@ class StockMessagingIntegrationTest extends StockNodeMessagingIntegrationTestSup
         assertThat(event.message()).contains("AAPL");
         assertThat(event.message()).contains("MSFT");
         assertThat(event.message()).contains("```text");
+    }
+
+    @Test
+    void processesListCommandEndToEnd() {
+        StockCommandResultEvent event = sendAndReceive(new StockCommandEnvelope(
+                "cmd-list",
+                1,
+                Instant.now().toEpochMilli(),
+                "gateway",
+                new StockCommand.ListQuotes(1001L, 2002L),
+                RESPONSE_NODE
+        ));
+
+        assertThat(event.success()).isTrue();
+        assertThat(event.resultType()).isEqualTo("LIST");
+        assertThat(event.message()).contains("US Top10 by market cap");
+        assertThat(event.message()).contains("NVDA");
+        assertThat(event.message()).contains("Finnhub REST API");
     }
 
     @Test
@@ -166,5 +191,12 @@ class StockMessagingIntegrationTest extends StockNodeMessagingIntegrationTestSup
             }
         }
         throw new AssertionError("Timed out waiting for stock command result");
+    }
+
+    private void cacheQuote(String symbol, String price) {
+        quoteRepository.save(
+                new StockQuote("US", symbol, new BigDecimal(price), Instant.now()),
+                Duration.ofSeconds(60)
+        );
     }
 }
