@@ -17,9 +17,7 @@ public class StockAccountApplicationService {
 
     @Transactional
     public StockAccountSummary ensureAccount(long guildId, long userId) {
-        return stockAccountRepository.findByGuildIdAndUserId(guildId, userId)
-                .map(this::toSummary)
-                .orElseGet(() -> createAccount(guildId, userId));
+        return toSummary(ensureAccountEntity(guildId, userId));
     }
 
     @Transactional(readOnly = true)
@@ -28,15 +26,24 @@ public class StockAccountApplicationService {
                 .map(this::toSummary);
     }
 
-    private StockAccountSummary createAccount(long guildId, long userId) {
+    @Transactional
+    public StockAccountEntity ensureAccountEntity(long guildId, long userId) {
+        return stockAccountRepository.findByGuildIdAndUserId(guildId, userId)
+                .orElseGet(() -> createAccount(guildId, userId));
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<StockAccountEntity> findAccountEntity(long guildId, long userId) {
+        return stockAccountRepository.findByGuildIdAndUserId(guildId, userId);
+    }
+
+    private StockAccountEntity createAccount(long guildId, long userId) {
         try {
-            StockAccountEntity created = stockAccountRepository.saveAndFlush(
+            return stockAccountRepository.saveAndFlush(
                     StockAccountEntity.create(guildId, userId)
             );
-            return toSummary(created);
         } catch (DataIntegrityViolationException exception) {
             return stockAccountRepository.findByGuildIdAndUserId(guildId, userId)
-                    .map(this::toSummary)
                     .orElseThrow(() -> exception);
         }
     }

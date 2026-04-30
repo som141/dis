@@ -25,3 +25,8 @@ management:
       enabled: false
     redis:
       enabled: false
+
+stock:
+  messaging:
+    enabled: false
+    listener-enabled: false

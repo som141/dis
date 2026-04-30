@@ -7,6 +7,7 @@ import java.time.Duration;
 @ConfigurationProperties(prefix = "stock.quote")
 public class StockQuoteProperties {
 
+    private String defaultMarket = "us";
     private Duration cacheTtl = Duration.ofMinutes(10);
     private Duration queryFreshness = Duration.ofSeconds(30);
     private Duration tradeFreshness = Duration.ofSeconds(5);
@@ -16,6 +17,14 @@ public class StockQuoteProperties {
     private Duration lockPollInterval = Duration.ofMillis(25);
     private long providerPerMinuteLimit = 60;
     private long providerPerDayLimit = 5_000;
+
+    public String getDefaultMarket() {
+        return defaultMarket;
+    }
+
+    public void setDefaultMarket(String defaultMarket) {
+        this.defaultMarket = defaultMarket;
+    }
 
     public Duration getCacheTtl() {
         return cacheTtl;

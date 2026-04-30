@@ -12,6 +12,7 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Locale;
 import java.util.Objects;
 
@@ -61,6 +62,32 @@ public class StockPositionEntity extends BaseTimeEntity {
         return new StockPositionEntity(account, symbol, BigDecimal.ZERO, BigDecimal.ZERO);
     }
 
+    public void applyBuy(BigDecimal buyQuantity, BigDecimal unitPrice) {
+        BigDecimal normalizedBuyQuantity = scaleQuantity(buyQuantity);
+        BigDecimal normalizedUnitPrice = scaleCash(unitPrice);
+        BigDecimal totalCost = quantity.multiply(averageCost).add(normalizedBuyQuantity.multiply(normalizedUnitPrice));
+        BigDecimal totalQuantity = quantity.add(normalizedBuyQuantity);
+        quantity = scaleQuantity(totalQuantity);
+        averageCost = totalQuantity.signum() == 0
+                ? BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP)
+                : totalCost.divide(totalQuantity, 4, RoundingMode.HALF_UP);
+    }
+
+    public void applySell(BigDecimal sellQuantity) {
+        quantity = scaleQuantity(quantity.subtract(scaleQuantity(sellQuantity)));
+        if (quantity.signum() == 0) {
+            averageCost = BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);
+        }
+    }
+
+    public boolean hasEnoughQuantity(BigDecimal sellQuantity) {
+        return quantity.compareTo(scaleQuantity(sellQuantity)) >= 0;
+    }
+
+    public boolean isEmpty() {
+        return quantity.signum() == 0;
+    }
+
     private static String normalizeSymbol(String symbol) {
         return Objects.requireNonNull(symbol, "symbol").trim().toUpperCase(Locale.ROOT);
     }
@@ -83,5 +110,13 @@ public class StockPositionEntity extends BaseTimeEntity {
 
     public BigDecimal getAverageCost() {
         return averageCost;
+    }
+
+    private BigDecimal scaleQuantity(BigDecimal value) {
+        return Objects.requireNonNull(value, "value").setScale(8, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal scaleCash(BigDecimal value) {
+        return Objects.requireNonNull(value, "value").setScale(4, RoundingMode.HALF_UP);
     }
 }

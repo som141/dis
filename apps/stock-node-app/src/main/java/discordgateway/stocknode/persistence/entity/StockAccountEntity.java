@@ -9,6 +9,7 @@ import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Objects;
 
 @Entity
@@ -48,7 +49,19 @@ public class StockAccountEntity extends BaseTimeEntity {
     }
 
     public void updateCashBalance(BigDecimal cashBalance) {
-        this.cashBalance = Objects.requireNonNull(cashBalance, "cashBalance");
+        this.cashBalance = scaleCash(cashBalance);
+    }
+
+    public void addCash(BigDecimal amount) {
+        cashBalance = cashBalance.add(scaleCash(amount));
+    }
+
+    public void subtractCash(BigDecimal amount) {
+        cashBalance = cashBalance.subtract(scaleCash(amount));
+    }
+
+    private BigDecimal scaleCash(BigDecimal cashBalance) {
+        return Objects.requireNonNull(cashBalance, "cashBalance").setScale(4, RoundingMode.HALF_UP);
     }
 
     public Long getId() {

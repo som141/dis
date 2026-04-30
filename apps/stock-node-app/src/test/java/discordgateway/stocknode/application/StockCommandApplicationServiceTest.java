@@ -1,0 +1,150 @@
+package discordgateway.stocknode.application;
+
+import discordgateway.stock.command.StockCommand;
+import discordgateway.stock.command.StockCommandEnvelope;
+import discordgateway.stock.event.StockCommandResultEvent;
+import discordgateway.stocknode.bootstrap.StockQuoteProperties;
+import discordgateway.stocknode.quote.model.StockQuote;
+import discordgateway.stocknode.quote.service.QuoteService;
+import discordgateway.stocknode.quote.service.QuoteSource;
+import discordgateway.stocknode.quote.service.QuoteUsage;
+import discordgateway.stocknode.quote.service.StockQuoteResult;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class StockCommandApplicationServiceTest {
+
+    @Mock
+    private QuoteService quoteService;
+
+    @Mock
+    private TradeExecutionService tradeExecutionService;
+
+    @Mock
+    private BalanceQueryService balanceQueryService;
+
+    @Mock
+    private PortfolioQueryService portfolioQueryService;
+
+    @Mock
+    private TradeHistoryQueryService tradeHistoryQueryService;
+
+    @Mock
+    private StockResponseFormatter stockResponseFormatter;
+
+    private StockCommandApplicationService stockCommandApplicationService;
+
+    @BeforeEach
+    void setUp() {
+        StockQuoteProperties stockQuoteProperties = new StockQuoteProperties();
+        stockQuoteProperties.setDefaultMarket("us");
+        stockCommandApplicationService = new StockCommandApplicationService(
+                quoteService,
+                tradeExecutionService,
+                balanceQueryService,
+                portfolioQueryService,
+                tradeHistoryQueryService,
+                stockResponseFormatter,
+                stockQuoteProperties,
+                Clock.fixed(Instant.parse("2026-04-30T01:00:00Z"), ZoneOffset.UTC),
+                "stock-node-1"
+        );
+    }
+
+    @Test
+    void dispatchesQuoteCommand() {
+        StockCommandEnvelope envelope = new StockCommandEnvelope(
+                "cmd-1",
+                1,
+                1_234L,
+                "gateway",
+                new StockCommand.Quote(1001L, 2002L, "AAPL"),
+                "gateway-1"
+        );
+        StockQuoteResult stockQuoteResult = new StockQuoteResult(
+                new StockQuote("us", "AAPL", new BigDecimal("123.45"), Instant.parse("2026-04-30T01:00:00Z")),
+                QuoteSource.CACHE_FRESH,
+                true
+        );
+        when(quoteService.getQuote("us", "AAPL", QuoteUsage.QUERY)).thenReturn(stockQuoteResult);
+        when(stockResponseFormatter.formatQuote("us", "AAPL", stockQuoteResult)).thenReturn("quote message");
+
+        StockCommandResultEvent event = stockCommandApplicationService.handle(envelope);
+
+        assertThat(event.success()).isTrue();
+        assertThat(event.resultType()).isEqualTo("QUOTE");
+        assertThat(event.message()).isEqualTo("quote message");
+        verify(quoteService).getQuote("us", "AAPL", QuoteUsage.QUERY);
+    }
+
+    @Test
+    void dispatchesBuyCommandWithAmountContract() {
+        StockCommandEnvelope envelope = new StockCommandEnvelope(
+                "cmd-2",
+                1,
+                1_234L,
+                "gateway",
+                new StockCommand.Buy(1001L, 2002L, "AAPL", new BigDecimal("1000.00")),
+                "gateway-1"
+        );
+        TradeExecutionResult tradeExecutionResult = new TradeExecutionResult(
+                1L,
+                1001L,
+                2002L,
+                TradeSide.BUY,
+                "us",
+                "AAPL",
+                new BigDecimal("1000.0000"),
+                null,
+                new BigDecimal("5.00000000"),
+                new BigDecimal("200.0000"),
+                new BigDecimal("1000.0000"),
+                new BigDecimal("9000.0000"),
+                new BigDecimal("5.00000000"),
+                new BigDecimal("200.0000")
+        );
+        when(tradeExecutionService.buy(1001L, 2002L, "AAPL", new BigDecimal("1000.00")))
+                .thenReturn(tradeExecutionResult);
+        when(stockResponseFormatter.formatTrade(tradeExecutionResult)).thenReturn("buy message");
+
+        StockCommandResultEvent event = stockCommandApplicationService.handle(envelope);
+
+        assertThat(event.success()).isTrue();
+        assertThat(event.resultType()).isEqualTo("BUY");
+        verify(tradeExecutionService).buy(1001L, 2002L, "AAPL", new BigDecimal("1000.00"));
+    }
+
+    @Test
+    void returnsNotImplementedForRank() {
+        StockCommandEnvelope envelope = new StockCommandEnvelope(
+                "cmd-3",
+                1,
+                1_234L,
+                "gateway",
+                new StockCommand.Rank(1001L, 2002L, "day"),
+                "gateway-1"
+        );
+        when(stockResponseFormatter.formatNotImplemented("rank(day)")).thenReturn("todo");
+
+        StockCommandResultEvent event = stockCommandApplicationService.handle(envelope);
+
+        assertThat(event.success()).isFalse();
+        assertThat(event.resultType()).isEqualTo("NOT_IMPLEMENTED");
+        assertThat(event.message()).isEqualTo("todo");
+    }
+}

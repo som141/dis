@@ -27,6 +27,7 @@ public abstract class StockNodeIntegrationTestSupport {
     @DynamicPropertySource
     static void configureInfrastructure(DynamicPropertyRegistry registry) {
         registry.add("spring.datasource.url", POSTGRESQL_CONTAINER::getJdbcUrl);
+        registry.add("spring.datasource.driver-class-name", () -> "org.postgresql.Driver");
         registry.add("spring.datasource.username", POSTGRESQL_CONTAINER::getUsername);
         registry.add("spring.datasource.password", POSTGRESQL_CONTAINER::getPassword);
         registry.add("spring.data.redis.host", REDIS_CONTAINER::getHost);

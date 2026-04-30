@@ -40,6 +40,8 @@ app:
 
 stock:
   messaging:
+    enabled: ${STOCK_MESSAGING_ENABLED:true}
+    listener-enabled: ${STOCK_MESSAGING_LISTENER_ENABLED:true}
     command-exchange: ${STOCK_COMMAND_EXCHANGE:stock.command.exchange}
     command-queue: ${STOCK_COMMAND_QUEUE:stock.command.queue}
     command-routing-key: ${STOCK_COMMAND_ROUTING_KEY:stock.command}
@@ -54,6 +56,7 @@ stock:
     redis-host: ${REDIS_HOST:redis}
     redis-port: ${REDIS_PORT:6379}
   quote:
+    default-market: ${STOCK_DEFAULT_MARKET:us}
     cache-ttl: ${STOCK_QUOTE_CACHE_TTL:10m}
     query-freshness: ${STOCK_QUERY_FRESHNESS:30s}
     trade-freshness: ${STOCK_TRADE_FRESHNESS:5s}

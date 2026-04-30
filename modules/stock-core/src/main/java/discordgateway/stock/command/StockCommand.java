@@ -39,7 +39,7 @@ public sealed interface StockCommand permits
             long guildId,
             long requesterId,
             String symbol,
-            BigDecimal quantity
+            BigDecimal amount
     ) implements StockCommand {
     }
 
@@ -73,7 +73,7 @@ public sealed interface StockCommand permits
     record Rank(
             long guildId,
             long requesterId,
-            Integer limit
+            String period
     ) implements StockCommand {
     }
 }

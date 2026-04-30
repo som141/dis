@@ -71,4 +71,32 @@ public class TradeLedgerEntity extends BaseTimeEntity {
     ) {
         return new TradeLedgerEntity(account, symbol, side, quantity, unitPrice, occurredAt);
     }
+
+    public Long getId() {
+        return id;
+    }
+
+    public StockAccountEntity getAccount() {
+        return account;
+    }
+
+    public String getSymbol() {
+        return symbol;
+    }
+
+    public String getSide() {
+        return side;
+    }
+
+    public BigDecimal getQuantity() {
+        return quantity;
+    }
+
+    public BigDecimal getUnitPrice() {
+        return unitPrice;
+    }
+
+    public Instant getOccurredAt() {
+        return occurredAt;
+    }
 }

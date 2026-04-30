@@ -58,4 +58,24 @@ public class AllowanceLedgerEntity extends BaseTimeEntity {
     ) {
         return new AllowanceLedgerEntity(account, amount, allowanceType, occurredAt);
     }
+
+    public Long getId() {
+        return id;
+    }
+
+    public StockAccountEntity getAccount() {
+        return account;
+    }
+
+    public BigDecimal getAmount() {
+        return amount;
+    }
+
+    public String getAllowanceType() {
+        return allowanceType;
+    }
+
+    public Instant getOccurredAt() {
+        return occurredAt;
+    }
 }
