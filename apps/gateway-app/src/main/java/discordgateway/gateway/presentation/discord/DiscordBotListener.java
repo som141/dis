@@ -27,6 +27,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 
 public class DiscordBotListener extends ListenerAdapter {
 
@@ -292,32 +293,58 @@ public class DiscordBotListener extends ListenerAdapter {
             default -> throw new IllegalArgumentException("Unknown stock subcommand: " + subcommand);
         };
 
-        dispatchDeferred(event, envelope.commandId(), stockApplicationService.dispatch(envelope));
+        dispatchDeferred(event, envelope.commandId(), () -> stockApplicationService.dispatch(envelope));
     }
 
     private void dispatchDeferred(SlashCommandInteractionEvent event, MusicCommandEnvelope envelope) {
-        dispatchDeferred(event, envelope.message().commandId(), musicApplicationService.dispatch(envelope));
+        dispatchDeferred(event, envelope.message().commandId(), () -> musicApplicationService.dispatch(envelope));
     }
 
     private void dispatchDeferred(
             SlashCommandInteractionEvent event,
             String commandId,
-            CompletableFuture<?> dispatchFuture
+            Supplier<CompletableFuture<?>> dispatchFutureSupplier
     ) {
         event.deferReply(true).queue(
                 hook -> {
                     long now = System.currentTimeMillis();
-                    pendingInteractionRepository.put(
-                            commandId,
-                            new InteractionResponseContext(
-                                    event.getToken(),
-                                    event.getName(),
-                                    event.getGuild() != null ? event.getGuild().getIdLong() : 0L,
-                                    event.getChannel().getIdLong(),
-                                    now,
-                                    now + PENDING_INTERACTION_TTL.toMillis()
-                            )
-                    );
+                    try {
+                        pendingInteractionRepository.put(
+                                commandId,
+                                new InteractionResponseContext(
+                                        event.getToken(),
+                                        event.getName(),
+                                        event.getGuild() != null ? event.getGuild().getIdLong() : 0L,
+                                        event.getChannel().getIdLong(),
+                                        now,
+                                        now + PENDING_INTERACTION_TTL.toMillis()
+                                )
+                        );
+                    } catch (Exception err) {
+                        safeEditHook(
+                                hook,
+                                "Command dispatch failed: " + err.getMessage(),
+                                event.getName(),
+                                event.getGuild() != null ? event.getGuild().getId() : "unknown",
+                                event.getChannel().getId()
+                        );
+                        return;
+                    }
+
+                    CompletableFuture<?> dispatchFuture;
+                    try {
+                        dispatchFuture = dispatchFutureSupplier.get();
+                    } catch (Exception err) {
+                        pendingInteractionRepository.remove(commandId);
+                        safeEditHook(
+                                hook,
+                                "Command dispatch failed: " + err.getMessage(),
+                                event.getName(),
+                                event.getGuild() != null ? event.getGuild().getId() : "unknown",
+                                event.getChannel().getId()
+                        );
+                        return;
+                    }
 
                     dispatchFuture.whenComplete((ignored, err) -> {
                         if (err == null) {
