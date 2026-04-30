@@ -4,10 +4,12 @@ import discordgateway.stock.command.StockCommand;
 import discordgateway.stock.command.StockCommandEnvelope;
 import discordgateway.stock.event.StockCommandResultEvent;
 import discordgateway.stocknode.bootstrap.StockQuoteProperties;
+import discordgateway.stocknode.quote.service.StockQuoteResult;
 import discordgateway.stocknode.quote.service.QuoteService;
 import discordgateway.stocknode.quote.service.QuoteUsage;
 
 import java.time.Clock;
+import java.util.List;
 
 public class StockCommandApplicationService {
 
@@ -49,19 +51,27 @@ public class StockCommandApplicationService {
     public StockCommandResultEvent handle(StockCommandEnvelope envelope) {
         StockCommand command = envelope.command();
         return switch (command) {
-            case StockCommand.Quote quote -> success(
-                    envelope,
-                    stockResponseFormatter.formatQuote(
-                            stockQuoteProperties.getDefaultMarket(),
-                            quote.symbol(),
-                            quoteService.getQuote(
-                                    stockQuoteProperties.getDefaultMarket(),
-                                    quote.symbol(),
-                                    QuoteUsage.QUERY
-                            )
-                    ),
-                    "QUOTE"
-            );
+            case StockCommand.Quote quote -> {
+                List<StockQuoteResult> quotes = quote.symbols().stream()
+                        .map(symbol -> quoteService.getQuote(
+                                stockQuoteProperties.getDefaultMarket(),
+                                symbol,
+                                QuoteUsage.QUERY
+                        ))
+                        .toList();
+                String message = quote.symbols().size() == 1
+                        ? stockResponseFormatter.formatQuote(
+                                stockQuoteProperties.getDefaultMarket(),
+                                quote.symbols().getFirst(),
+                                quotes.getFirst()
+                        )
+                        : stockResponseFormatter.formatQuoteTable(
+                                stockQuoteProperties.getDefaultMarket(),
+                                quote.symbols(),
+                                quotes
+                        );
+                yield success(envelope, message, "QUOTE");
+            }
             case StockCommand.Buy buy -> success(
                     envelope,
                     stockResponseFormatter.formatTrade(

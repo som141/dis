@@ -333,13 +333,15 @@ bash /home/ubuntu/dis-bot/current/ops/smoke-check.sh
 
 현재 `/stock` 하위 명령은 아래를 지원합니다.
 
-- `/stock quote symbol:<ticker>`
+- `/stock quote symbol:<ticker[,ticker...]>`
 - `/stock buy symbol:<ticker> amount:<cash>`
 - `/stock sell symbol:<ticker> quantity:<qty>`
 - `/stock balance`
 - `/stock portfolio`
 - `/stock history [limit]`
 - `/stock rank period:<day|week|all>`
+
+`/stock quote` supports one symbol or a comma/space separated list such as `AAPL,MSFT,NVDA`.
 
 구현 경계는 아래와 같습니다.
 

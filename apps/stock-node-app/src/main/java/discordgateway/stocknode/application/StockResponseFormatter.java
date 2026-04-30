@@ -6,6 +6,7 @@ import discordgateway.stocknode.quote.service.StockQuoteResult;
 import java.math.BigDecimal;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Locale;
 import java.util.StringJoiner;
 
@@ -22,6 +23,37 @@ public class StockResponseFormatter {
                 .add("- quotedAt: " + TIME_FORMATTER.format(result.quote().quotedAt().atOffset(ZoneOffset.UTC)))
                 .add("- status: " + freshnessLabel(result.fresh()) + " / " + sourceLabel(result.source()))
                 .toString();
+    }
+
+    public String formatQuoteTable(String market, List<String> symbols, List<StockQuoteResult> results) {
+        StringBuilder builder = new StringBuilder()
+                .append("stock quotes").append(System.lineSeparator())
+                .append("- market: ").append(market).append(System.lineSeparator())
+                .append("```text").append(System.lineSeparator())
+                .append(String.format(
+                        Locale.ROOT,
+                        "%-8s %-12s %-7s %-16s %-8s%n",
+                        "SYMBOL",
+                        "PRICE",
+                        "STATUS",
+                        "SOURCE",
+                        "TIME"
+                ));
+
+        for (int index = 0; index < symbols.size(); index++) {
+            StockQuoteResult result = results.get(index);
+            builder.append(String.format(
+                    Locale.ROOT,
+                    "%-8s %-12s %-7s %-16s %-8s%n",
+                    symbols.get(index),
+                    formatMoney(result.quote().price()),
+                    freshnessLabel(result.fresh()),
+                    sourceLabel(result.source()),
+                    TIME_FORMATTER.format(result.quote().quotedAt().atOffset(ZoneOffset.UTC)).substring(11, 19)
+            ));
+        }
+
+        return builder.append("```").toString();
     }
 
     public String formatTrade(TradeExecutionResult result) {

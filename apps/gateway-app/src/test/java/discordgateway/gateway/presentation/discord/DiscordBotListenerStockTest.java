@@ -18,6 +18,7 @@ import net.dv8tion.jda.api.requests.restaction.interactions.ReplyCallbackAction;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
@@ -75,7 +76,7 @@ class DiscordBotListenerStockTest {
                 1,
                 1L,
                 "gateway-1",
-                new StockCommand.Quote(10L, 20L, "AAPL"),
+                new StockCommand.Quote(10L, 20L, List.of("AAPL")),
                 "gateway-1"
         );
         when(stockApplicationService.prepareQuote(10L, 20L, "aapl")).thenReturn(envelope);

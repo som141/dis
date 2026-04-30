@@ -7,6 +7,7 @@ import discordgateway.stock.messaging.StockCommandMessageFactory;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -27,7 +28,23 @@ class StockApplicationServiceTest {
 
         assertThat(envelope.producer()).isEqualTo("gateway-1");
         assertThat(envelope.responseTargetNode()).isEqualTo("gateway-1");
-        assertThat(envelope.command()).isEqualTo(new StockCommand.Quote(10L, 20L, "AAPL"));
+        assertThat(envelope.command()).isEqualTo(new StockCommand.Quote(10L, 20L, List.of("AAPL")));
+    }
+
+    @Test
+    void preparesQuoteCommandWithMultipleSymbols() {
+        StockApplicationService service = new StockApplicationService(
+                envelope -> CompletableFuture.completedFuture(null),
+                new StockCommandMessageFactory("gateway-1")
+        );
+
+        StockCommandEnvelope envelope = service.prepareQuote(10L, 20L, " aapl, msft nvda, aapl ");
+
+        assertThat(envelope.command()).isEqualTo(new StockCommand.Quote(
+                10L,
+                20L,
+                List.of("AAPL", "MSFT", "NVDA")
+        ));
     }
 
     @Test

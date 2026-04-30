@@ -33,6 +33,32 @@ class StockResponseFormatterTest {
     }
 
     @Test
+    void formatsQuoteTableResponse() {
+        String message = formatter.formatQuoteTable(
+                "us",
+                List.of("AAPL", "MSFT"),
+                List.of(
+                        new StockQuoteResult(
+                                new StockQuote("us", "AAPL", new BigDecimal("123.45"), Instant.parse("2026-04-30T01:00:00Z")),
+                                QuoteSource.PROVIDER_REFRESH,
+                                true
+                        ),
+                        new StockQuoteResult(
+                                new StockQuote("us", "MSFT", new BigDecimal("456.78"), Instant.parse("2026-04-30T01:00:01Z")),
+                                QuoteSource.CACHE_STALE,
+                                false
+                        )
+                )
+        );
+
+        assertThat(message).contains("stock quotes");
+        assertThat(message).contains("```text");
+        assertThat(message).contains("AAPL");
+        assertThat(message).contains("MSFT");
+        assertThat(message).contains("stale");
+    }
+
+    @Test
     void formatsPortfolioAndHistoryResponses() {
         String portfolio = formatter.formatPortfolio(new PortfolioView(
                 1L,

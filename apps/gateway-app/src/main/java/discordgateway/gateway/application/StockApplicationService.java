@@ -6,10 +6,15 @@ import discordgateway.stock.messaging.StockCommandBus;
 import discordgateway.stock.messaging.StockCommandMessageFactory;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 public class StockApplicationService {
+
+    private static final int MAX_QUOTE_SYMBOLS = 10;
 
     private final StockCommandBus stockCommandBus;
     private final StockCommandMessageFactory stockCommandMessageFactory;
@@ -26,7 +31,7 @@ public class StockApplicationService {
         return stockCommandMessageFactory.createEnvelope(new StockCommand.Quote(
                 guildId,
                 requesterId,
-                normalizeSymbol(symbol)
+                parseSymbols(symbol)
         ));
     }
 
@@ -78,5 +83,21 @@ public class StockApplicationService {
 
     private String normalizePeriod(String period) {
         return period == null ? "" : period.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private List<String> parseSymbols(String rawSymbols) {
+        List<String> symbols = Arrays.stream((rawSymbols == null ? "" : rawSymbols).split("[,\\s]+"))
+                .map(this::normalizeSymbol)
+                .filter(symbol -> !symbol.isBlank())
+                .distinct()
+                .collect(Collectors.toList());
+
+        if (symbols.isEmpty()) {
+            throw new IllegalArgumentException("At least one quote symbol is required");
+        }
+        if (symbols.size() > MAX_QUOTE_SYMBOLS) {
+            throw new IllegalArgumentException("At most " + MAX_QUOTE_SYMBOLS + " quote symbols are allowed");
+        }
+        return symbols;
     }
 }

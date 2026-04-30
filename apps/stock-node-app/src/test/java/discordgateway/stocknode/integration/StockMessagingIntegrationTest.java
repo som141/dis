@@ -21,6 +21,7 @@ import org.springframework.test.annotation.DirtiesContext;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -79,7 +80,7 @@ class StockMessagingIntegrationTest extends StockNodeMessagingIntegrationTestSup
                 1,
                 Instant.now().toEpochMilli(),
                 "gateway",
-                new StockCommand.Quote(1001L, 2002L, "AAPL"),
+                new StockCommand.Quote(1001L, 2002L, List.of("AAPL")),
                 RESPONSE_NODE
         ));
 
@@ -87,6 +88,25 @@ class StockMessagingIntegrationTest extends StockNodeMessagingIntegrationTestSup
         assertThat(event.resultType()).isEqualTo("QUOTE");
         assertThat(event.message()).contains("stock quote");
         assertThat(event.message()).contains("AAPL");
+    }
+
+    @Test
+    void processesMultiQuoteCommandEndToEnd() {
+        StockCommandResultEvent event = sendAndReceive(new StockCommandEnvelope(
+                "cmd-quote-multi",
+                1,
+                Instant.now().toEpochMilli(),
+                "gateway",
+                new StockCommand.Quote(1001L, 2002L, List.of("AAPL", "MSFT")),
+                RESPONSE_NODE
+        ));
+
+        assertThat(event.success()).isTrue();
+        assertThat(event.resultType()).isEqualTo("QUOTE");
+        assertThat(event.message()).contains("stock quotes");
+        assertThat(event.message()).contains("AAPL");
+        assertThat(event.message()).contains("MSFT");
+        assertThat(event.message()).contains("```text");
     }
 
     @Test

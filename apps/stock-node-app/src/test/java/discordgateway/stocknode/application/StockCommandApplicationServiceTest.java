@@ -76,7 +76,7 @@ class StockCommandApplicationServiceTest {
                 1,
                 1_234L,
                 "gateway",
-                new StockCommand.Quote(1001L, 2002L, "AAPL"),
+                new StockCommand.Quote(1001L, 2002L, List.of("AAPL")),
                 "gateway-1"
         );
         StockQuoteResult stockQuoteResult = new StockQuoteResult(
@@ -93,6 +93,40 @@ class StockCommandApplicationServiceTest {
         assertThat(event.resultType()).isEqualTo("QUOTE");
         assertThat(event.message()).isEqualTo("quote message");
         verify(quoteService).getQuote("us", "AAPL", QuoteUsage.QUERY);
+    }
+
+    @Test
+    void dispatchesMultiQuoteCommandAsTable() {
+        StockCommandEnvelope envelope = new StockCommandEnvelope(
+                "cmd-1b",
+                1,
+                1_234L,
+                "gateway",
+                new StockCommand.Quote(1001L, 2002L, List.of("AAPL", "MSFT")),
+                "gateway-1"
+        );
+        StockQuoteResult aaplQuote = new StockQuoteResult(
+                new StockQuote("us", "AAPL", new BigDecimal("123.45"), Instant.parse("2026-04-30T01:00:00Z")),
+                QuoteSource.CACHE_FRESH,
+                true
+        );
+        StockQuoteResult msftQuote = new StockQuoteResult(
+                new StockQuote("us", "MSFT", new BigDecimal("456.78"), Instant.parse("2026-04-30T01:00:01Z")),
+                QuoteSource.PROVIDER_REFRESH,
+                true
+        );
+        when(quoteService.getQuote("us", "AAPL", QuoteUsage.QUERY)).thenReturn(aaplQuote);
+        when(quoteService.getQuote("us", "MSFT", QuoteUsage.QUERY)).thenReturn(msftQuote);
+        when(stockResponseFormatter.formatQuoteTable("us", List.of("AAPL", "MSFT"), List.of(aaplQuote, msftQuote)))
+                .thenReturn("quote table");
+
+        StockCommandResultEvent event = stockCommandApplicationService.handle(envelope);
+
+        assertThat(event.success()).isTrue();
+        assertThat(event.resultType()).isEqualTo("QUOTE");
+        assertThat(event.message()).isEqualTo("quote table");
+        verify(quoteService).getQuote("us", "AAPL", QuoteUsage.QUERY);
+        verify(quoteService).getQuote("us", "MSFT", QuoteUsage.QUERY);
     }
 
     @Test
