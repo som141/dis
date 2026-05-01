@@ -146,7 +146,7 @@ CI 테스트 위치, 확인 방법, 로컬 재현 방법을 문서화했다.
 
 추가 문서:
 
-- `docs/CI_TESTING.md`
+- `docs/operations/CI_TESTING.md`
 
 ## 3. 이번 주차에 추가하거나 수정한 주요 파일
 
@@ -170,7 +170,7 @@ CI 테스트 위치, 확인 방법, 로컬 재현 방법을 문서화했다.
 - `apps/stock-node-app/src/main/java/discordgateway/stocknode/quote/*`
 - `apps/stock-node-app/src/main/resources/db/migration/V1__init_stock_schema.sql`
 - `apps/stock-node-app/src/test/java/discordgateway/stocknode/*`
-- `docs/CI_TESTING.md`
+- `docs/operations/CI_TESTING.md`
 
 ## 4. 이번 주차에서 의도적으로 하지 않은 것
 

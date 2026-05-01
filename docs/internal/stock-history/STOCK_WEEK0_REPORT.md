@@ -90,7 +90,7 @@
 
 주식 기능이 기존 음악 봇 책임과 섞이지 않도록 아래 문서를 추가했다.
 
-- `docs/STOCK_WEEK0_BOUNDARIES.md`
+- `docs/internal/stock-history/STOCK_WEEK0_BOUNDARIES.md`
 
 정리한 경계는 다음과 같다.
 
@@ -127,7 +127,7 @@
 - `apps/stock-node-app/src/main/java/discordgateway/stocknode/messaging/StockCommandListener.java`
 - `apps/stock-node-app/src/main/java/discordgateway/stocknode/messaging/StockCommandResultPublisher.java`
 - `apps/stock-node-app/src/main/resources/application.yml`
-- `docs/STOCK_WEEK0_BOUNDARIES.md`
+- `docs/internal/stock-history/STOCK_WEEK0_BOUNDARIES.md`
 
 ## 4. 의도적으로 하지 않은 것
 

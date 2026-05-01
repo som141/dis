@@ -193,8 +193,8 @@ provider 구조를 실행 환경에 반영했다.
 - `apps/stock-node-app/src/main/java/discordgateway/stocknode/bootstrap/StockProviderProperties.java`
 - `apps/stock-node-app/src/main/java/discordgateway/stocknode/quote/provider/AlphaVantageQuoteProvider.java`
 - `apps/stock-node-app/src/main/java/discordgateway/stocknode/quote/provider/FallbackQuoteProvider.java`
-- `docs/STOCK_WEEK6_WEEK8_TASK_BREAKDOWN.md`
-- `docs/STOCK_WEEK6_WEEK8_REPORT.md`
+- `docs/internal/stock-history/STOCK_WEEK6_WEEK8_TASK_BREAKDOWN.md`
+- `docs/internal/stock-history/STOCK_WEEK6_WEEK8_REPORT.md`
 
 ## 4. 검증 결과
 

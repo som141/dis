@@ -1,0 +1,8 @@
+# Operations Docs
+
+- [OPERATIONS_RUNBOOK.md](OPERATIONS_RUNBOOK.md)
+- [SERVER_DEPLOY_SCRIPT.md](SERVER_DEPLOY_SCRIPT.md)
+- [OBSERVABILITY_PLAN.md](OBSERVABILITY_PLAN.md)
+- [CI_TESTING.md](CI_TESTING.md)
+
+운영, 배포, 관측성, CI 확인 절차를 모아 둔 공개용 문서들이다.
