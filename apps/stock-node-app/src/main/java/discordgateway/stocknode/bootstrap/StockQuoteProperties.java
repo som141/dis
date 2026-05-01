@@ -17,7 +17,7 @@ public class StockQuoteProperties {
     private Duration lockWaitTimeout = Duration.ofSeconds(1);
     private Duration lockPollInterval = Duration.ofMillis(25);
     private long providerPerMinuteLimit = 60;
-    private long providerPerDayLimit = 5_000;
+    private long providerPerDayLimit = 100_000;
 
     public String getProvider() {
         return provider;

@@ -92,7 +92,7 @@ curl http://127.0.0.1:3000/api/health
 ### provider 상태 확인
 
 ```bash
-docker inspect discord-bot-stock-node-1 --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -E 'STOCK_QUOTE_PROVIDER|FINNHUB_API_KEY|STOCK_MARKET'
+docker inspect discord-bot-stock-node-1 --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -E 'STOCK_QUOTE_PROVIDER|FINNHUB_API_KEY|STOCK_MARKET|STOCK_PROVIDER_PER_MINUTE_LIMIT|STOCK_PROVIDER_PER_DAY_LIMIT'
 ```
 
 정상 예시:
@@ -100,6 +100,8 @@ docker inspect discord-bot-stock-node-1 --format '{{range .Config.Env}}{{println
 - `STOCK_QUOTE_PROVIDER=finnhub`
 - `FINNHUB_API_KEY=...`
 - `STOCK_MARKET=US`
+- `STOCK_PROVIDER_PER_MINUTE_LIMIT=60`
+- `STOCK_PROVIDER_PER_DAY_LIMIT=100000`
 
 ### Finnhub 갱신 로그 확인
 
@@ -164,6 +166,17 @@ bash /home/ubuntu/dis-bot/current/ops/smoke-check.sh
 2. `finnhub` 모드면 `quote pending`이 아닌 실제 가격이 보이는지
 3. `/stock buy`가 공개 메시지로 보이는지
 4. `/stock balance`, `/stock portfolio`, `/stock history`는 비공개인지
+
+### Finnhub rate limit 점검
+
+현재 기본 스케줄 호출량:
+
+- 10종목
+- 20초 주기
+- 분당 30콜
+- 일간 43,200콜
+
+따라서 `STOCK_PROVIDER_PER_DAY_LIMIT`가 이보다 낮으면 몇 시간 뒤 모든 refresh가 `Provider rate limit exceeded`로 막힌다.
 
 ## DLQ 재처리
 

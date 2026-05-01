@@ -60,4 +60,13 @@ class ProviderRateLimitServiceTest {
 
         assertThat(providerRateLimitService.tryConsume("mock", now)).isFalse();
     }
+
+    @Test
+    void rejectsProviderCallWhenDayBudgetIsExceeded() {
+        Instant now = Instant.parse("2026-04-22T07:05:31Z");
+        when(valueOperations.increment("stock:provider:mock:minute:202604220705")).thenReturn(1L);
+        when(valueOperations.increment("stock:provider:mock:day:2026-04-22")).thenReturn(6L);
+
+        assertThat(providerRateLimitService.tryConsume("mock", now)).isFalse();
+    }
 }

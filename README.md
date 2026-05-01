@@ -98,6 +98,8 @@ flowchart LR
 - `stock-node-app`이 20초마다 상위 10개 시세를 갱신하고 Redis cache에 저장한다.
 - Redis quote TTL은 60초다.
 - 거래는 45초 이내 fresh quote가 있을 때만 허용된다.
+- 기본 provider 보호 한도는 분당 `60`, 일간 `100000`이다.
+- 현재 주기와 종목 수 기준 예상 호출량은 분당 `30`, 일간 `43200`이다.
 
 ## 빠른 시작
 
@@ -125,6 +127,8 @@ Finnhub 사용 시:
 ```env
 STOCK_QUOTE_PROVIDER=finnhub
 FINNHUB_API_KEY=<your-key>
+STOCK_PROVIDER_PER_MINUTE_LIMIT=60
+STOCK_PROVIDER_PER_DAY_LIMIT=100000
 ```
 
 ### 2. 전체 빌드

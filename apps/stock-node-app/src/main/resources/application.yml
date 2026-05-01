@@ -66,7 +66,7 @@ stock:
     lock-wait-timeout: ${STOCK_QUOTE_LOCK_WAIT_TIMEOUT:1s}
     lock-poll-interval: ${STOCK_QUOTE_LOCK_POLL_INTERVAL:25ms}
     provider-per-minute-limit: ${STOCK_PROVIDER_PER_MINUTE_LIMIT:60}
-    provider-per-day-limit: ${STOCK_PROVIDER_PER_DAY_LIMIT:5000}
+    provider-per-day-limit: ${STOCK_PROVIDER_PER_DAY_LIMIT:100000}
   market-data:
     enabled: ${STOCK_MARKET_DATA_ENABLED:true}
     market: ${STOCK_MARKET:US}
