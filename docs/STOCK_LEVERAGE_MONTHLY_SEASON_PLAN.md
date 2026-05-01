@@ -4,6 +4,11 @@
 
 Add leverage trading to the stock game and replace the current daily allowance model with a monthly season model.
 
+Note:
+
+- this document captures the original implementation plan
+- refresh-driven automatic liquidation was added later as a follow-up change
+
 Target behavior:
 
 - the current `DailyAllowanceService` rule is removed

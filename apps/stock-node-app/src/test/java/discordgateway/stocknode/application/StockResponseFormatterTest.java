@@ -30,6 +30,7 @@ class StockResponseFormatterTest {
         assertThat(message).contains("주식 시세 조회 결과");
         assertThat(message).contains("AAPL");
         assertThat(message).contains("최신 시세");
+        assertThat(message).contains("123.45");
     }
 
     @Test
@@ -51,7 +52,7 @@ class StockResponseFormatterTest {
                 )
         );
 
-        assertThat(message).contains("주식 시세표");
+        assertThat(message).contains("주식 시세 표");
         assertThat(message).contains("```text");
         assertThat(message).contains("AAPL");
         assertThat(message).contains("MSFT");
@@ -74,6 +75,42 @@ class StockResponseFormatterTest {
         assertThat(message).contains("시세 준비 중");
         assertThat(message).contains("[지연]");
         assertThat(message).contains("Finnhub REST API");
+    }
+
+    @Test
+    void formatsTradeResponseWithSimplifiedFields() {
+        String message = formatter.formatTrade(new TradeExecutionResult(
+                1L,
+                1001L,
+                2002L,
+                TradeSide.BUY,
+                "us",
+                "NVDA",
+                new BigDecimal("3.00000000"),
+                10,
+                new BigDecimal("59.8710"),
+                new BigDecimal("598.7100"),
+                new BigDecimal("3.00000000"),
+                new BigDecimal("199.5700"),
+                new BigDecimal("59.8710"),
+                new BigDecimal("9940.1290"),
+                new BigDecimal("3.00000000"),
+                new BigDecimal("199.5700"),
+                "50x leverage means that even an adverse move of around 2% may almost fully wipe the position value."
+        ));
+
+        assertThat(message).contains("매수 체결 완료");
+        assertThat(message).contains("주문자");
+        assertThat(message).contains("NVDA");
+        assertThat(message).contains("10배");
+        assertThat(message).contains("199.57");
+        assertThat(message).contains("3주");
+        assertThat(message).contains("59.87");
+        assertThat(message).doesNotContain("시장");
+        assertThat(message).doesNotContain("증거금");
+        assertThat(message).doesNotContain("포지션 규모");
+        assertThat(message).doesNotContain("남은 현금");
+        assertThat(message).doesNotContain("현재 보유 수량");
     }
 
     @Test
@@ -120,9 +157,11 @@ class StockResponseFormatterTest {
 
         assertThat(portfolio).contains("현재 포트폴리오");
         assertThat(portfolio).contains("AAPL");
+        assertThat(portfolio).contains("5주");
         assertThat(history).contains("최근 거래 내역");
         assertThat(history).contains("매수");
         assertThat(history).contains("AAPL");
+        assertThat(history).contains("200");
     }
 
     @Test
@@ -141,7 +180,7 @@ class StockResponseFormatterTest {
                 ))
         ));
 
-        assertThat(ranking).contains("서버 수익률 순위");
+        assertThat(ranking).contains("시즌 수익률 순위");
         assertThat(ranking).contains("<@2002>");
         assertThat(ranking).contains("1.0000%");
     }

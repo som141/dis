@@ -37,23 +37,16 @@ public class StockResponseFormatter {
     public String formatQuoteTable(String market, List<String> symbols, List<StockQuoteResult> results) {
         boolean hasStale = results.stream().anyMatch(result -> !result.fresh());
         StringBuilder builder = new StringBuilder()
-                .append("**주식 시세표**").append(System.lineSeparator())
+                .append("**주식 시세 표**").append(System.lineSeparator())
                 .append("- 시장: ").append(displayMarketName(market)).append(System.lineSeparator())
                 .append("```text").append(System.lineSeparator())
-                .append(String.format(
-                        Locale.ROOT,
-                        "%-8s %-14s %-8s %-10s%n",
-                        "SYMBOL",
-                        "PRICE",
-                        "STATUS",
-                        "TIME"
-                ));
+                .append(String.format(Locale.ROOT, "%-8s %-12s %-8s %-10s%n", "SYMBOL", "PRICE", "STATUS", "TIME"));
 
         for (int index = 0; index < symbols.size(); index++) {
             StockQuoteResult result = results.get(index);
             builder.append(String.format(
                     Locale.ROOT,
-                    "%-8s %-14s %-8s %-10s%n",
+                    "%-8s %-12s %-8s %-10s%n",
                     symbols.get(index),
                     formatMoney(result.quote().price()),
                     freshnessShortLabel(result.fresh()),
@@ -111,19 +104,11 @@ public class StockResponseFormatter {
         StringJoiner joiner = new StringJoiner(System.lineSeparator())
                 .add(result.side() == TradeSide.BUY ? "**매수 체결 완료**" : "**매도 체결 완료**")
                 .add("- 주문자: <@" + result.userId() + ">")
-                .add("- 시장: " + displayMarketName(result.market()))
                 .add("- 종목: " + result.symbol())
                 .add("- 적용 레버리지: " + result.leverage() + "배")
                 .add("- 체결 단가: " + formatMoney(result.unitPrice()))
-                .add("- 증거금: " + formatMoney(result.marginAmount()))
-                .add("- 포지션 규모: " + formatMoney(result.notionalAmount()))
                 .add("- 체결 수량: " + formatQuantity(result.executedQuantity()) + "주")
-                .add("- 정산 금액: " + formatMoney(result.settledAmount()))
-                .add("- 남은 현금: " + formatMoney(result.remainingCash()))
-                .add("- 현재 보유 수량: " + formatQuantity(result.remainingPositionQuantity()) + "주");
-        if (result.requestedQuantity() != null) {
-            joiner.add("- 요청 수량: " + formatQuantity(result.requestedQuantity()) + "주");
-        }
+                .add("- 정산 금액: " + formatMoney(result.settledAmount()));
         if (result.warningMessage() != null && !result.warningMessage().isBlank()) {
             joiner.add("- 주의: " + localizeWarning(result.warningMessage()));
         }
@@ -195,7 +180,7 @@ public class StockResponseFormatter {
 
     public String formatRanking(RankingView rankingView) {
         StringJoiner joiner = new StringJoiner(System.lineSeparator())
-                .add("**서버 수익률 순위**")
+                .add("**시즌 수익률 순위**")
                 .add("- 시즌: " + rankingView.seasonKey())
                 .add("- 집계 기준: " + periodLabel(rankingView.period()))
                 .add("- 집계 시각: " + DATE_TIME_FORMATTER.format(rankingView.generatedAt()));
@@ -280,17 +265,17 @@ public class StockResponseFormatter {
 
     private String localizeWarning(String warningMessage) {
         if (warningMessage.contains("50x leverage")) {
-            return "50배 레버리지는 약 2%만 불리하게 움직여도 포지션 가치가 크게 훼손될 수 있습니다.";
+            return "50배 레버리지는 약 2%만 불리하게 움직여도 포지션 가치가 거의 0원이 될 수 있습니다.";
         }
         return warningMessage;
     }
 
     private String formatMoney(BigDecimal value) {
-        return decimalFormat("#,##0.0000").format(value.setScale(4, RoundingMode.HALF_UP));
+        return decimalFormat("#,##0.##").format(value.setScale(2, RoundingMode.HALF_UP));
     }
 
     private String formatQuantity(BigDecimal value) {
-        return decimalFormat("#,##0.00000000").format(value.setScale(8, RoundingMode.HALF_UP));
+        return decimalFormat("#,##0.####").format(value.setScale(4, RoundingMode.HALF_UP));
     }
 
     private String formatPercent(BigDecimal value) {

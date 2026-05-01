@@ -2,6 +2,7 @@ package discordgateway.stocknode.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import discordgateway.stock.messaging.StockMessagingProperties;
+import discordgateway.stocknode.application.AutoLiquidationService;
 import discordgateway.stocknode.application.BalanceQueryService;
 import discordgateway.stocknode.application.DailyAllowanceService;
 import discordgateway.stocknode.application.FinnhubTop10RefreshScheduler;
@@ -50,6 +51,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.Clock;
@@ -271,6 +274,23 @@ public class StockNodeComponentConfiguration {
     }
 
     @Bean
+    public AutoLiquidationService autoLiquidationService(
+            StockPositionRepository stockPositionRepository,
+            TradeLedgerRepository tradeLedgerRepository,
+            RankingCacheRepository rankingCacheRepository,
+            Clock stockClock,
+            PlatformTransactionManager transactionManager
+    ) {
+        return new AutoLiquidationService(
+                stockPositionRepository,
+                tradeLedgerRepository,
+                rankingCacheRepository,
+                stockClock,
+                new TransactionTemplate(transactionManager)
+        );
+    }
+
+    @Bean
     public PortfolioService portfolioService(
             StockPositionRepository stockPositionRepository,
             QuoteService quoteService,
@@ -341,6 +361,7 @@ public class StockNodeComponentConfiguration {
     public FinnhubTop10RefreshScheduler finnhubTop10RefreshScheduler(
             StockWatchlistService stockWatchlistService,
             MarketQuoteRefreshService marketQuoteRefreshService,
+            AutoLiquidationService autoLiquidationService,
             StockMarketDataProperties stockMarketDataProperties,
             StockQuoteProperties stockQuoteProperties,
             Clock stockClock
@@ -348,6 +369,7 @@ public class StockNodeComponentConfiguration {
         return new FinnhubTop10RefreshScheduler(
                 stockWatchlistService,
                 marketQuoteRefreshService,
+                autoLiquidationService,
                 stockMarketDataProperties,
                 stockQuoteProperties,
                 stockClock

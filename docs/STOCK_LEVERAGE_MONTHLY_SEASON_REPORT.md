@@ -167,7 +167,7 @@ Completed:
 
 The following are intentionally still limited or simplified:
 
-- no forced liquidation engine yet
+- forced liquidation is now refresh-driven and long-only
 - no maintenance margin model yet
 - no cross-margin model
 - monthly scheduler currently logs the boundary and relies on time-based active season resolution

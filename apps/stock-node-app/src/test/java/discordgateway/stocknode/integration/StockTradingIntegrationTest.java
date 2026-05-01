@@ -2,6 +2,7 @@ package discordgateway.stocknode.integration;
 
 import discordgateway.stocknode.application.BalanceQueryService;
 import discordgateway.stocknode.application.BalanceView;
+import discordgateway.stocknode.application.AutoLiquidationService;
 import discordgateway.stocknode.application.PortfolioQueryService;
 import discordgateway.stocknode.application.PortfolioView;
 import discordgateway.stocknode.application.TradeExecutionResult;
@@ -40,6 +41,9 @@ class StockTradingIntegrationTest extends StockNodeIntegrationTestSupport {
 
     @Autowired
     private TradeExecutionService tradeExecutionService;
+
+    @Autowired
+    private AutoLiquidationService autoLiquidationService;
 
     @Autowired
     private TradeHistoryQueryService tradeHistoryQueryService;
@@ -83,5 +87,26 @@ class StockTradingIntegrationTest extends StockNodeIntegrationTestSupport {
         assertThat(tradeHistoryView.entries()).hasSize(2);
         assertThat(tradeHistoryView.entries().get(0).side().name()).isEqualTo("SELL");
         assertThat(tradeHistoryView.entries().get(1).side().name()).isEqualTo("BUY");
+    }
+
+    @Test
+    void liquidatesLeveragedPositionWhenIsolatedEquityIsExhausted() {
+        TradeExecutionResult buyResult = tradeExecutionService.buy(1001L, 2002L, "AAPL", new BigDecimal("5"), 10);
+        assertThat(buyResult.marginAmount()).isEqualByComparingTo("100.0000");
+
+        quoteRepository.save(new StockQuote("US", "AAPL", new BigDecimal("180.00"), Instant.now()), Duration.ofSeconds(60));
+        autoLiquidationService.liquidateExhaustedPositions(
+                new StockQuote("US", "AAPL", new BigDecimal("180.00"), Instant.now())
+        );
+
+        PortfolioView portfolioView = portfolioQueryService.getPortfolio(1001L, 2002L);
+        assertThat(portfolioView.positions()).isEmpty();
+
+        TradeHistoryView tradeHistoryView = tradeHistoryQueryService.getHistory(1001L, 2002L, 10);
+        assertThat(tradeHistoryView.entries()).hasSize(2);
+        assertThat(tradeHistoryView.entries().get(0).side().name()).isEqualTo("SELL");
+
+        BalanceView balanceView = balanceQueryService.getBalance(1001L, 2002L);
+        assertThat(balanceView.cashBalance()).isEqualByComparingTo("9900.0000");
     }
 }

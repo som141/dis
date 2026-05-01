@@ -11,4 +11,6 @@ public interface StockPositionRepository extends JpaRepository<StockPositionEnti
     Optional<StockPositionEntity> findByAccountIdAndSymbol(Long accountId, String symbol);
 
     List<StockPositionEntity> findAllByAccountIdOrderBySymbolAsc(Long accountId);
+
+    List<StockPositionEntity> findAllBySymbolOrderByIdAsc(String symbol);
 }

@@ -20,6 +20,7 @@ public class FinnhubTop10RefreshScheduler {
 
     private final StockWatchlistService stockWatchlistService;
     private final MarketQuoteRefreshService marketQuoteRefreshService;
+    private final AutoLiquidationService autoLiquidationService;
     private final StockMarketDataProperties stockMarketDataProperties;
     private final StockQuoteProperties stockQuoteProperties;
     private final Clock clock;
@@ -27,12 +28,14 @@ public class FinnhubTop10RefreshScheduler {
     public FinnhubTop10RefreshScheduler(
             StockWatchlistService stockWatchlistService,
             MarketQuoteRefreshService marketQuoteRefreshService,
+            AutoLiquidationService autoLiquidationService,
             StockMarketDataProperties stockMarketDataProperties,
             StockQuoteProperties stockQuoteProperties,
             Clock clock
     ) {
         this.stockWatchlistService = stockWatchlistService;
         this.marketQuoteRefreshService = marketQuoteRefreshService;
+        this.autoLiquidationService = autoLiquidationService;
         this.stockMarketDataProperties = stockMarketDataProperties;
         this.stockQuoteProperties = stockQuoteProperties;
         this.clock = clock;
@@ -58,8 +61,18 @@ public class FinnhubTop10RefreshScheduler {
         for (StockWatchlistEntity item : watchlist) {
             try {
                 StockQuote refreshedQuote = marketQuoteRefreshService.refreshQuote(item.getMarket(), item.getSymbol());
+                LiquidationBatchResult liquidationBatchResult = autoLiquidationService.liquidateExhaustedPositions(refreshedQuote);
                 successCount++;
                 log.info("refreshed stock quote from Finnhub market={} symbol={}", refreshedQuote.market(), refreshedQuote.symbol());
+                if (liquidationBatchResult.liquidatedCount() > 0 || liquidationBatchResult.failureCount() > 0) {
+                    log.info(
+                            "processed stock liquidation scan symbol={} scannedCount={} liquidatedCount={} failureCount={}",
+                            liquidationBatchResult.symbol(),
+                            liquidationBatchResult.scannedCount(),
+                            liquidationBatchResult.liquidatedCount(),
+                            liquidationBatchResult.failureCount()
+                    );
+                }
             } catch (Exception exception) {
                 failureCount++;
                 log.warn(

@@ -95,8 +95,9 @@ class StockMessagingIntegrationTest extends StockNodeMessagingIntegrationTestSup
 
         assertThat(event.success()).isTrue();
         assertThat(event.resultType()).isEqualTo("QUOTE");
+        assertThat(event.message()).contains("주식 시세 조회 결과");
         assertThat(event.message()).contains("AAPL");
-        assertThat(event.message()).contains("200.0000");
+        assertThat(event.message()).contains("200");
         assertThat(event.message()).contains("KST");
     }
 
@@ -151,6 +152,9 @@ class StockMessagingIntegrationTest extends StockNodeMessagingIntegrationTestSup
         ));
         assertThat(buyEvent.success()).isTrue();
         assertThat(buyEvent.resultType()).isEqualTo("BUY");
+        assertThat(buyEvent.message()).contains("매수 체결 완료");
+        assertThat(buyEvent.message()).contains("체결 수량: 5주");
+        assertThat(buyEvent.message()).doesNotContain("남은 현금");
 
         StockCommandResultEvent historyEvent = sendAndReceive(new StockCommandEnvelope(
                 "cmd-history",
@@ -162,8 +166,10 @@ class StockMessagingIntegrationTest extends StockNodeMessagingIntegrationTestSup
         ));
         assertThat(historyEvent.success()).isTrue();
         assertThat(historyEvent.resultType()).isEqualTo("HISTORY");
+        assertThat(historyEvent.message()).contains("최근 거래 내역");
+        assertThat(historyEvent.message()).contains("매수");
         assertThat(historyEvent.message()).contains("AAPL");
-        assertThat(historyEvent.message()).contains("200.0000");
+        assertThat(historyEvent.message()).contains("200");
     }
 
     @Test
@@ -180,6 +186,7 @@ class StockMessagingIntegrationTest extends StockNodeMessagingIntegrationTestSup
         assertThat(event.success()).isTrue();
         assertThat(event.resultType()).isEqualTo("RANK");
         assertThat(event.message()).contains(YearMonth.now(ZoneId.of("Asia/Seoul")).toString());
+        assertThat(event.message()).contains("시즌 수익률 순위");
         assertThat(event.message()).contains("KST");
     }
 

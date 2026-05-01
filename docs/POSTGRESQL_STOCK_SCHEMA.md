@@ -159,9 +159,10 @@
 
 현재 1차 구현은 isolated margin 기준이다.
 
-- `/stock buy` 금액은 증거금으로 해석한다.
+- `/stock buy` 입력은 정수 주식 수량으로 해석한다.
 - 포지션 규모는 `margin * leverage`
 - 포지션 손익은 `margin_amount`, `notional_amount`, 현재가 기준으로 계산한다.
+- 20초 시세 갱신 때 `isolatedEquity = marginAmount + unrealizedPnL` 를 다시 계산하고 `0 이하`이면 자동 청산한다.
 
 ## 운영 확인 쿼리
 

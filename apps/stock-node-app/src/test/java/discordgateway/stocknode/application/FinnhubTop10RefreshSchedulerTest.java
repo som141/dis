@@ -3,6 +3,7 @@ package discordgateway.stocknode.application;
 import discordgateway.stocknode.bootstrap.StockMarketDataProperties;
 import discordgateway.stocknode.bootstrap.StockQuoteProperties;
 import discordgateway.stocknode.persistence.entity.StockWatchlistEntity;
+import discordgateway.stocknode.quote.model.StockQuote;
 import discordgateway.stocknode.quote.service.MarketQuoteRefreshService;
 import org.junit.jupiter.api.Test;
 
@@ -11,6 +12,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -22,6 +24,7 @@ class FinnhubTop10RefreshSchedulerTest {
     void doesNotRunWhenProviderIsMock() {
         StockWatchlistService stockWatchlistService = mock(StockWatchlistService.class);
         MarketQuoteRefreshService marketQuoteRefreshService = mock(MarketQuoteRefreshService.class);
+        AutoLiquidationService autoLiquidationService = mock(AutoLiquidationService.class);
         StockMarketDataProperties marketDataProperties = new StockMarketDataProperties();
         marketDataProperties.setMarket("US");
         marketDataProperties.setTopRankLimit(10);
@@ -31,6 +34,7 @@ class FinnhubTop10RefreshSchedulerTest {
         FinnhubTop10RefreshScheduler scheduler = new FinnhubTop10RefreshScheduler(
                 stockWatchlistService,
                 marketQuoteRefreshService,
+                autoLiquidationService,
                 marketDataProperties,
                 quoteProperties,
                 Clock.fixed(Instant.parse("2026-05-01T00:00:00Z"), ZoneOffset.UTC)
@@ -40,12 +44,14 @@ class FinnhubTop10RefreshSchedulerTest {
 
         verify(stockWatchlistService, never()).getEnabledByMarket("US", 10);
         verify(marketQuoteRefreshService, never()).refreshQuote("US", "NVDA");
+        verify(autoLiquidationService, never()).liquidateExhaustedPositions(any());
     }
 
     @Test
     void continuesWhenOneWatchlistSymbolFails() {
         StockWatchlistService stockWatchlistService = mock(StockWatchlistService.class);
         MarketQuoteRefreshService marketQuoteRefreshService = mock(MarketQuoteRefreshService.class);
+        AutoLiquidationService autoLiquidationService = mock(AutoLiquidationService.class);
         StockMarketDataProperties marketDataProperties = new StockMarketDataProperties();
         marketDataProperties.setMarket("US");
         marketDataProperties.setTopRankLimit(10);
@@ -62,10 +68,15 @@ class FinnhubTop10RefreshSchedulerTest {
 
         when(stockWatchlistService.getEnabledByMarket("US", 10)).thenReturn(List.of(nvda, aapl));
         when(marketQuoteRefreshService.refreshQuote("US", "NVDA")).thenThrow(new IllegalStateException("boom"));
+        when(marketQuoteRefreshService.refreshQuote("US", "AAPL"))
+                .thenReturn(new StockQuote("US", "AAPL", java.math.BigDecimal.valueOf(200), Instant.parse("2026-05-01T00:00:00Z")));
+        when(autoLiquidationService.liquidateExhaustedPositions(any()))
+                .thenReturn(new LiquidationBatchResult("AAPL", 0, 0, 0));
 
         FinnhubTop10RefreshScheduler scheduler = new FinnhubTop10RefreshScheduler(
                 stockWatchlistService,
                 marketQuoteRefreshService,
+                autoLiquidationService,
                 marketDataProperties,
                 quoteProperties,
                 Clock.fixed(Instant.parse("2026-05-01T00:00:00Z"), ZoneOffset.UTC)
@@ -75,5 +86,6 @@ class FinnhubTop10RefreshSchedulerTest {
 
         verify(marketQuoteRefreshService).refreshQuote("US", "NVDA");
         verify(marketQuoteRefreshService).refreshQuote("US", "AAPL");
+        verify(autoLiquidationService).liquidateExhaustedPositions(any());
     }
 }
