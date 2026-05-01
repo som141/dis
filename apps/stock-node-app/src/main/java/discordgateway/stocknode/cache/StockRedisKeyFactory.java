@@ -30,8 +30,13 @@ public class StockRedisKeyFactory {
         return "stock:provider:" + normalizeProvider(provider) + ":day:" + Objects.requireNonNull(date, "date");
     }
 
-    public String rankKey(long guildId, String period) {
-        return "stock:rank:" + guildId + ":" + Objects.requireNonNull(period, "period").trim().toLowerCase(Locale.ROOT);
+    public String rankKey(long guildId, String period, String seasonKey) {
+        return "stock:rank:"
+                + Objects.requireNonNull(seasonKey, "seasonKey").trim().toLowerCase(Locale.ROOT)
+                + ":"
+                + guildId
+                + ":"
+                + Objects.requireNonNull(period, "period").trim().toLowerCase(Locale.ROOT);
     }
 
     private String normalizeMarket(String market) {

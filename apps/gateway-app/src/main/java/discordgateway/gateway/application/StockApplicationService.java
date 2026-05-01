@@ -35,12 +35,19 @@ public class StockApplicationService {
         ));
     }
 
-    public StockCommandEnvelope prepareBuy(long guildId, long requesterId, String symbol, BigDecimal amount) {
+    public StockCommandEnvelope prepareBuy(
+            long guildId,
+            long requesterId,
+            String symbol,
+            BigDecimal amount,
+            Integer leverage
+    ) {
         return stockCommandMessageFactory.createEnvelope(new StockCommand.Buy(
                 guildId,
                 requesterId,
                 normalizeSymbol(symbol),
-                amount
+                amount,
+                leverage == null ? 1 : leverage
         ));
     }
 

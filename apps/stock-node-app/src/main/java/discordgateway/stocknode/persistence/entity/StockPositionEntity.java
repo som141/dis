@@ -43,6 +43,15 @@ public class StockPositionEntity extends BaseTimeEntity {
     @Column(name = "average_cost", nullable = false, precision = 19, scale = 4)
     private BigDecimal averageCost;
 
+    @Column(name = "leverage", nullable = false)
+    private Integer leverage;
+
+    @Column(name = "margin_amount", nullable = false, precision = 19, scale = 4)
+    private BigDecimal marginAmount;
+
+    @Column(name = "notional_amount", nullable = false, precision = 19, scale = 4)
+    private BigDecimal notionalAmount;
+
     protected StockPositionEntity() {
     }
 
@@ -50,33 +59,97 @@ public class StockPositionEntity extends BaseTimeEntity {
             StockAccountEntity account,
             String symbol,
             BigDecimal quantity,
-            BigDecimal averageCost
+            BigDecimal averageCost,
+            Integer leverage,
+            BigDecimal marginAmount,
+            BigDecimal notionalAmount
     ) {
         this.account = Objects.requireNonNull(account, "account");
         this.symbol = normalizeSymbol(symbol);
         this.quantity = Objects.requireNonNull(quantity, "quantity");
         this.averageCost = Objects.requireNonNull(averageCost, "averageCost");
+        this.leverage = Objects.requireNonNull(leverage, "leverage");
+        this.marginAmount = Objects.requireNonNull(marginAmount, "marginAmount");
+        this.notionalAmount = Objects.requireNonNull(notionalAmount, "notionalAmount");
     }
 
     public static StockPositionEntity create(StockAccountEntity account, String symbol) {
-        return new StockPositionEntity(account, symbol, BigDecimal.ZERO, BigDecimal.ZERO);
+        return create(account, symbol, 1);
+    }
+
+    public static StockPositionEntity create(StockAccountEntity account, String symbol, int leverage) {
+        return new StockPositionEntity(
+                account,
+                symbol,
+                BigDecimal.ZERO.setScale(8, RoundingMode.HALF_UP),
+                BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP),
+                leverage,
+                BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP),
+                BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP)
+        );
     }
 
     public void applyBuy(BigDecimal buyQuantity, BigDecimal unitPrice) {
         BigDecimal normalizedBuyQuantity = scaleQuantity(buyQuantity);
         BigDecimal normalizedUnitPrice = scaleCash(unitPrice);
+        applyBuy(
+                normalizedBuyQuantity,
+                normalizedUnitPrice,
+                scaleCash(normalizedBuyQuantity.multiply(normalizedUnitPrice)),
+                scaleCash(normalizedBuyQuantity.multiply(normalizedUnitPrice)),
+                1
+        );
+    }
+
+    public void applyBuy(
+            BigDecimal buyQuantity,
+            BigDecimal unitPrice,
+            BigDecimal marginAmount,
+            BigDecimal notionalAmount,
+            int leverage
+    ) {
+        BigDecimal normalizedBuyQuantity = scaleQuantity(buyQuantity);
+        BigDecimal normalizedUnitPrice = scaleCash(unitPrice);
         BigDecimal totalCost = quantity.multiply(averageCost).add(normalizedBuyQuantity.multiply(normalizedUnitPrice));
         BigDecimal totalQuantity = quantity.add(normalizedBuyQuantity);
+        if (quantity.signum() == 0) {
+            this.leverage = leverage;
+        } else if (!Objects.equals(this.leverage, leverage)) {
+            throw new IllegalArgumentException("Leverage must match the existing position");
+        }
         quantity = scaleQuantity(totalQuantity);
         averageCost = totalQuantity.signum() == 0
                 ? BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP)
                 : totalCost.divide(totalQuantity, 4, RoundingMode.HALF_UP);
+        this.marginAmount = scaleCash(this.marginAmount.add(scaleCash(marginAmount)));
+        this.notionalAmount = scaleCash(this.notionalAmount.add(scaleCash(notionalAmount)));
     }
 
     public void applySell(BigDecimal sellQuantity) {
+        if (quantity.signum() == 0) {
+            return;
+        }
+        BigDecimal ratio = scaleQuantity(sellQuantity).divide(quantity, 16, RoundingMode.HALF_UP);
+        applySell(
+                sellQuantity,
+                scaleCash(marginAmount.multiply(ratio)),
+                scaleCash(notionalAmount.multiply(ratio))
+        );
+    }
+
+    public void applySell(
+            BigDecimal sellQuantity,
+            BigDecimal releasedMarginAmount,
+            BigDecimal releasedNotionalAmount
+    ) {
         quantity = scaleQuantity(quantity.subtract(scaleQuantity(sellQuantity)));
+        marginAmount = scaleCash(marginAmount.subtract(scaleCash(releasedMarginAmount)));
+        notionalAmount = scaleCash(notionalAmount.subtract(scaleCash(releasedNotionalAmount)));
         if (quantity.signum() == 0) {
             averageCost = BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);
+            marginAmount = BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);
+            notionalAmount = BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);
+            leverage = 1;
         }
     }
 
@@ -110,6 +183,18 @@ public class StockPositionEntity extends BaseTimeEntity {
 
     public BigDecimal getAverageCost() {
         return averageCost;
+    }
+
+    public Integer getLeverage() {
+        return leverage;
+    }
+
+    public BigDecimal getMarginAmount() {
+        return marginAmount;
+    }
+
+    public BigDecimal getNotionalAmount() {
+        return notionalAmount;
     }
 
     private BigDecimal scaleQuantity(BigDecimal value) {

@@ -23,6 +23,7 @@ public class RankingService {
     private final StockAccountRepository stockAccountRepository;
     private final AllowanceLedgerRepository allowanceLedgerRepository;
     private final DailyAllowanceService dailyAllowanceService;
+    private final StockAccountApplicationService stockAccountApplicationService;
     private final PortfolioService portfolioService;
     private final SnapshotService snapshotService;
     private final RankingCacheRepository rankingCacheRepository;
@@ -33,6 +34,7 @@ public class RankingService {
             StockAccountRepository stockAccountRepository,
             AllowanceLedgerRepository allowanceLedgerRepository,
             DailyAllowanceService dailyAllowanceService,
+            StockAccountApplicationService stockAccountApplicationService,
             PortfolioService portfolioService,
             SnapshotService snapshotService,
             RankingCacheRepository rankingCacheRepository,
@@ -42,6 +44,7 @@ public class RankingService {
         this.stockAccountRepository = stockAccountRepository;
         this.allowanceLedgerRepository = allowanceLedgerRepository;
         this.dailyAllowanceService = dailyAllowanceService;
+        this.stockAccountApplicationService = stockAccountApplicationService;
         this.portfolioService = portfolioService;
         this.snapshotService = snapshotService;
         this.rankingCacheRepository = rankingCacheRepository;
@@ -52,13 +55,14 @@ public class RankingService {
     @Transactional
     public RankingView getRanking(long guildId, String rawPeriod) {
         RankingPeriod rankingPeriod = RankingPeriod.from(rawPeriod);
-        return rankingCacheRepository.find(guildId, rankingPeriod)
-                .orElseGet(() -> computeAndCache(guildId, rankingPeriod));
+        String seasonKey = stockAccountApplicationService.currentSeasonKey();
+        return rankingCacheRepository.find(guildId, rankingPeriod, seasonKey)
+                .orElseGet(() -> computeAndCache(guildId, rankingPeriod, seasonKey));
     }
 
-    private RankingView computeAndCache(long guildId, RankingPeriod rankingPeriod) {
+    private RankingView computeAndCache(long guildId, RankingPeriod rankingPeriod, String seasonKey) {
         Instant now = clock.instant();
-        List<RankingEntryView> entries = stockAccountRepository.findAllByGuildIdOrderByIdAsc(guildId).stream()
+        List<RankingEntryView> entries = stockAccountApplicationService.findActiveSeasonAccountsByGuildId(guildId).stream()
                 .map(account -> toEntry(account, rankingPeriod, now))
                 .sorted(Comparator.comparing(RankingEntryView::returnRatePercent).reversed()
                         .thenComparing(RankingEntryView::userId))
@@ -66,6 +70,7 @@ public class RankingService {
 
         RankingView rankingView = new RankingView(
                 guildId,
+                seasonKey,
                 rankingPeriod.name().toLowerCase(),
                 now,
                 entries
@@ -75,7 +80,7 @@ public class RankingService {
     }
 
     private RankingEntryView toEntry(StockAccountEntity account, RankingPeriod rankingPeriod, Instant now) {
-        dailyAllowanceService.applyDailyAllowanceIfDue(account);
+        dailyAllowanceService.applyMonthlySeedIfMissing(account);
         PortfolioView portfolioView = portfolioService.build(account, QuoteUsage.RANK);
         BigDecimal baselineEquity = resolveBaselineEquity(account, rankingPeriod, portfolioView, now);
         BigDecimal returnRatePercent = computeReturnRatePercent(portfolioView.totalEquity(), baselineEquity);

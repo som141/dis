@@ -54,13 +54,14 @@ class StockApplicationServiceTest {
                 new StockCommandMessageFactory("gateway-1")
         );
 
-        StockCommandEnvelope envelope = service.prepareBuy(10L, 20L, "msft", new BigDecimal("1500.50"));
+        StockCommandEnvelope envelope = service.prepareBuy(10L, 20L, "msft", new BigDecimal("1500.50"), null);
 
         assertThat(envelope.command()).isEqualTo(new StockCommand.Buy(
                 10L,
                 20L,
                 "MSFT",
-                new BigDecimal("1500.50")
+                new BigDecimal("1500.50"),
+                1
         ));
     }
 

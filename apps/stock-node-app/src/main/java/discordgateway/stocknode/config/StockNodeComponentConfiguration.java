@@ -5,6 +5,7 @@ import discordgateway.stock.messaging.StockMessagingProperties;
 import discordgateway.stocknode.application.BalanceQueryService;
 import discordgateway.stocknode.application.DailyAllowanceService;
 import discordgateway.stocknode.application.FinnhubTop10RefreshScheduler;
+import discordgateway.stocknode.application.MonthlySeasonScheduler;
 import discordgateway.stocknode.application.PortfolioQueryService;
 import discordgateway.stocknode.application.PortfolioService;
 import discordgateway.stocknode.application.RankingService;
@@ -14,6 +15,7 @@ import discordgateway.stocknode.application.StockAccountApplicationService;
 import discordgateway.stocknode.application.StockCommandApplicationService;
 import discordgateway.stocknode.application.StockListQueryService;
 import discordgateway.stocknode.application.StockResponseFormatter;
+import discordgateway.stocknode.application.StockSeasonService;
 import discordgateway.stocknode.application.StockWatchlistService;
 import discordgateway.stocknode.application.TradeExecutionService;
 import discordgateway.stocknode.application.TradeHistoryQueryService;
@@ -64,9 +66,10 @@ public class StockNodeComponentConfiguration {
 
     @Bean
     public StockAccountApplicationService stockAccountApplicationService(
-            StockAccountRepository stockAccountRepository
+            StockAccountRepository stockAccountRepository,
+            StockSeasonService stockSeasonService
     ) {
-        return new StockAccountApplicationService(stockAccountRepository);
+        return new StockAccountApplicationService(stockAccountRepository, stockSeasonService);
     }
 
     @Bean
@@ -77,6 +80,11 @@ public class StockNodeComponentConfiguration {
     @Bean
     public Clock stockClock() {
         return Clock.systemUTC();
+    }
+
+    @Bean
+    public StockSeasonService stockSeasonService(Clock stockClock) {
+        return new StockSeasonService(stockClock);
     }
 
     @Bean
@@ -310,6 +318,7 @@ public class StockNodeComponentConfiguration {
             StockAccountRepository stockAccountRepository,
             AccountSnapshotRepository accountSnapshotRepository,
             DailyAllowanceService dailyAllowanceService,
+            StockAccountApplicationService stockAccountApplicationService,
             PortfolioService portfolioService,
             Clock stockClock
     ) {
@@ -317,6 +326,7 @@ public class StockNodeComponentConfiguration {
                 stockAccountRepository,
                 accountSnapshotRepository,
                 dailyAllowanceService,
+                stockAccountApplicationService,
                 portfolioService,
                 stockClock
         );
@@ -345,10 +355,16 @@ public class StockNodeComponentConfiguration {
     }
 
     @Bean
+    public MonthlySeasonScheduler monthlySeasonScheduler(StockSeasonService stockSeasonService) {
+        return new MonthlySeasonScheduler(stockSeasonService);
+    }
+
+    @Bean
     public RankingService rankingService(
             StockAccountRepository stockAccountRepository,
             AllowanceLedgerRepository allowanceLedgerRepository,
             DailyAllowanceService dailyAllowanceService,
+            StockAccountApplicationService stockAccountApplicationService,
             PortfolioService portfolioService,
             SnapshotService snapshotService,
             RankingCacheRepository rankingCacheRepository,
@@ -359,6 +375,7 @@ public class StockNodeComponentConfiguration {
                 stockAccountRepository,
                 allowanceLedgerRepository,
                 dailyAllowanceService,
+                stockAccountApplicationService,
                 portfolioService,
                 snapshotService,
                 rankingCacheRepository,

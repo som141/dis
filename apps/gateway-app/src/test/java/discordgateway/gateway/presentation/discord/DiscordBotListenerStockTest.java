@@ -23,6 +23,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -69,7 +71,9 @@ class DiscordBotListenerStockTest {
         when(channel.getIdLong()).thenReturn(30L);
         when(channel.getId()).thenReturn("30");
         when(guild.getId()).thenReturn("10");
-        when(event.deferReply(true)).thenReturn(replyCallbackAction);
+        when(event.deferReply(anyBoolean())).thenReturn(replyCallbackAction);
+        when(event.reply(anyString())).thenReturn(replyCallbackAction);
+        when(replyCallbackAction.setEphemeral(true)).thenReturn(replyCallbackAction);
 
         StockCommandEnvelope envelope = new StockCommandEnvelope(
                 "command-1",
@@ -92,6 +96,7 @@ class DiscordBotListenerStockTest {
 
         verify(stockApplicationService).prepareQuote(10L, 20L, "aapl");
         verify(stockApplicationService).dispatch(envelope);
+        verify(event).deferReply(true);
         verify(pendingInteractionRepository).put(eq("command-1"), any(InteractionResponseContext.class));
     }
 
@@ -115,6 +120,7 @@ class DiscordBotListenerStockTest {
         MessageChannelUnion channel = mock(MessageChannelUnion.class);
         OptionMapping symbolOption = mock(OptionMapping.class);
         OptionMapping amountOption = mock(OptionMapping.class);
+        OptionMapping leverageOption = mock(OptionMapping.class);
         ReplyCallbackAction replyCallbackAction = mock(ReplyCallbackAction.class);
         InteractionHook hook = mock(InteractionHook.class);
 
@@ -128,25 +134,29 @@ class DiscordBotListenerStockTest {
         when(event.getToken()).thenReturn("token-1");
         when(event.getOption(DiscordCommandCatalog.OPT_SYMBOL)).thenReturn(symbolOption);
         when(event.getOption(DiscordCommandCatalog.OPT_AMOUNT)).thenReturn(amountOption);
+        when(event.getOption(DiscordCommandCatalog.OPT_LEVERAGE)).thenReturn(leverageOption);
         when(symbolOption.getAsString()).thenReturn("msft");
         when(amountOption.getAsString()).thenReturn("1000.25");
+        when(leverageOption.getAsInt()).thenReturn(5);
         when(guild.getIdLong()).thenReturn(10L);
         when(user.getIdLong()).thenReturn(20L);
         when(jda.getGuildById(10L)).thenReturn(guild);
         when(channel.getIdLong()).thenReturn(30L);
         when(channel.getId()).thenReturn("30");
         when(guild.getId()).thenReturn("10");
-        when(event.deferReply(true)).thenReturn(replyCallbackAction);
+        when(event.deferReply(anyBoolean())).thenReturn(replyCallbackAction);
+        when(event.reply(anyString())).thenReturn(replyCallbackAction);
+        when(replyCallbackAction.setEphemeral(true)).thenReturn(replyCallbackAction);
 
         StockCommandEnvelope envelope = new StockCommandEnvelope(
                 "command-2",
                 1,
                 1L,
                 "gateway-1",
-                new StockCommand.Buy(10L, 20L, "MSFT", new BigDecimal("1000.25")),
+                new StockCommand.Buy(10L, 20L, "MSFT", new BigDecimal("1000.25"), 5),
                 "gateway-1"
         );
-        when(stockApplicationService.prepareBuy(10L, 20L, "msft", new BigDecimal("1000.25"))).thenReturn(envelope);
+        when(stockApplicationService.prepareBuy(10L, 20L, "msft", new BigDecimal("1000.25"), 5)).thenReturn(envelope);
         when(stockApplicationService.dispatch(envelope)).thenReturn(CompletableFuture.completedFuture(null));
 
         doAnswer(invocation -> {
@@ -157,8 +167,9 @@ class DiscordBotListenerStockTest {
 
         listener.onSlashCommandInteraction(event);
 
-        verify(stockApplicationService).prepareBuy(10L, 20L, "msft", new BigDecimal("1000.25"));
+        verify(stockApplicationService).prepareBuy(10L, 20L, "msft", new BigDecimal("1000.25"), 5);
         verify(stockApplicationService).dispatch(envelope);
+        verify(event).deferReply(false);
         verify(pendingInteractionRepository).put(eq("command-2"), any(InteractionResponseContext.class));
     }
 
@@ -197,7 +208,9 @@ class DiscordBotListenerStockTest {
         when(channel.getIdLong()).thenReturn(30L);
         when(channel.getId()).thenReturn("30");
         when(guild.getId()).thenReturn("10");
-        when(event.deferReply(true)).thenReturn(replyCallbackAction);
+        when(event.deferReply(anyBoolean())).thenReturn(replyCallbackAction);
+        when(event.reply(anyString())).thenReturn(replyCallbackAction);
+        when(replyCallbackAction.setEphemeral(true)).thenReturn(replyCallbackAction);
 
         StockCommandEnvelope envelope = new StockCommandEnvelope(
                 "command-3",
@@ -220,6 +233,74 @@ class DiscordBotListenerStockTest {
 
         verify(stockApplicationService).prepareList(10L, 20L);
         verify(stockApplicationService).dispatch(envelope);
+        verify(event).deferReply(true);
         verify(pendingInteractionRepository).put(eq("command-3"), any(InteractionResponseContext.class));
+    }
+
+    @Test
+    void dispatchesStockRankAsPublicReply() {
+        MusicApplicationService musicApplicationService = mock(MusicApplicationService.class);
+        StockApplicationService stockApplicationService = mock(StockApplicationService.class);
+        PlayAutocompleteService playAutocompleteService = mock(PlayAutocompleteService.class);
+        PendingInteractionRepository pendingInteractionRepository = mock(PendingInteractionRepository.class);
+        DiscordBotListener listener = new DiscordBotListener(
+                musicApplicationService,
+                stockApplicationService,
+                playAutocompleteService,
+                pendingInteractionRepository
+        );
+
+        SlashCommandInteractionEvent event = mock(SlashCommandInteractionEvent.class);
+        Guild guild = mock(Guild.class);
+        JDA jda = mock(JDA.class);
+        User user = mock(User.class);
+        MessageChannelUnion channel = mock(MessageChannelUnion.class);
+        OptionMapping periodOption = mock(OptionMapping.class);
+        ReplyCallbackAction replyCallbackAction = mock(ReplyCallbackAction.class);
+        InteractionHook hook = mock(InteractionHook.class);
+
+        when(event.isFromGuild()).thenReturn(true);
+        when(event.getName()).thenReturn(DiscordCommandCatalog.CMD_STOCK);
+        when(event.getSubcommandName()).thenReturn(DiscordCommandCatalog.SUB_RANK);
+        when(event.getGuild()).thenReturn(guild);
+        when(event.getJDA()).thenReturn(jda);
+        when(event.getUser()).thenReturn(user);
+        when(event.getChannel()).thenReturn(channel);
+        when(event.getToken()).thenReturn("token-1");
+        when(event.getOption(DiscordCommandCatalog.OPT_PERIOD)).thenReturn(periodOption);
+        when(periodOption.getAsString()).thenReturn("day");
+        when(guild.getIdLong()).thenReturn(10L);
+        when(user.getIdLong()).thenReturn(20L);
+        when(jda.getGuildById(10L)).thenReturn(guild);
+        when(channel.getIdLong()).thenReturn(30L);
+        when(channel.getId()).thenReturn("30");
+        when(guild.getId()).thenReturn("10");
+        when(event.deferReply(anyBoolean())).thenReturn(replyCallbackAction);
+        when(event.reply(anyString())).thenReturn(replyCallbackAction);
+        when(replyCallbackAction.setEphemeral(true)).thenReturn(replyCallbackAction);
+
+        StockCommandEnvelope envelope = new StockCommandEnvelope(
+                "command-4",
+                1,
+                1L,
+                "gateway-1",
+                new StockCommand.Rank(10L, 20L, "day"),
+                "gateway-1"
+        );
+        when(stockApplicationService.prepareRank(10L, 20L, "day")).thenReturn(envelope);
+        when(stockApplicationService.dispatch(envelope)).thenReturn(CompletableFuture.completedFuture(null));
+
+        doAnswer(invocation -> {
+            Consumer<InteractionHook> success = invocation.getArgument(0);
+            success.accept(hook);
+            return null;
+        }).when(replyCallbackAction).queue(any(), any());
+
+        listener.onSlashCommandInteraction(event);
+
+        verify(stockApplicationService).prepareRank(10L, 20L, "day");
+        verify(stockApplicationService).dispatch(envelope);
+        verify(event).deferReply(false);
+        verify(pendingInteractionRepository).put(eq("command-4"), any(InteractionResponseContext.class));
     }
 }

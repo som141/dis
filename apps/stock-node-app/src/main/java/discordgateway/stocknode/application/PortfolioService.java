@@ -41,20 +41,27 @@ public class PortfolioService {
                     position.getSymbol(),
                     quoteUsage
             );
-            BigDecimal marketValue = scaleCash(position.getQuantity().multiply(quoteResult.quote().price()));
-            BigDecimal costBasis = scaleCash(position.getQuantity().multiply(position.getAverageCost()));
-            BigDecimal profitLoss = scaleCash(marketValue.subtract(costBasis));
+            BigDecimal currentNotional = scaleCash(position.getQuantity().multiply(quoteResult.quote().price()));
+            BigDecimal unrealizedProfitLoss = scaleCash(currentNotional.subtract(position.getNotionalAmount()));
+            BigDecimal positionEquity = scaleCash(
+                    position.getMarginAmount().add(unrealizedProfitLoss).max(zeroCash())
+            );
+            BigDecimal costBasis = scaleCash(position.getMarginAmount());
+            BigDecimal profitLoss = scaleCash(positionEquity.subtract(costBasis));
             entries.add(new PortfolioPositionView(
                     position.getSymbol(),
                     position.getQuantity(),
                     position.getAverageCost(),
                     quoteResult.quote().price(),
-                    marketValue,
+                    positionEquity,
                     costBasis,
                     profitLoss,
-                    quoteResult.fresh()
+                    quoteResult.fresh(),
+                    position.getLeverage(),
+                    position.getMarginAmount(),
+                    position.getNotionalAmount()
             ));
-            totalMarketValue = totalMarketValue.add(marketValue);
+            totalMarketValue = totalMarketValue.add(positionEquity);
             totalCostBasis = totalCostBasis.add(costBasis);
         }
 

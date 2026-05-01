@@ -16,6 +16,7 @@ public class SnapshotService {
     private final StockAccountRepository stockAccountRepository;
     private final AccountSnapshotRepository accountSnapshotRepository;
     private final DailyAllowanceService dailyAllowanceService;
+    private final StockAccountApplicationService stockAccountApplicationService;
     private final PortfolioService portfolioService;
     private final Clock clock;
 
@@ -23,19 +24,21 @@ public class SnapshotService {
             StockAccountRepository stockAccountRepository,
             AccountSnapshotRepository accountSnapshotRepository,
             DailyAllowanceService dailyAllowanceService,
+            StockAccountApplicationService stockAccountApplicationService,
             PortfolioService portfolioService,
             Clock clock
     ) {
         this.stockAccountRepository = stockAccountRepository;
         this.accountSnapshotRepository = accountSnapshotRepository;
         this.dailyAllowanceService = dailyAllowanceService;
+        this.stockAccountApplicationService = stockAccountApplicationService;
         this.portfolioService = portfolioService;
         this.clock = clock;
     }
 
     @Transactional
     public AccountSnapshotEntity captureCurrentSnapshot(StockAccountEntity account) {
-        dailyAllowanceService.applyDailyAllowanceIfDue(account);
+        dailyAllowanceService.applyMonthlySeedIfMissing(account);
         PortfolioView portfolioView = portfolioService.build(account, QuoteUsage.RANK);
         return accountSnapshotRepository.save(AccountSnapshotEntity.create(
                 account,
@@ -48,17 +51,17 @@ public class SnapshotService {
 
     @Transactional
     public int captureDailySnapshots() {
-        return captureSnapshots(stockAccountRepository.findAll());
+        return captureSnapshots(stockAccountApplicationService.findAllActiveSeasonAccounts());
     }
 
     @Transactional
     public int captureWeeklySnapshots() {
-        return captureSnapshots(stockAccountRepository.findAll());
+        return captureSnapshots(stockAccountApplicationService.findAllActiveSeasonAccounts());
     }
 
     @Transactional
     public int captureSnapshotsForGuild(long guildId) {
-        return captureSnapshots(stockAccountRepository.findAllByGuildIdOrderByIdAsc(guildId));
+        return captureSnapshots(stockAccountApplicationService.findActiveSeasonAccountsByGuildId(guildId));
     }
 
     @Transactional(readOnly = true)

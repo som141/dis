@@ -58,7 +58,7 @@ class StockTradingIntegrationTest extends StockNodeIntegrationTestSupport {
         BalanceView balanceView = balanceQueryService.getBalance(1001L, 2002L);
         assertThat(balanceView.cashBalance()).isEqualByComparingTo("10000.0000");
 
-        TradeExecutionResult buyResult = tradeExecutionService.buy(1001L, 2002L, "AAPL", new BigDecimal("1000.00"));
+        TradeExecutionResult buyResult = tradeExecutionService.buy(1001L, 2002L, "AAPL", new BigDecimal("1000.00"), 1);
         assertThat(buyResult.side().name()).isEqualTo("BUY");
         assertThat(buyResult.executedQuantity()).isPositive();
         assertThat(buyResult.remainingCash()).isLessThan(new BigDecimal("10000.0000"));

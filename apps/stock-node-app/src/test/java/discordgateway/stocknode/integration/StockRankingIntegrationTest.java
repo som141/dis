@@ -63,7 +63,7 @@ class StockRankingIntegrationTest extends StockNodeIntegrationTestSupport {
                 stockQuoteProperties.getCacheTtl()
         );
 
-        tradeExecutionService.buy(1001L, 2002L, "AAPL", new BigDecimal("1000.00"));
+        tradeExecutionService.buy(1001L, 2002L, "AAPL", new BigDecimal("1000.00"), 1);
         snapshotService.captureSnapshotsForGuild(1001L);
 
         quoteRepository.save(

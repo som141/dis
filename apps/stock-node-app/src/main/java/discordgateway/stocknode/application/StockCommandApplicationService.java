@@ -93,7 +93,8 @@ public class StockCommandApplicationService {
                                     buy.guildId(),
                                     buy.requesterId(),
                                     buy.symbol(),
-                                    buy.amount()
+                                    buy.amount(),
+                                    buy.leverage()
                             )
                     ),
                     "BUY"

@@ -10,9 +10,14 @@ import java.util.Optional;
 public class StockAccountApplicationService {
 
     private final StockAccountRepository stockAccountRepository;
+    private final StockSeasonService stockSeasonService;
 
-    public StockAccountApplicationService(StockAccountRepository stockAccountRepository) {
+    public StockAccountApplicationService(
+            StockAccountRepository stockAccountRepository,
+            StockSeasonService stockSeasonService
+    ) {
         this.stockAccountRepository = stockAccountRepository;
+        this.stockSeasonService = stockSeasonService;
     }
 
     @Transactional
@@ -22,28 +27,52 @@ public class StockAccountApplicationService {
 
     @Transactional(readOnly = true)
     public Optional<StockAccountSummary> findAccount(long guildId, long userId) {
-        return stockAccountRepository.findByGuildIdAndUserId(guildId, userId)
+        String seasonKey = stockSeasonService.currentSeasonKey();
+        return stockAccountRepository.findByGuildIdAndUserIdAndSeasonKey(guildId, userId, seasonKey)
                 .map(this::toSummary);
     }
 
     @Transactional
     public StockAccountEntity ensureAccountEntity(long guildId, long userId) {
-        return stockAccountRepository.findByGuildIdAndUserId(guildId, userId)
-                .orElseGet(() -> createAccount(guildId, userId));
+        String seasonKey = stockSeasonService.currentSeasonKey();
+        return stockAccountRepository.findByGuildIdAndUserIdAndSeasonKey(guildId, userId, seasonKey)
+                .orElseGet(() -> createAccount(guildId, userId, seasonKey));
     }
 
     @Transactional(readOnly = true)
     public Optional<StockAccountEntity> findAccountEntity(long guildId, long userId) {
-        return stockAccountRepository.findByGuildIdAndUserId(guildId, userId);
+        return stockAccountRepository.findByGuildIdAndUserIdAndSeasonKey(
+                guildId,
+                userId,
+                stockSeasonService.currentSeasonKey()
+        );
     }
 
-    private StockAccountEntity createAccount(long guildId, long userId) {
+    @Transactional(readOnly = true)
+    public java.util.List<StockAccountEntity> findActiveSeasonAccountsByGuildId(long guildId) {
+        return stockAccountRepository.findAllByGuildIdAndSeasonKeyOrderByIdAsc(
+                guildId,
+                stockSeasonService.currentSeasonKey()
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.List<StockAccountEntity> findAllActiveSeasonAccounts() {
+        return stockAccountRepository.findAllBySeasonKeyOrderByIdAsc(stockSeasonService.currentSeasonKey());
+    }
+
+    @Transactional(readOnly = true)
+    public String currentSeasonKey() {
+        return stockSeasonService.currentSeasonKey();
+    }
+
+    private StockAccountEntity createAccount(long guildId, long userId, String seasonKey) {
         try {
             return stockAccountRepository.saveAndFlush(
-                    StockAccountEntity.create(guildId, userId)
+                    StockAccountEntity.create(guildId, userId, seasonKey)
             );
         } catch (DataIntegrityViolationException exception) {
-            return stockAccountRepository.findByGuildIdAndUserId(guildId, userId)
+            return stockAccountRepository.findByGuildIdAndUserIdAndSeasonKey(guildId, userId, seasonKey)
                     .orElseThrow(() -> exception);
         }
     }

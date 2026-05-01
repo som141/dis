@@ -1,5 +1,5 @@
 package discordgateway.stocknode.application;
 
 public enum AllowanceType {
-    DAILY
+    MONTHLY_SEED
 }

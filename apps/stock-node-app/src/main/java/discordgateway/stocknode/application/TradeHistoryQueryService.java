@@ -51,6 +51,9 @@ public class TradeHistoryQueryService {
                 TradeSide.valueOf(entity.getSide()),
                 entity.getQuantity(),
                 entity.getUnitPrice(),
+                entity.getLeverage(),
+                entity.getMarginAmount(),
+                entity.getNotionalAmount(),
                 entity.getOccurredAt()
         );
     }

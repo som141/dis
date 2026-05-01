@@ -32,6 +32,7 @@ public final class DiscordCommandCatalog {
     public static final String OPT_SYMBOL = "symbol";
     public static final String OPT_AMOUNT = "amount";
     public static final String OPT_QUANTITY = "quantity";
+    public static final String OPT_LEVERAGE = "leverage";
     public static final String OPT_LIMIT = "limit";
     public static final String OPT_PERIOD = "period";
 
@@ -48,54 +49,55 @@ public final class DiscordCommandCatalog {
     }
 
     public static List<CommandData> commands() {
-        OptionData playQuery = new OptionData(OptionType.STRING, OPT_QUERY, "Search term or URL", true)
+        OptionData playQuery = new OptionData(OptionType.STRING, OPT_QUERY, "검색어 또는 URL", true)
                 .setAutoComplete(true);
 
-        OptionData playAuto = new OptionData(OptionType.BOOLEAN, OPT_AUTOPLAY, "Auto-play recommended tracks", false);
+        OptionData playAuto = new OptionData(OptionType.BOOLEAN, OPT_AUTOPLAY, "추천 곡 자동 재생", false);
 
-        OptionData sfxName = new OptionData(OptionType.STRING, OPT_SFX_NAME, "Sound effect name", true)
+        OptionData sfxName = new OptionData(OptionType.STRING, OPT_SFX_NAME, "효과음 이름", true)
                 .addChoice("gsuck", "gsuck.mp3")
                 .addChoice("smbj", "smbj.mp3");
 
-        SubcommandData stockQuote = new SubcommandData(SUB_QUOTE, "Show one or more cached stock quotes")
-                .addOption(OptionType.STRING, OPT_SYMBOL, "Ticker or comma/space separated tickers", true);
+        SubcommandData stockQuote = new SubcommandData(SUB_QUOTE, "저장된 주식 시세를 조회합니다")
+                .addOption(OptionType.STRING, OPT_SYMBOL, "티커 또는 쉼표/공백으로 구분한 여러 티커", true);
 
-        SubcommandData stockList = new SubcommandData(SUB_LIST, "Show the US Top10 stock watchlist");
+        SubcommandData stockList = new SubcommandData(SUB_LIST, "미국 시가총액 상위 10개 종목을 봅니다");
 
-        SubcommandData stockBuy = new SubcommandData(SUB_BUY, "Buy a stock by cash amount")
-                .addOption(OptionType.STRING, OPT_SYMBOL, "Ticker symbol", true)
-                .addOption(OptionType.STRING, OPT_AMOUNT, "Cash amount to spend", true);
+        SubcommandData stockBuy = new SubcommandData(SUB_BUY, "금액 기준으로 주식을 매수합니다")
+                .addOption(OptionType.STRING, OPT_SYMBOL, "티커 심볼", true)
+                .addOption(OptionType.STRING, OPT_AMOUNT, "사용할 증거금 금액", true)
+                .addOption(OptionType.INTEGER, OPT_LEVERAGE, "레버리지 배율 1~50", false);
 
-        SubcommandData stockSell = new SubcommandData(SUB_SELL, "Sell a stock by quantity")
-                .addOption(OptionType.STRING, OPT_SYMBOL, "Ticker symbol", true)
-                .addOption(OptionType.STRING, OPT_QUANTITY, "Quantity to sell", true);
+        SubcommandData stockSell = new SubcommandData(SUB_SELL, "수량 기준으로 주식을 매도합니다")
+                .addOption(OptionType.STRING, OPT_SYMBOL, "티커 심볼", true)
+                .addOption(OptionType.STRING, OPT_QUANTITY, "매도할 수량", true);
 
-        SubcommandData stockBalance = new SubcommandData(SUB_BALANCE, "Show current cash balance");
+        SubcommandData stockBalance = new SubcommandData(SUB_BALANCE, "이번 시즌 예수금을 확인합니다");
 
-        SubcommandData stockPortfolio = new SubcommandData(SUB_PORTFOLIO, "Show current portfolio");
+        SubcommandData stockPortfolio = new SubcommandData(SUB_PORTFOLIO, "현재 보유 종목을 확인합니다");
 
-        SubcommandData stockHistory = new SubcommandData(SUB_HISTORY, "Show recent trade history")
-                .addOption(OptionType.INTEGER, OPT_LIMIT, "Maximum number of entries", false);
+        SubcommandData stockHistory = new SubcommandData(SUB_HISTORY, "최근 거래 내역을 확인합니다")
+                .addOption(OptionType.INTEGER, OPT_LIMIT, "최대 조회 개수", false);
 
-        SubcommandData stockRank = new SubcommandData(SUB_RANK, "Show guild stock ranking")
-                .addOptions(new OptionData(OptionType.STRING, OPT_PERIOD, "Ranking period", true)
-                        .addChoice("day", "day")
-                        .addChoice("week", "week")
-                        .addChoice("all", "all"));
+        SubcommandData stockRank = new SubcommandData(SUB_RANK, "서버 수익률 랭킹을 확인합니다")
+                .addOptions(new OptionData(OptionType.STRING, OPT_PERIOD, "랭킹 집계 기간", true)
+                        .addChoice("일간", "day")
+                        .addChoice("주간", "week")
+                        .addChoice("시즌 누적", "all"));
 
         return List.of(
-                Commands.slash(CMD_JOIN, "Join the current voice channel"),
-                Commands.slash(CMD_LEAVE, "Leave the current voice channel"),
-                Commands.slash(CMD_PLAY, "Play a track").addOptions(playQuery, playAuto),
-                Commands.slash(CMD_STOP, "Stop playback and clear the queue"),
-                Commands.slash(CMD_SKIP, "Skip the current track"),
-                Commands.slash(CMD_QUEUE, "Show the current queue"),
-                Commands.slash(CMD_CLEAR, "Clear the queued tracks"),
-                Commands.slash(CMD_PAUSE, "Pause playback"),
-                Commands.slash(CMD_RESUME, "Resume playback"),
-                Commands.slash(CMD_SFX, "Play a sound effect").addOptions(sfxName),
-                Commands.slash(CMD_PIZZA, "Show the pizza image"),
-                Commands.slash(CMD_STOCK, "Mock stock game commands")
+                Commands.slash(CMD_JOIN, "현재 음성 채널에 입장합니다"),
+                Commands.slash(CMD_LEAVE, "현재 음성 채널에서 나갑니다"),
+                Commands.slash(CMD_PLAY, "음악을 재생합니다").addOptions(playQuery, playAuto),
+                Commands.slash(CMD_STOP, "재생을 멈추고 대기열을 비웁니다"),
+                Commands.slash(CMD_SKIP, "현재 곡을 건너뜁니다"),
+                Commands.slash(CMD_QUEUE, "현재 대기열을 확인합니다"),
+                Commands.slash(CMD_CLEAR, "대기열을 비웁니다"),
+                Commands.slash(CMD_PAUSE, "재생을 일시정지합니다"),
+                Commands.slash(CMD_RESUME, "재생을 다시 시작합니다"),
+                Commands.slash(CMD_SFX, "효과음을 재생합니다").addOptions(sfxName),
+                Commands.slash(CMD_PIZZA, "피자 이미지를 보여줍니다"),
+                Commands.slash(CMD_STOCK, "모의투자 게임 명령어입니다")
                         .addSubcommands(
                                 stockQuote,
                                 stockList,

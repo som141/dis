@@ -7,7 +7,9 @@ import java.util.Optional;
 
 public interface StockAccountRepository extends JpaRepository<StockAccountEntity, Long> {
 
-    Optional<StockAccountEntity> findByGuildIdAndUserId(long guildId, long userId);
+    Optional<StockAccountEntity> findByGuildIdAndUserIdAndSeasonKey(long guildId, long userId, String seasonKey);
 
-    java.util.List<StockAccountEntity> findAllByGuildIdOrderByIdAsc(long guildId);
+    java.util.List<StockAccountEntity> findAllByGuildIdAndSeasonKeyOrderByIdAsc(long guildId, String seasonKey);
+
+    java.util.List<StockAccountEntity> findAllBySeasonKeyOrderByIdAsc(String seasonKey);
 }

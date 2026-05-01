@@ -10,12 +10,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
 
 public class DailyAllowanceService {
 
-    private static final BigDecimal DAILY_ALLOWANCE_AMOUNT = new BigDecimal("10000.0000");
+    private static final BigDecimal MONTHLY_SEED_AMOUNT = new BigDecimal("10000.0000");
 
     private final StockAccountApplicationService stockAccountApplicationService;
     private final StockAccountRepository stockAccountRepository;
@@ -40,39 +38,32 @@ public class DailyAllowanceService {
     @Transactional
     public StockAccountEntity ensureSettledAccount(long guildId, long userId) {
         StockAccountEntity account = stockAccountApplicationService.ensureAccountEntity(guildId, userId);
-        applyDailyAllowanceIfDue(account);
+        applyMonthlySeedIfMissing(account);
         return account;
     }
 
     @Transactional
-    public void applyDailyAllowanceIfDue(StockAccountEntity account) {
-        Instant now = clock.instant();
-        Instant startOfDay = LocalDate.ofInstant(now, ZoneOffset.UTC)
-                .atStartOfDay()
-                .toInstant(ZoneOffset.UTC);
-        Instant startOfNextDay = startOfDay.plusSeconds(24 * 60 * 60);
-
+    public void applyMonthlySeedIfMissing(StockAccountEntity account) {
         boolean alreadyGranted = allowanceLedgerRepository
-                .existsByAccountIdAndAllowanceTypeAndOccurredAtGreaterThanEqualAndOccurredAtLessThan(
+                .existsByAccountIdAndAllowanceType(
                         account.getId(),
-                        AllowanceType.DAILY.name(),
-                        startOfDay,
-                        startOfNextDay
+                        AllowanceType.MONTHLY_SEED.name()
                 );
         if (alreadyGranted) {
             return;
         }
 
-        account.addCash(DAILY_ALLOWANCE_AMOUNT);
+        Instant now = clock.instant();
+        account.addCash(MONTHLY_SEED_AMOUNT);
         stockAccountRepository.save(account);
         allowanceLedgerRepository.save(
                 AllowanceLedgerEntity.create(
                         account,
-                        DAILY_ALLOWANCE_AMOUNT,
-                        AllowanceType.DAILY.name(),
+                        MONTHLY_SEED_AMOUNT,
+                        AllowanceType.MONTHLY_SEED.name(),
                         now
                 )
         );
-        rankingCacheRepository.evictGuild(account.getGuildId());
+        rankingCacheRepository.evictGuild(account.getGuildId(), account.getSeasonKey());
     }
 }

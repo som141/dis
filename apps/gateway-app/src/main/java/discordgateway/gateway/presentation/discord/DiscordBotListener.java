@@ -54,7 +54,7 @@ public class DiscordBotListener extends ListenerAdapter {
     @Override
     public void onSlashCommandInteraction(@NotNull SlashCommandInteractionEvent event) {
         if (!event.isFromGuild()) {
-            event.reply("This command is only available in guild text channels.")
+            event.reply("이 명령어는 서버 텍스트 채널에서만 사용할 수 있습니다.")
                     .setEphemeral(true)
                     .queue();
             return;
@@ -74,15 +74,15 @@ public class DiscordBotListener extends ListenerAdapter {
                 case DiscordCommandCatalog.CMD_SFX -> handleSfx(event);
                 case DiscordCommandCatalog.CMD_PIZZA -> handlePizza(event);
                 case DiscordCommandCatalog.CMD_STOCK -> handleStock(event);
-                default -> event.reply("Unknown command.").setEphemeral(true).queue();
+                default -> event.reply("알 수 없는 명령어입니다.").setEphemeral(true).queue();
             }
         } catch (Exception e) {
             if (!event.isAcknowledged()) {
-                event.reply("Command handling failed: " + e.getMessage())
+                event.reply("명령 처리 중 오류가 발생했습니다: " + e.getMessage())
                         .setEphemeral(true)
                         .queue();
             } else {
-                safeEditOriginal(event, "Command handling failed: " + e.getMessage());
+                safeEditOriginal(event, "명령 처리 중 오류가 발생했습니다: " + e.getMessage());
             }
             log.error("Slash command handling failed. command={}", event.getName(), e);
         }
@@ -253,7 +253,7 @@ public class DiscordBotListener extends ListenerAdapter {
 
         String subcommand = event.getSubcommandName();
         if (subcommand == null || subcommand.isBlank()) {
-            event.reply("stock subcommand is required.").setEphemeral(true).queue();
+            event.reply("주식 명령어 종류를 선택해 주세요.").setEphemeral(true).queue();
             return;
         }
 
@@ -271,7 +271,8 @@ public class DiscordBotListener extends ListenerAdapter {
                     guildId,
                     requesterId,
                     getRequiredStringOption(event, DiscordCommandCatalog.OPT_SYMBOL),
-                    parseDecimalOption(event, DiscordCommandCatalog.OPT_AMOUNT)
+                    parseDecimalOption(event, DiscordCommandCatalog.OPT_AMOUNT),
+                    getIntegerOption(event, DiscordCommandCatalog.OPT_LEVERAGE)
             );
             case DiscordCommandCatalog.SUB_SELL -> stockApplicationService.prepareSell(
                     guildId,
@@ -294,7 +295,12 @@ public class DiscordBotListener extends ListenerAdapter {
             default -> throw new IllegalArgumentException("Unknown stock subcommand: " + subcommand);
         };
 
-        dispatchDeferred(event, envelope.commandId(), () -> stockApplicationService.dispatch(envelope));
+        dispatchDeferred(
+                event,
+                envelope.commandId(),
+                !isPublicStockSubcommand(subcommand),
+                () -> stockApplicationService.dispatch(envelope)
+        );
     }
 
     private void dispatchDeferred(SlashCommandInteractionEvent event, MusicCommandEnvelope envelope) {
@@ -306,7 +312,16 @@ public class DiscordBotListener extends ListenerAdapter {
             String commandId,
             Supplier<CompletableFuture<?>> dispatchFutureSupplier
     ) {
-        event.deferReply(true).queue(
+        dispatchDeferred(event, commandId, true, dispatchFutureSupplier);
+    }
+
+    private void dispatchDeferred(
+            SlashCommandInteractionEvent event,
+            String commandId,
+            boolean ephemeral,
+            Supplier<CompletableFuture<?>> dispatchFutureSupplier
+    ) {
+        event.deferReply(ephemeral).queue(
                 hook -> {
                     long now = System.currentTimeMillis();
                     try {
@@ -324,7 +339,7 @@ public class DiscordBotListener extends ListenerAdapter {
                     } catch (Exception err) {
                         safeEditHook(
                                 hook,
-                                "Command dispatch failed: " + err.getMessage(),
+                                "명령 전송에 실패했습니다: " + err.getMessage(),
                                 event.getName(),
                                 event.getGuild() != null ? event.getGuild().getId() : "unknown",
                                 event.getChannel().getId()
@@ -339,7 +354,7 @@ public class DiscordBotListener extends ListenerAdapter {
                         pendingInteractionRepository.remove(commandId);
                         safeEditHook(
                                 hook,
-                                "Command dispatch failed: " + err.getMessage(),
+                                "명령 전송에 실패했습니다: " + err.getMessage(),
                                 event.getName(),
                                 event.getGuild() != null ? event.getGuild().getId() : "unknown",
                                 event.getChannel().getId()
@@ -354,7 +369,7 @@ public class DiscordBotListener extends ListenerAdapter {
                         pendingInteractionRepository.remove(commandId);
                         safeEditHook(
                                 hook,
-                                "Command dispatch failed: " + err.getMessage(),
+                                "명령 전송에 실패했습니다: " + err.getMessage(),
                                 event.getName(),
                                 event.getGuild() != null ? event.getGuild().getId() : "unknown",
                                 event.getChannel().getId()
@@ -371,9 +386,18 @@ public class DiscordBotListener extends ListenerAdapter {
         );
     }
 
+    private boolean isPublicStockSubcommand(String subcommand) {
+        return switch (subcommand) {
+            case DiscordCommandCatalog.SUB_BUY,
+                 DiscordCommandCatalog.SUB_SELL,
+                 DiscordCommandCatalog.SUB_RANK -> true;
+            default -> false;
+        };
+    }
+
     private Guild requireUsableGuild(SlashCommandInteractionEvent event) {
         if (!event.isFromGuild() || event.getGuild() == null) {
-            event.reply("This command is only available in guilds.")
+            event.reply("이 명령어는 서버에서만 사용할 수 있습니다.")
                     .setEphemeral(true)
                     .queue();
             return null;
@@ -385,7 +409,7 @@ public class DiscordBotListener extends ListenerAdapter {
 
     private TextChannel requireUsableTextChannel(SlashCommandInteractionEvent event, Guild guild) {
         if (event.getChannelType() != ChannelType.TEXT) {
-            event.reply("This command is only available in text channels.")
+            event.reply("이 명령어는 텍스트 채널에서만 사용할 수 있습니다.")
                     .setEphemeral(true)
                     .queue();
             return null;
@@ -407,7 +431,7 @@ public class DiscordBotListener extends ListenerAdapter {
         try {
             return event.getChannel().asTextChannel();
         } catch (Exception e) {
-            event.reply("Failed to resolve text channel information.")
+            event.reply("텍스트 채널 정보를 확인하지 못했습니다.")
                     .setEphemeral(true)
                     .queue();
             return null;
@@ -490,7 +514,7 @@ public class DiscordBotListener extends ListenerAdapter {
             return new BigDecimal(raw);
         } catch (NumberFormatException exception) {
             throw new IllegalArgumentException(
-                    String.format(Locale.ROOT, "Invalid decimal option %s: %s", name, raw),
+                    String.format(Locale.ROOT, "%s 값은 숫자로 입력해 주세요: %s", name, raw),
                     exception
             );
         }

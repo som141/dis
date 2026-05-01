@@ -12,6 +12,8 @@ public interface AllowanceLedgerRepository extends JpaRepository<AllowanceLedger
 
     List<AllowanceLedgerEntity> findAllByAccountIdOrderByOccurredAtDesc(Long accountId);
 
+    boolean existsByAccountIdAndAllowanceType(Long accountId, String allowanceType);
+
     boolean existsByAccountIdAndAllowanceTypeAndOccurredAtGreaterThanEqualAndOccurredAtLessThan(
             Long accountId,
             String allowanceType,

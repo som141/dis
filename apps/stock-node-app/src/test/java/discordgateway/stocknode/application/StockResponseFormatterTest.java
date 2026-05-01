@@ -27,9 +27,9 @@ class StockResponseFormatterTest {
                 )
         );
 
-        assertThat(message).contains("stock quote");
+        assertThat(message).contains("주식 시세 조회 결과");
         assertThat(message).contains("AAPL");
-        assertThat(message).contains("provider_refresh");
+        assertThat(message).contains("최신 시세");
     }
 
     @Test
@@ -51,11 +51,11 @@ class StockResponseFormatterTest {
                 )
         );
 
-        assertThat(message).contains("stock quotes");
+        assertThat(message).contains("주식 시세표");
         assertThat(message).contains("```text");
         assertThat(message).contains("AAPL");
         assertThat(message).contains("MSFT");
-        assertThat(message).contains("stale");
+        assertThat(message).contains("지연");
     }
 
     @Test
@@ -69,10 +69,10 @@ class StockResponseFormatterTest {
                 )
         ));
 
-        assertThat(message).contains("US Top10 by market cap");
+        assertThat(message).contains("미국 시가총액 상위 10개 종목");
         assertThat(message).contains("NVIDIA Corporation");
-        assertThat(message).contains("quote pending");
-        assertThat(message).contains("[stale]");
+        assertThat(message).contains("시세 준비 중");
+        assertThat(message).contains("[지연]");
         assertThat(message).contains("Finnhub REST API");
     }
 
@@ -95,7 +95,10 @@ class StockResponseFormatterTest {
                         new BigDecimal("1000.0000"),
                         new BigDecimal("800.0000"),
                         new BigDecimal("200.0000"),
-                        true
+                        true,
+                        5,
+                        new BigDecimal("800.0000"),
+                        new BigDecimal("4000.0000")
                 ))
         ));
         String history = formatter.formatHistory(new TradeHistoryView(
@@ -108,20 +111,25 @@ class StockResponseFormatterTest {
                         TradeSide.BUY,
                         new BigDecimal("5.00000000"),
                         new BigDecimal("200.0000"),
+                        5,
+                        new BigDecimal("1000.0000"),
+                        new BigDecimal("5000.0000"),
                         Instant.parse("2026-04-30T01:00:00Z")
                 ))
         ));
 
-        assertThat(portfolio).contains("stock portfolio");
+        assertThat(portfolio).contains("현재 포트폴리오");
         assertThat(portfolio).contains("AAPL");
-        assertThat(history).contains("stock history");
-        assertThat(history).contains("BUY AAPL");
+        assertThat(history).contains("최근 거래 내역");
+        assertThat(history).contains("매수");
+        assertThat(history).contains("AAPL");
     }
 
     @Test
     void formatsRankingResponse() {
         String ranking = formatter.formatRanking(new RankingView(
                 1001L,
+                "2026-05",
                 "day",
                 Instant.parse("2026-04-30T01:00:00Z"),
                 List.of(new RankingEntryView(
@@ -133,8 +141,8 @@ class StockResponseFormatterTest {
                 ))
         ));
 
-        assertThat(ranking).contains("stock ranking");
-        assertThat(ranking).contains("user=2002");
+        assertThat(ranking).contains("서버 수익률 랭킹");
+        assertThat(ranking).contains("<@2002>");
         assertThat(ranking).contains("1.0000%");
     }
 }

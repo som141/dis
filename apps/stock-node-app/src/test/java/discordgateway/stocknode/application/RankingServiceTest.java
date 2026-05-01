@@ -33,6 +33,7 @@ class RankingServiceTest {
         StockAccountRepository stockAccountRepository = mock(StockAccountRepository.class);
         AllowanceLedgerRepository allowanceLedgerRepository = mock(AllowanceLedgerRepository.class);
         DailyAllowanceService dailyAllowanceService = mock(DailyAllowanceService.class);
+        StockAccountApplicationService stockAccountApplicationService = mock(StockAccountApplicationService.class);
         PortfolioService portfolioService = mock(PortfolioService.class);
         SnapshotService snapshotService = mock(SnapshotService.class);
         RankingCacheRepository rankingCacheRepository = mock(RankingCacheRepository.class);
@@ -47,8 +48,9 @@ class RankingServiceTest {
         second.updateCashBalance(new BigDecimal("10500.0000"));
         setId(second, 2L);
 
-        when(rankingCacheRepository.find(1001L, RankingPeriod.ALL)).thenReturn(Optional.empty());
-        when(stockAccountRepository.findAllByGuildIdOrderByIdAsc(1001L)).thenReturn(List.of(top, second));
+        when(stockAccountApplicationService.currentSeasonKey()).thenReturn("2026-05");
+        when(rankingCacheRepository.find(1001L, RankingPeriod.ALL, "2026-05")).thenReturn(Optional.empty());
+        when(stockAccountApplicationService.findActiveSeasonAccountsByGuildId(1001L)).thenReturn(List.of(top, second));
         when(portfolioService.build(top, QuoteUsage.RANK)).thenReturn(new PortfolioView(
                 1L,
                 1001L,
@@ -78,6 +80,7 @@ class RankingServiceTest {
                 stockAccountRepository,
                 allowanceLedgerRepository,
                 dailyAllowanceService,
+                stockAccountApplicationService,
                 portfolioService,
                 snapshotService,
                 rankingCacheRepository,
@@ -99,6 +102,7 @@ class RankingServiceTest {
         StockAccountRepository stockAccountRepository = mock(StockAccountRepository.class);
         AllowanceLedgerRepository allowanceLedgerRepository = mock(AllowanceLedgerRepository.class);
         DailyAllowanceService dailyAllowanceService = mock(DailyAllowanceService.class);
+        StockAccountApplicationService stockAccountApplicationService = mock(StockAccountApplicationService.class);
         PortfolioService portfolioService = mock(PortfolioService.class);
         SnapshotService snapshotService = mock(SnapshotService.class);
         RankingCacheRepository rankingCacheRepository = mock(RankingCacheRepository.class);
@@ -108,8 +112,9 @@ class RankingServiceTest {
         account.updateCashBalance(new BigDecimal("10150.0000"));
         setId(account, 1L);
 
-        when(rankingCacheRepository.find(1001L, RankingPeriod.DAY)).thenReturn(Optional.empty());
-        when(stockAccountRepository.findAllByGuildIdOrderByIdAsc(1001L)).thenReturn(List.of(account));
+        when(stockAccountApplicationService.currentSeasonKey()).thenReturn("2026-05");
+        when(rankingCacheRepository.find(1001L, RankingPeriod.DAY, "2026-05")).thenReturn(Optional.empty());
+        when(stockAccountApplicationService.findActiveSeasonAccountsByGuildId(1001L)).thenReturn(List.of(account));
         when(portfolioService.build(account, QuoteUsage.RANK)).thenReturn(new PortfolioView(
                 1L,
                 1001L,
@@ -135,6 +140,7 @@ class RankingServiceTest {
                 stockAccountRepository,
                 allowanceLedgerRepository,
                 dailyAllowanceService,
+                stockAccountApplicationService,
                 portfolioService,
                 snapshotService,
                 rankingCacheRepository,
@@ -155,6 +161,7 @@ class RankingServiceTest {
         StockAccountRepository stockAccountRepository = mock(StockAccountRepository.class);
         AllowanceLedgerRepository allowanceLedgerRepository = mock(AllowanceLedgerRepository.class);
         DailyAllowanceService dailyAllowanceService = mock(DailyAllowanceService.class);
+        StockAccountApplicationService stockAccountApplicationService = mock(StockAccountApplicationService.class);
         PortfolioService portfolioService = mock(PortfolioService.class);
         SnapshotService snapshotService = mock(SnapshotService.class);
         RankingCacheRepository rankingCacheRepository = mock(RankingCacheRepository.class);
@@ -162,6 +169,7 @@ class RankingServiceTest {
 
         RankingView cached = new RankingView(
                 1001L,
+                "2026-05",
                 "day",
                 Instant.parse("2026-05-01T00:00:00Z"),
                 List.of(new RankingEntryView(
@@ -172,12 +180,14 @@ class RankingServiceTest {
                         new BigDecimal("1.0000")
                 ))
         );
-        when(rankingCacheRepository.find(1001L, RankingPeriod.DAY)).thenReturn(Optional.of(cached));
+        when(stockAccountApplicationService.currentSeasonKey()).thenReturn("2026-05");
+        when(rankingCacheRepository.find(1001L, RankingPeriod.DAY, "2026-05")).thenReturn(Optional.of(cached));
 
         RankingService rankingService = new RankingService(
                 stockAccountRepository,
                 allowanceLedgerRepository,
                 dailyAllowanceService,
+                stockAccountApplicationService,
                 portfolioService,
                 snapshotService,
                 rankingCacheRepository,
@@ -188,7 +198,7 @@ class RankingServiceTest {
         RankingView rankingView = rankingService.getRanking(1001L, "day");
 
         assertThat(rankingView).isSameAs(cached);
-        verify(stockAccountRepository, never()).findAllByGuildIdOrderByIdAsc(anyLong());
+        verify(stockAccountApplicationService, never()).findActiveSeasonAccountsByGuildId(anyLong());
     }
 
     private void setId(StockAccountEntity account, long id) {

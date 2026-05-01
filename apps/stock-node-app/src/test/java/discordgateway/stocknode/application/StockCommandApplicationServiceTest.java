@@ -170,7 +170,7 @@ class StockCommandApplicationServiceTest {
                 1,
                 1_234L,
                 "gateway",
-                new StockCommand.Buy(1001L, 2002L, "AAPL", new BigDecimal("1000.00")),
+                new StockCommand.Buy(1001L, 2002L, "AAPL", new BigDecimal("1000.00"), 5),
                 "gateway-1"
         );
         TradeExecutionResult tradeExecutionResult = new TradeExecutionResult(
@@ -182,14 +182,18 @@ class StockCommandApplicationServiceTest {
                 "AAPL",
                 new BigDecimal("1000.0000"),
                 null,
+                5,
+                new BigDecimal("1000.0000"),
+                new BigDecimal("5000.0000"),
                 new BigDecimal("5.00000000"),
                 new BigDecimal("200.0000"),
                 new BigDecimal("1000.0000"),
                 new BigDecimal("9000.0000"),
                 new BigDecimal("5.00000000"),
-                new BigDecimal("200.0000")
+                new BigDecimal("200.0000"),
+                null
         );
-        when(tradeExecutionService.buy(1001L, 2002L, "AAPL", new BigDecimal("1000.00")))
+        when(tradeExecutionService.buy(1001L, 2002L, "AAPL", new BigDecimal("1000.00"), 5))
                 .thenReturn(tradeExecutionResult);
         when(stockResponseFormatter.formatTrade(tradeExecutionResult)).thenReturn("buy message");
 
@@ -197,7 +201,7 @@ class StockCommandApplicationServiceTest {
 
         assertThat(event.success()).isTrue();
         assertThat(event.resultType()).isEqualTo("BUY");
-        verify(tradeExecutionService).buy(1001L, 2002L, "AAPL", new BigDecimal("1000.00"));
+        verify(tradeExecutionService).buy(1001L, 2002L, "AAPL", new BigDecimal("1000.00"), 5);
     }
 
     @Test
@@ -212,6 +216,7 @@ class StockCommandApplicationServiceTest {
         );
         RankingView rankingView = new RankingView(
                 1001L,
+                "2026-05",
                 "day",
                 Instant.parse("2026-04-30T01:00:00Z"),
                 List.of(new RankingEntryView(

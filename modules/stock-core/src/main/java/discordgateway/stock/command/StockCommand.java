@@ -48,7 +48,8 @@ public sealed interface StockCommand permits
             long guildId,
             long requesterId,
             String symbol,
-            BigDecimal amount
+            BigDecimal amount,
+            int leverage
     ) implements StockCommand {
     }
 

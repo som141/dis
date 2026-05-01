@@ -8,9 +8,9 @@ import java.util.Optional;
 
 public interface RankingCacheRepository {
 
-    Optional<RankingView> find(long guildId, RankingPeriod rankingPeriod);
+    Optional<RankingView> find(long guildId, RankingPeriod rankingPeriod, String seasonKey);
 
     void save(RankingView rankingView, Duration ttl);
 
-    void evictGuild(long guildId);
+    void evictGuild(long guildId, String seasonKey);
 }

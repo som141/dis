@@ -39,13 +39,12 @@ class DailyAllowanceServiceTest {
     private RankingCacheRepository rankingCacheRepository;
 
     @Test
-    void grantsAllowanceOncePerDay() {
+    void grantsMonthlySeedOnlyOncePerSeason() {
         MutableClock clock = new MutableClock(Instant.parse("2026-04-30T00:10:00Z"));
         StockAccountEntity account = account(1L, new BigDecimal("0"));
         when(stockAccountApplicationService.ensureAccountEntity(1001L, 2002L)).thenReturn(account);
-        when(allowanceLedgerRepository.existsByAccountIdAndAllowanceTypeAndOccurredAtGreaterThanEqualAndOccurredAtLessThan(
-                any(), any(), any(), any()
-        )).thenReturn(false, true);
+        when(allowanceLedgerRepository.existsByAccountIdAndAllowanceType(any(), any()))
+                .thenReturn(false, true);
 
         DailyAllowanceService service = new DailyAllowanceService(
                 stockAccountApplicationService,
@@ -61,17 +60,16 @@ class DailyAllowanceServiceTest {
         assertThat(account.getCashBalance()).isEqualByComparingTo("10000.0000");
         verify(stockAccountRepository, times(1)).save(account);
         verify(allowanceLedgerRepository, times(1)).save(any());
-        verify(rankingCacheRepository, times(1)).evictGuild(1001L);
+        verify(rankingCacheRepository, times(1)).evictGuild(1001L, "legacy");
     }
 
     @Test
-    void grantsAllowanceAgainOnNextDay() {
+    void doesNotSeedAgainInSameSeason() {
         MutableClock clock = new MutableClock(Instant.parse("2026-04-30T00:10:00Z"));
         StockAccountEntity account = account(1L, new BigDecimal("0"));
         when(stockAccountApplicationService.ensureAccountEntity(1001L, 2002L)).thenReturn(account);
-        when(allowanceLedgerRepository.existsByAccountIdAndAllowanceTypeAndOccurredAtGreaterThanEqualAndOccurredAtLessThan(
-                any(), any(), any(), any()
-        )).thenReturn(false, false);
+        when(allowanceLedgerRepository.existsByAccountIdAndAllowanceType(any(), any()))
+                .thenReturn(false, true);
 
         DailyAllowanceService service = new DailyAllowanceService(
                 stockAccountApplicationService,
@@ -82,13 +80,12 @@ class DailyAllowanceServiceTest {
         );
 
         service.ensureSettledAccount(1001L, 2002L);
-        clock.advance(Duration.ofDays(1));
         service.ensureSettledAccount(1001L, 2002L);
 
-        assertThat(account.getCashBalance()).isEqualByComparingTo("20000.0000");
-        verify(stockAccountRepository, times(2)).save(account);
-        verify(allowanceLedgerRepository, times(2)).save(any());
-        verify(rankingCacheRepository, times(2)).evictGuild(1001L);
+        assertThat(account.getCashBalance()).isEqualByComparingTo("10000.0000");
+        verify(stockAccountRepository, times(1)).save(account);
+        verify(allowanceLedgerRepository, times(1)).save(any());
+        verify(rankingCacheRepository, times(1)).evictGuild(1001L, "legacy");
     }
 
     private static StockAccountEntity account(Long id, BigDecimal cashBalance) {

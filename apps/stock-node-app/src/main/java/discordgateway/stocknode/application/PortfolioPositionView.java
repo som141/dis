@@ -10,6 +10,9 @@ public record PortfolioPositionView(
         BigDecimal marketValue,
         BigDecimal costBasis,
         BigDecimal profitLoss,
-        boolean fresh
+        boolean fresh,
+        int leverage,
+        BigDecimal marginAmount,
+        BigDecimal notionalAmount
 ) {
 }

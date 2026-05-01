@@ -25,10 +25,10 @@ public class RedisRankingCacheRepository implements RankingCacheRepository {
     }
 
     @Override
-    public Optional<RankingView> find(long guildId, RankingPeriod rankingPeriod) {
+    public Optional<RankingView> find(long guildId, RankingPeriod rankingPeriod, String seasonKey) {
         try {
             String raw = stringRedisTemplate.opsForValue()
-                    .get(stockRedisKeyFactory.rankKey(guildId, rankingPeriod.name()));
+                    .get(stockRedisKeyFactory.rankKey(guildId, rankingPeriod.name(), seasonKey));
             if (raw == null || raw.isBlank()) {
                 return Optional.empty();
             }
@@ -42,7 +42,7 @@ public class RedisRankingCacheRepository implements RankingCacheRepository {
     public void save(RankingView rankingView, Duration ttl) {
         try {
             stringRedisTemplate.opsForValue().set(
-                    stockRedisKeyFactory.rankKey(rankingView.guildId(), rankingView.period()),
+                    stockRedisKeyFactory.rankKey(rankingView.guildId(), rankingView.period(), rankingView.seasonKey()),
                     objectMapper.writeValueAsString(rankingView),
                     ttl
             );
@@ -52,10 +52,10 @@ public class RedisRankingCacheRepository implements RankingCacheRepository {
     }
 
     @Override
-    public void evictGuild(long guildId) {
+    public void evictGuild(long guildId, String seasonKey) {
         for (discordgateway.stocknode.application.RankingPeriod rankingPeriod
                 : discordgateway.stocknode.application.RankingPeriod.values()) {
-            stringRedisTemplate.delete(stockRedisKeyFactory.rankKey(guildId, rankingPeriod.name()));
+            stringRedisTemplate.delete(stockRedisKeyFactory.rankKey(guildId, rankingPeriod.name(), seasonKey));
         }
     }
 }

@@ -85,7 +85,7 @@ class TradeExecutionServiceTest {
         );
         when(stockPositionRepository.findByAccountIdAndSymbol(10L, "AAPL")).thenReturn(Optional.empty());
 
-        TradeExecutionResult result = tradeExecutionService.buy(1001L, 2002L, "aapl", new BigDecimal("1000.00"));
+        TradeExecutionResult result = tradeExecutionService.buy(1001L, 2002L, "aapl", new BigDecimal("1000.00"), 1);
 
         assertThat(result.side()).isEqualTo(TradeSide.BUY);
         assertThat(result.executedQuantity()).isEqualByComparingTo("5.00000000");
@@ -94,7 +94,7 @@ class TradeExecutionServiceTest {
         assertThat(result.remainingPositionAverageCost()).isEqualByComparingTo("200.0000");
         verify(stockPositionRepository).save(any(StockPositionEntity.class));
         verify(tradeLedgerRepository).save(any());
-        verify(rankingCacheRepository).evictGuild(1001L);
+        verify(rankingCacheRepository).evictGuild(1001L, "legacy");
     }
 
     @Test
@@ -116,7 +116,7 @@ class TradeExecutionServiceTest {
         assertThat(result.remainingPositionQuantity()).isEqualByComparingTo("0.00000000");
         verify(stockPositionRepository).delete(position);
         verify(tradeLedgerRepository).save(any());
-        verify(rankingCacheRepository).evictGuild(1001L);
+        verify(rankingCacheRepository).evictGuild(1001L, "legacy");
     }
 
     @Test

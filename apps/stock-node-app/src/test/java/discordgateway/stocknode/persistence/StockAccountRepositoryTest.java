@@ -25,7 +25,7 @@ class StockAccountRepositoryTest {
         );
 
         assertThat(saved.getId()).isNotNull();
-        assertThat(stockAccountRepository.findByGuildIdAndUserId(1L, 2L))
+        assertThat(stockAccountRepository.findByGuildIdAndUserIdAndSeasonKey(1L, 2L, "legacy"))
                 .isPresent()
                 .get()
                 .extracting(StockAccountEntity::getCashBalance)

@@ -16,8 +16,8 @@ import java.util.Objects;
 @Table(
         name = "stock_account",
         uniqueConstraints = @UniqueConstraint(
-                name = "uk_stock_account_guild_user",
-                columnNames = {"guild_id", "user_id"}
+                name = "uk_stock_account_guild_user_season",
+                columnNames = {"guild_id", "user_id", "season_key"}
         )
 )
 public class StockAccountEntity extends BaseTimeEntity {
@@ -32,20 +32,28 @@ public class StockAccountEntity extends BaseTimeEntity {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
+    @Column(name = "season_key", nullable = false, length = 16)
+    private String seasonKey;
+
     @Column(name = "cash_balance", nullable = false, precision = 19, scale = 4)
     private BigDecimal cashBalance;
 
     protected StockAccountEntity() {
     }
 
-    private StockAccountEntity(Long guildId, Long userId, BigDecimal cashBalance) {
+    private StockAccountEntity(Long guildId, Long userId, String seasonKey, BigDecimal cashBalance) {
         this.guildId = guildId;
         this.userId = userId;
+        this.seasonKey = normalizeSeasonKey(seasonKey);
         this.cashBalance = cashBalance;
     }
 
     public static StockAccountEntity create(long guildId, long userId) {
-        return new StockAccountEntity(guildId, userId, BigDecimal.ZERO);
+        return create(guildId, userId, "legacy");
+    }
+
+    public static StockAccountEntity create(long guildId, long userId, String seasonKey) {
+        return new StockAccountEntity(guildId, userId, seasonKey, BigDecimal.ZERO);
     }
 
     public void updateCashBalance(BigDecimal cashBalance) {
@@ -76,7 +84,15 @@ public class StockAccountEntity extends BaseTimeEntity {
         return userId;
     }
 
+    public String getSeasonKey() {
+        return seasonKey;
+    }
+
     public BigDecimal getCashBalance() {
         return cashBalance;
+    }
+
+    private String normalizeSeasonKey(String seasonKey) {
+        return Objects.requireNonNull(seasonKey, "seasonKey").trim();
     }
 }

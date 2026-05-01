@@ -21,7 +21,7 @@ class StockRedisKeyFactoryTest {
                 .isEqualTo("stock:provider:mock:minute:202604220705");
         assertThat(stockRedisKeyFactory.providerDayLimitKey("Mock", LocalDate.parse("2026-04-22")))
                 .isEqualTo("stock:provider:mock:day:2026-04-22");
-        assertThat(stockRedisKeyFactory.rankKey(1234L, "Daily"))
-                .isEqualTo("stock:rank:1234:daily");
+        assertThat(stockRedisKeyFactory.rankKey(1234L, "Daily", "2026-05"))
+                .isEqualTo("stock:rank:2026-05:1234:daily");
     }
 }

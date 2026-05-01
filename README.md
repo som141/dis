@@ -335,7 +335,7 @@ bash /home/ubuntu/dis-bot/current/ops/smoke-check.sh
 
 - `/stock quote symbol:<ticker[,ticker...]>`
 - `/stock list`
-- `/stock buy symbol:<ticker> amount:<cash>`
+- `/stock buy symbol:<ticker> amount:<margin> [leverage:<1..50>]`
 - `/stock sell symbol:<ticker> quantity:<qty>`
 - `/stock balance`
 - `/stock portfolio`
@@ -356,6 +356,10 @@ Runtime behavior:
 - Redis quote TTL is 60 seconds
 - trade execution requires quote freshness within 45 seconds
 - stale cached quotes may still be shown for read-only commands
+- each active season starts with monthly seed cash `10,000`
+- active season rolls over at `day 1 00:00 Asia/Seoul`
+- `/stock buy` supports isolated leverage from `1` to `50`
+- `50x` leverage returns an explicit risk warning
 - this is not a real brokerage or real order system
 
 Required env for Finnhub mode:
@@ -403,26 +407,20 @@ Seeded US Top10 watchlist:
 
 ## 14. Stock Provider
 
-stock quote provider는 설정으로 바꿀 수 있습니다.
-
-기본값:
+stock quote provider is selected by env.
 
 ```env
-STOCK_PROVIDER_TYPE=mock
+STOCK_QUOTE_PROVIDER=mock
 ```
 
-실제 provider 사용 예시:
+Finnhub mode:
 
 ```env
-STOCK_PROVIDER_TYPE=alphavantage
-STOCK_PROVIDER_FALLBACK_TO_MOCK=true
-ALPHAVANTAGE_API_KEY=<your-key>
-ALPHAVANTAGE_ENTITLEMENT=
+STOCK_QUOTE_PROVIDER=finnhub
+FINNHUB_API_KEY=<your-key>
 ```
 
-현재 지원 provider 타입:
+Supported provider types:
 
 - `mock`
-- `alphavantage`
-
-`alphavantage` 호출 실패 시 `STOCK_PROVIDER_FALLBACK_TO_MOCK=true`면 mock provider로 fallback 합니다.
+- `finnhub`

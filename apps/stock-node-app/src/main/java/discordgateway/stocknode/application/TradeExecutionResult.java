@@ -11,11 +11,15 @@ public record TradeExecutionResult(
         String symbol,
         BigDecimal requestedAmount,
         BigDecimal requestedQuantity,
+        int leverage,
+        BigDecimal marginAmount,
+        BigDecimal notionalAmount,
         BigDecimal executedQuantity,
         BigDecimal unitPrice,
         BigDecimal settledAmount,
         BigDecimal remainingCash,
         BigDecimal remainingPositionQuantity,
-        BigDecimal remainingPositionAverageCost
+        BigDecimal remainingPositionAverageCost,
+        String warningMessage
 ) {
 }

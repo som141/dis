@@ -8,6 +8,9 @@ public record TradeHistoryEntryView(
         TradeSide side,
         BigDecimal quantity,
         BigDecimal unitPrice,
+        int leverage,
+        BigDecimal marginAmount,
+        BigDecimal notionalAmount,
         Instant occurredAt
 ) {
 }
