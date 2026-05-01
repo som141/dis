@@ -101,7 +101,7 @@ class DiscordBotListenerStockTest {
     }
 
     @Test
-    void dispatchesStockBuyWithParsedDecimal() {
+    void dispatchesStockBuyWithQuantityOption() {
         MusicApplicationService musicApplicationService = mock(MusicApplicationService.class);
         StockApplicationService stockApplicationService = mock(StockApplicationService.class);
         PlayAutocompleteService playAutocompleteService = mock(PlayAutocompleteService.class);
@@ -119,7 +119,7 @@ class DiscordBotListenerStockTest {
         User user = mock(User.class);
         MessageChannelUnion channel = mock(MessageChannelUnion.class);
         OptionMapping symbolOption = mock(OptionMapping.class);
-        OptionMapping amountOption = mock(OptionMapping.class);
+        OptionMapping quantityOption = mock(OptionMapping.class);
         OptionMapping leverageOption = mock(OptionMapping.class);
         ReplyCallbackAction replyCallbackAction = mock(ReplyCallbackAction.class);
         InteractionHook hook = mock(InteractionHook.class);
@@ -133,10 +133,10 @@ class DiscordBotListenerStockTest {
         when(event.getChannel()).thenReturn(channel);
         when(event.getToken()).thenReturn("token-1");
         when(event.getOption(DiscordCommandCatalog.OPT_SYMBOL)).thenReturn(symbolOption);
-        when(event.getOption(DiscordCommandCatalog.OPT_AMOUNT)).thenReturn(amountOption);
+        when(event.getOption(DiscordCommandCatalog.OPT_QUANTITY)).thenReturn(quantityOption);
         when(event.getOption(DiscordCommandCatalog.OPT_LEVERAGE)).thenReturn(leverageOption);
         when(symbolOption.getAsString()).thenReturn("msft");
-        when(amountOption.getAsString()).thenReturn("1000.25");
+        when(quantityOption.getAsInt()).thenReturn(2);
         when(leverageOption.getAsInt()).thenReturn(5);
         when(guild.getIdLong()).thenReturn(10L);
         when(user.getIdLong()).thenReturn(20L);
@@ -153,10 +153,10 @@ class DiscordBotListenerStockTest {
                 1,
                 1L,
                 "gateway-1",
-                new StockCommand.Buy(10L, 20L, "MSFT", new BigDecimal("1000.25"), 5),
+                new StockCommand.Buy(10L, 20L, "MSFT", new BigDecimal("2"), 5),
                 "gateway-1"
         );
-        when(stockApplicationService.prepareBuy(10L, 20L, "msft", new BigDecimal("1000.25"), 5)).thenReturn(envelope);
+        when(stockApplicationService.prepareBuy(10L, 20L, "msft", new BigDecimal("2"), 5)).thenReturn(envelope);
         when(stockApplicationService.dispatch(envelope)).thenReturn(CompletableFuture.completedFuture(null));
 
         doAnswer(invocation -> {
@@ -167,7 +167,7 @@ class DiscordBotListenerStockTest {
 
         listener.onSlashCommandInteraction(event);
 
-        verify(stockApplicationService).prepareBuy(10L, 20L, "msft", new BigDecimal("1000.25"), 5);
+        verify(stockApplicationService).prepareBuy(10L, 20L, "msft", new BigDecimal("2"), 5);
         verify(stockApplicationService).dispatch(envelope);
         verify(event).deferReply(false);
         verify(pendingInteractionRepository).put(eq("command-2"), any(InteractionResponseContext.class));

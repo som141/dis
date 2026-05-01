@@ -7,7 +7,6 @@ import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
@@ -120,12 +119,9 @@ public class StockResponseFormatter {
                 .add("- 포지션 규모: " + formatMoney(result.notionalAmount()))
                 .add("- 체결 수량: " + formatQuantity(result.executedQuantity()) + "주")
                 .add("- 정산 금액: " + formatMoney(result.settledAmount()))
-                .add("- 남은 예수금: " + formatMoney(result.remainingCash()))
+                .add("- 남은 현금: " + formatMoney(result.remainingCash()))
                 .add("- 현재 보유 수량: " + formatQuantity(result.remainingPositionQuantity()) + "주");
-        if (result.side() == TradeSide.BUY && result.requestedAmount() != null) {
-            joiner.add("- 요청 금액: " + formatMoney(result.requestedAmount()));
-        }
-        if (result.side() == TradeSide.SELL && result.requestedQuantity() != null) {
+        if (result.requestedQuantity() != null) {
             joiner.add("- 요청 수량: " + formatQuantity(result.requestedQuantity()) + "주");
         }
         if (result.warningMessage() != null && !result.warningMessage().isBlank()) {
@@ -136,18 +132,18 @@ public class StockResponseFormatter {
 
     public String formatBalance(BalanceView balanceView) {
         return new StringJoiner(System.lineSeparator())
-                .add("**이번 시즌 예수금**")
+                .add("**이번 시즌 보유 현금**")
                 .add("- 계좌 ID: " + balanceView.accountId())
-                .add("- 보유 예수금: " + formatMoney(balanceView.cashBalance()))
+                .add("- 보유 현금: " + formatMoney(balanceView.cashBalance()))
                 .toString();
     }
 
     public String formatPortfolio(PortfolioView portfolioView) {
         StringJoiner joiner = new StringJoiner(System.lineSeparator())
                 .add("**현재 포트폴리오**")
-                .add("- 예수금: " + formatMoney(portfolioView.cashBalance()))
-                .add("- 포지션 평가금액: " + formatMoney(portfolioView.totalMarketValue()))
-                .add("- 총 평가자산: " + formatMoney(portfolioView.totalEquity()))
+                .add("- 현금: " + formatMoney(portfolioView.cashBalance()))
+                .add("- 보유 종목 평가금액: " + formatMoney(portfolioView.totalMarketValue()))
+                .add("- 총 평가 자산: " + formatMoney(portfolioView.totalEquity()))
                 .add("- 총 손익: " + formatMoney(portfolioView.totalProfitLoss()));
         if (portfolioView.positions().isEmpty()) {
             return joiner.add("- 보유 중인 종목이 없습니다.").toString();
@@ -156,7 +152,7 @@ public class StockResponseFormatter {
         for (PortfolioPositionView position : portfolioView.positions()) {
             joiner.add(String.format(
                     Locale.ROOT,
-                    "- %s · %d배 · 보유 %s주 · 평균단가 %s · 현재가 %s · 증거금 %s · 포지션 규모 %s · 손익 %s · %s",
+                    "- %s · %d배 · 수량 %s주 · 평균단가 %s · 현재가 %s · 증거금 %s · 포지션 규모 %s · 손익 %s · %s",
                     position.symbol(),
                     position.leverage(),
                     formatQuantity(position.quantity()),
@@ -175,7 +171,7 @@ public class StockResponseFormatter {
         StringJoiner joiner = new StringJoiner(System.lineSeparator())
                 .add("**최근 거래 내역**")
                 .add("- 계좌 ID: " + tradeHistoryView.accountId())
-                .add("- 현재 예수금: " + formatMoney(tradeHistoryView.cashBalance()));
+                .add("- 현재 현금: " + formatMoney(tradeHistoryView.cashBalance()));
         if (tradeHistoryView.entries().isEmpty()) {
             return joiner.add("- 아직 거래 내역이 없습니다.").toString();
         }
@@ -199,19 +195,19 @@ public class StockResponseFormatter {
 
     public String formatRanking(RankingView rankingView) {
         StringJoiner joiner = new StringJoiner(System.lineSeparator())
-                .add("**서버 수익률 랭킹**")
+                .add("**서버 수익률 순위**")
                 .add("- 시즌: " + rankingView.seasonKey())
                 .add("- 집계 기준: " + periodLabel(rankingView.period()))
                 .add("- 집계 시각: " + DATE_TIME_FORMATTER.format(rankingView.generatedAt()));
         if (rankingView.entries().isEmpty()) {
-            return joiner.add("- 아직 랭킹에 표시할 참가자가 없습니다.").toString();
+            return joiner.add("- 아직 순위를 계산할 참가자가 없습니다.").toString();
         }
 
         int index = 1;
         for (RankingEntryView entry : rankingView.entries()) {
             joiner.add(String.format(
                     Locale.ROOT,
-                    "- %d위 · <@%d> · 수익률 %s%% · 평가자산 %s · 기준자산 %s",
+                    "- %d위 · <@%d> · 수익률 %s%% · 평가 자산 %s · 기준 자산 %s",
                     index++,
                     entry.userId(),
                     formatPercent(entry.returnRatePercent()),
@@ -223,7 +219,7 @@ public class StockResponseFormatter {
     }
 
     public String formatNotImplemented(String commandName) {
-        return "아직 구현되지 않은 주식 명령어입니다: " + commandName;
+        return "아직 구현되지 않은 주식 명령입니다: " + commandName;
     }
 
     public String formatFailure(Throwable throwable) {
@@ -231,7 +227,7 @@ public class StockResponseFormatter {
             return "현재 45초 이내 최신 시세가 없어 거래하거나 조회할 수 없습니다. 잠시 후 다시 시도해 주세요.";
         }
         if (throwable instanceof InsufficientCashException) {
-            return "예수금이 부족해 주문을 처리할 수 없습니다.";
+            return "보유 현금이 부족해 주문을 처리할 수 없습니다.";
         }
         if (throwable instanceof InsufficientQuantityException) {
             return "보유 수량이 부족해 매도할 수 없습니다.";
@@ -275,16 +271,16 @@ public class StockResponseFormatter {
     }
 
     private String freshnessDescription(boolean fresh) {
-        return fresh ? "최신 시세" : "지연된 시세";
+        return fresh ? "최신 시세" : "지연 시세";
     }
 
     private String freshnessShortLabel(boolean fresh) {
-        return fresh ? "최신" : "지연";
+        return fresh ? "FRESH" : "STALE";
     }
 
     private String localizeWarning(String warningMessage) {
         if (warningMessage.contains("50x leverage")) {
-            return "50배 레버리지는 약 2%만 불리하게 움직여도 증거금이 모두 소진될 수 있습니다.";
+            return "50배 레버리지는 약 2%만 불리하게 움직여도 포지션 가치가 크게 훼손될 수 있습니다.";
         }
         return warningMessage;
     }

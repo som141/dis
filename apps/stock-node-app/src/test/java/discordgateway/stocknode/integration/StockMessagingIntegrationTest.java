@@ -146,7 +146,7 @@ class StockMessagingIntegrationTest extends StockNodeMessagingIntegrationTestSup
                 1,
                 Instant.now().toEpochMilli(),
                 "gateway",
-                new StockCommand.Buy(1001L, 2002L, "AAPL", new BigDecimal("1000.00"), 1),
+                new StockCommand.Buy(1001L, 2002L, "AAPL", new BigDecimal("5"), 1),
                 RESPONSE_NODE
         ));
         assertThat(buyEvent.success()).isTrue();

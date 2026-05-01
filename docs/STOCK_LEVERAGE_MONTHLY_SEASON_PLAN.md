@@ -36,9 +36,9 @@ The implementation plan below assumes these rules.
 - allowed range: `1` to `50`
 - default leverage: `1`
 - leverage model: isolated margin
-- buy input amount is treated as margin cash
-- position notional = `margin * leverage`
-- executed quantity = `notional / entryPrice`
+- buy input is an integer share quantity
+- position notional = `quantity * entryPrice`
+- margin = `notional / leverage`
 - one account may hold only one active position per symbol in the same season
 - if the same symbol is bought again, leverage must match the existing position
 - different leverage on an existing symbol is rejected
@@ -247,9 +247,9 @@ Work:
 - extend `StockCommand.Buy` and gateway slash command with optional leverage
 - validate leverage `1..50`
 - buy:
+  - validate integer share quantity
+  - compute notional from quantity and quote
   - deduct margin cash
-  - compute notional
-  - compute quantity from quote
 - sell:
   - use current quote
   - realize PnL

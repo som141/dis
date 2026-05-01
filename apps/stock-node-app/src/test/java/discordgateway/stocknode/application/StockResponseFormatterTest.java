@@ -55,7 +55,7 @@ class StockResponseFormatterTest {
         assertThat(message).contains("```text");
         assertThat(message).contains("AAPL");
         assertThat(message).contains("MSFT");
-        assertThat(message).contains("지연");
+        assertThat(message).contains("STALE");
     }
 
     @Test
@@ -141,7 +141,7 @@ class StockResponseFormatterTest {
                 ))
         ));
 
-        assertThat(ranking).contains("서버 수익률 랭킹");
+        assertThat(ranking).contains("서버 수익률 순위");
         assertThat(ranking).contains("<@2002>");
         assertThat(ranking).contains("1.0000%");
     }

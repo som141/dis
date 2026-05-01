@@ -14,13 +14,13 @@ class StockCommandContractTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
-    void serializesBuyAmountContract() throws Exception {
+    void serializesBuyQuantityContract() throws Exception {
         StockCommandEnvelope envelope = new StockCommandEnvelope(
                 "cmd-1",
                 1,
                 1_234L,
                 "gateway",
-                new StockCommand.Buy(1001L, 2002L, "AAPL", new BigDecimal("1000.00"), 7),
+                new StockCommand.Buy(1001L, 2002L, "AAPL", new BigDecimal("7"), 7),
                 "gateway-1"
         );
 
@@ -31,7 +31,7 @@ class StockCommandContractTest {
 
         assertThat(restored.command()).isInstanceOf(StockCommand.Buy.class);
         StockCommand.Buy buy = (StockCommand.Buy) restored.command();
-        assertThat(buy.amount()).isEqualByComparingTo("1000.00");
+        assertThat(buy.quantity()).isEqualByComparingTo("7");
         assertThat(buy.leverage()).isEqualTo(7);
     }
 

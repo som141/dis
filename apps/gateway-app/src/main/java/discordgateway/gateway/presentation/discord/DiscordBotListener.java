@@ -271,14 +271,14 @@ public class DiscordBotListener extends ListenerAdapter {
                     guildId,
                     requesterId,
                     getRequiredStringOption(event, DiscordCommandCatalog.OPT_SYMBOL),
-                    parseDecimalOption(event, DiscordCommandCatalog.OPT_AMOUNT),
+                    getRequiredIntegerOptionAsBigDecimal(event, DiscordCommandCatalog.OPT_QUANTITY),
                     getIntegerOption(event, DiscordCommandCatalog.OPT_LEVERAGE)
             );
             case DiscordCommandCatalog.SUB_SELL -> stockApplicationService.prepareSell(
                     guildId,
                     requesterId,
                     getRequiredStringOption(event, DiscordCommandCatalog.OPT_SYMBOL),
-                    parseDecimalOption(event, DiscordCommandCatalog.OPT_QUANTITY)
+                    getRequiredIntegerOptionAsBigDecimal(event, DiscordCommandCatalog.OPT_QUANTITY)
             );
             case DiscordCommandCatalog.SUB_BALANCE -> stockApplicationService.prepareBalance(guildId, requesterId);
             case DiscordCommandCatalog.SUB_PORTFOLIO -> stockApplicationService.preparePortfolio(guildId, requesterId);
@@ -506,6 +506,14 @@ public class DiscordBotListener extends ListenerAdapter {
     private Integer getIntegerOption(SlashCommandInteractionEvent event, String name) {
         OptionMapping optionMapping = event.getOption(name);
         return optionMapping != null ? optionMapping.getAsInt() : null;
+    }
+
+    private BigDecimal getRequiredIntegerOptionAsBigDecimal(SlashCommandInteractionEvent event, String name) {
+        Integer value = getIntegerOption(event, name);
+        if (value == null) {
+            throw new IllegalArgumentException("Missing option: " + name);
+        }
+        return BigDecimal.valueOf(value.longValue());
     }
 
     private BigDecimal parseDecimalOption(SlashCommandInteractionEvent event, String name) {

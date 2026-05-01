@@ -88,13 +88,14 @@ Main files:
 
 ### 2.5 Leverage buy/sell execution
 
-`buy` now accepts leverage and treats `amount` as margin cash.
+`buy` now accepts leverage and uses integer share quantity as input.
 
 Current buy behavior:
 
 - validates leverage `1..50`
-- computes notional = `margin * leverage`
-- computes executed quantity from quote
+- validates integer share quantity
+- computes notional = `quantity * quote`
+- computes margin = `notional / leverage`
 - deducts margin cash from account
 - stores leverage/margin/notional in position and ledger
 
@@ -158,12 +159,9 @@ Completed:
 
 - `.\gradlew.bat compileJava compileTestJava`
 - `.\gradlew.bat :apps:gateway-app:test`
+- `.\gradlew.bat :apps:stock-node-app:test`
+- `.\gradlew.bat clean test`
 - `.\gradlew.bat bootJarAll`
-
-Current limitation:
-
-- `.\gradlew.bat :apps:stock-node-app:test` is blocked in this environment by missing Docker/Testcontainers runtime
-- the remaining failures are integration test bootstrap failures, not current Java compile or unit-test contract failures
 
 ## 4. Remaining Gaps
 
@@ -181,6 +179,6 @@ The stock system is now moving away from daily stipend semantics and toward a mo
 
 From this point, the next reasonable work is:
 
-1. add more focused leverage unit tests
-2. verify Testcontainers integration tests in a Docker-enabled environment
-3. decide whether to expose season information explicitly in Discord responses
+1. decide whether to expose season information explicitly in Discord responses
+2. add liquidation or maintenance margin rules if leverage policy grows
+3. keep documentation aligned with command and response changes

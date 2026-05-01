@@ -9,7 +9,6 @@ public record TradeExecutionResult(
         TradeSide side,
         String market,
         String symbol,
-        BigDecimal requestedAmount,
         BigDecimal requestedQuantity,
         int leverage,
         BigDecimal marginAmount,

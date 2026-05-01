@@ -1,12 +1,12 @@
 # 이벤트 계약
 
-현재 저장소에는 음악과 주식 두 개의 비동기 command/result 계약이 있다.
+현재 저장소에는 음악과 주식 두 종류의 비동기 command/result 계약이 있다.
 
 ## 음악 계약
 
-음악 쪽 공용 계약은 `modules/common-core`에 있다.
+음악 공용 계약은 `modules/common-core`에 있다.
 
-핵심 타입:
+주요 타입:
 
 - `MusicCommand`
 - `MusicCommandEnvelope`
@@ -31,9 +31,9 @@ transport:
 
 ## 주식 계약
 
-주식 쪽 공용 계약은 `modules/stock-core`에 있다.
+주식 공용 계약은 `modules/stock-core`에 있다.
 
-핵심 타입:
+주요 타입:
 
 - `StockCommand`
 - `StockCommandEnvelope`
@@ -53,7 +53,8 @@ transport:
 특징:
 
 - `Quote`는 단일 종목 또는 여러 종목을 받을 수 있다.
-- `Buy`는 `amount`와 optional `leverage`를 가진다.
+- `Buy`는 `quantity`와 optional `leverage`를 가진다.
+- `Sell`도 `quantity` 기반으로 동작한다.
 - result event는 성공/실패와 사용자에게 보여줄 최종 메시지를 함께 가진다.
 
 ## RabbitMQ 토폴로지
@@ -79,9 +80,9 @@ transport:
 5. worker가 처리 후 result event를 publish한다.
 6. `gateway-app`이 result event를 받아 원래 interaction 응답을 수정한다.
 
-핵심 포인트:
+핵심 의도:
 
-- Discord 응답은 RPC로 기다리지 않는다.
+- Discord 응답을 RPC로 기다리지 않는다.
 - command/result를 분리한 비동기 구조다.
 - pending interaction은 Redis TTL 기반으로 관리한다.
 

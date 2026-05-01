@@ -30,7 +30,6 @@ public final class DiscordCommandCatalog {
     public static final String OPT_AUTOPLAY = "autoplay";
     public static final String OPT_SFX_NAME = "name";
     public static final String OPT_SYMBOL = "symbol";
-    public static final String OPT_AMOUNT = "amount";
     public static final String OPT_QUANTITY = "quantity";
     public static final String OPT_LEVERAGE = "leverage";
     public static final String OPT_LIMIT = "limit";
@@ -52,35 +51,35 @@ public final class DiscordCommandCatalog {
         OptionData playQuery = new OptionData(OptionType.STRING, OPT_QUERY, "검색어 또는 URL", true)
                 .setAutoComplete(true);
 
-        OptionData playAuto = new OptionData(OptionType.BOOLEAN, OPT_AUTOPLAY, "추천 곡 자동 재생", false);
+        OptionData playAuto = new OptionData(OptionType.BOOLEAN, OPT_AUTOPLAY, "추천 곡까지 자동 재생", false);
 
         OptionData sfxName = new OptionData(OptionType.STRING, OPT_SFX_NAME, "효과음 이름", true)
                 .addChoice("gsuck", "gsuck.mp3")
                 .addChoice("smbj", "smbj.mp3");
 
-        SubcommandData stockQuote = new SubcommandData(SUB_QUOTE, "저장된 주식 시세를 조회합니다")
-                .addOption(OptionType.STRING, OPT_SYMBOL, "티커 또는 쉼표/공백으로 구분한 여러 티커", true);
+        SubcommandData stockQuote = new SubcommandData(SUB_QUOTE, "원하는 주식 시세를 조회합니다")
+                .addOption(OptionType.STRING, OPT_SYMBOL, "종목 코드 또는 쉼표/공백으로 구분한 여러 코드", true);
 
-        SubcommandData stockList = new SubcommandData(SUB_LIST, "미국 시가총액 상위 10개 종목을 봅니다");
+        SubcommandData stockList = new SubcommandData(SUB_LIST, "미국 시가총액 상위 10개 종목을 보여줍니다");
 
-        SubcommandData stockBuy = new SubcommandData(SUB_BUY, "금액 기준으로 주식을 매수합니다")
-                .addOption(OptionType.STRING, OPT_SYMBOL, "티커 심볼", true)
-                .addOption(OptionType.STRING, OPT_AMOUNT, "사용할 증거금 금액", true)
-                .addOption(OptionType.INTEGER, OPT_LEVERAGE, "레버리지 배율 1~50", false);
+        SubcommandData stockBuy = new SubcommandData(SUB_BUY, "수량 기준으로 주식을 매수합니다")
+                .addOption(OptionType.STRING, OPT_SYMBOL, "주식 종목 코드", true)
+                .addOption(OptionType.INTEGER, OPT_QUANTITY, "매수할 주 수", true)
+                .addOption(OptionType.INTEGER, OPT_LEVERAGE, "레버리지 배수 1~50", false);
 
         SubcommandData stockSell = new SubcommandData(SUB_SELL, "수량 기준으로 주식을 매도합니다")
-                .addOption(OptionType.STRING, OPT_SYMBOL, "티커 심볼", true)
-                .addOption(OptionType.STRING, OPT_QUANTITY, "매도할 수량", true);
+                .addOption(OptionType.STRING, OPT_SYMBOL, "주식 종목 코드", true)
+                .addOption(OptionType.INTEGER, OPT_QUANTITY, "매도할 주 수", true);
 
-        SubcommandData stockBalance = new SubcommandData(SUB_BALANCE, "이번 시즌 예수금을 확인합니다");
+        SubcommandData stockBalance = new SubcommandData(SUB_BALANCE, "이번 시즌 보유 현금을 확인합니다");
 
         SubcommandData stockPortfolio = new SubcommandData(SUB_PORTFOLIO, "현재 보유 종목을 확인합니다");
 
         SubcommandData stockHistory = new SubcommandData(SUB_HISTORY, "최근 거래 내역을 확인합니다")
                 .addOption(OptionType.INTEGER, OPT_LIMIT, "최대 조회 개수", false);
 
-        SubcommandData stockRank = new SubcommandData(SUB_RANK, "서버 수익률 랭킹을 확인합니다")
-                .addOptions(new OptionData(OptionType.STRING, OPT_PERIOD, "랭킹 집계 기간", true)
+        SubcommandData stockRank = new SubcommandData(SUB_RANK, "서버 수익률 순위를 확인합니다")
+                .addOptions(new OptionData(OptionType.STRING, OPT_PERIOD, "순위를 계산할 기간", true)
                         .addChoice("일간", "day")
                         .addChoice("주간", "week")
                         .addChoice("시즌 누적", "all"));
@@ -97,7 +96,7 @@ public final class DiscordCommandCatalog {
                 Commands.slash(CMD_RESUME, "재생을 다시 시작합니다"),
                 Commands.slash(CMD_SFX, "효과음을 재생합니다").addOptions(sfxName),
                 Commands.slash(CMD_PIZZA, "피자 이미지를 보여줍니다"),
-                Commands.slash(CMD_STOCK, "모의투자 게임 명령어입니다")
+                Commands.slash(CMD_STOCK, "모의투자 게임 명령입니다")
                         .addSubcommands(
                                 stockQuote,
                                 stockList,

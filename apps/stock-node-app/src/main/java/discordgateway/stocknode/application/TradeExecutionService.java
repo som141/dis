@@ -23,7 +23,7 @@ public class TradeExecutionService {
     private static final int MIN_LEVERAGE = 1;
     private static final int MAX_LEVERAGE = 50;
     private static final String MAX_LEVERAGE_WARNING =
-            "50배 레버리지는 약 2%만 불리하게 움직여도 포지션 평가금액이 0원에 가까워질 수 있습니다.";
+            "50x leverage means that even an adverse move of around 2% may almost fully wipe the position value.";
 
     private final DailyAllowanceService dailyAllowanceService;
     private final StockWatchlistService stockWatchlistService;
@@ -58,10 +58,11 @@ public class TradeExecutionService {
     }
 
     @Transactional
-    public TradeExecutionResult buy(long guildId, long userId, String symbol, BigDecimal amount, int leverage) {
-        validatePositive(amount, "매수 금액");
+    public TradeExecutionResult buy(long guildId, long userId, String symbol, BigDecimal quantity, int leverage) {
+        BigDecimal requestedQuantity = normalizeWholeShareQuantity(quantity, "매수 수량");
         validateLeverage(leverage);
         stockWatchlistService.validateTradable(stockQuoteProperties.getDefaultMarket(), symbol);
+
         StockAccountEntity account = dailyAllowanceService.ensureSettledAccount(guildId, userId);
         StockQuoteResult quoteResult = quoteService.getQuote(
                 stockQuoteProperties.getDefaultMarket(),
@@ -70,20 +71,14 @@ public class TradeExecutionService {
         );
         ensureFreshQuote(quoteResult, symbol);
 
-        BigDecimal requestedMargin = scaleCash(amount, RoundingMode.DOWN);
-        BigDecimal targetNotional = requestedMargin.multiply(BigDecimal.valueOf(leverage));
-        BigDecimal executedQuantity = targetNotional.divide(quoteResult.quote().price(), 8, RoundingMode.DOWN);
-        if (executedQuantity.signum() <= 0) {
-            throw new InvalidTradeArgumentException("현재 시세 기준으로 매수 금액이 너무 작습니다.");
-        }
-
-        BigDecimal actualNotional = scaleCash(executedQuantity.multiply(quoteResult.quote().price()), RoundingMode.DOWN);
+        BigDecimal unitPrice = quoteResult.quote().price();
+        BigDecimal actualNotional = scaleCash(requestedQuantity.multiply(unitPrice), RoundingMode.DOWN);
         BigDecimal marginAmount = scaleCash(
                 actualNotional.divide(BigDecimal.valueOf(leverage), 4, RoundingMode.DOWN),
                 RoundingMode.DOWN
         );
         if (marginAmount.signum() <= 0) {
-            throw new InvalidTradeArgumentException("요청한 레버리지 기준으로 매수 금액이 너무 작습니다.");
+            throw new InvalidTradeArgumentException("현재 시세 기준으로 매수 수량이 너무 작습니다.");
         }
         if (account.getCashBalance().compareTo(marginAmount) < 0) {
             throw new InsufficientCashException("Not enough cash to buy " + StockQuote.normalizeSymbol(symbol));
@@ -93,11 +88,13 @@ public class TradeExecutionService {
         StockPositionEntity position = stockPositionRepository.findByAccountIdAndSymbol(account.getId(), normalizedSymbol)
                 .orElseGet(() -> StockPositionEntity.create(account, normalizedSymbol, leverage));
         if (!position.isEmpty() && position.getLeverage() != leverage) {
-            throw new LeverageMismatchException("Existing position for " + normalizedSymbol + " uses " + position.getLeverage() + "x leverage");
+            throw new LeverageMismatchException(
+                    "Existing position for " + normalizedSymbol + " uses " + position.getLeverage() + "x leverage"
+            );
         }
 
         account.subtractCash(marginAmount);
-        position.applyBuy(executedQuantity, quoteResult.quote().price(), marginAmount, actualNotional, leverage);
+        position.applyBuy(requestedQuantity, unitPrice, marginAmount, actualNotional, leverage);
 
         stockAccountRepository.save(account);
         stockPositionRepository.save(position);
@@ -106,8 +103,8 @@ public class TradeExecutionService {
                         account,
                         normalizedSymbol,
                         TradeSide.BUY.name(),
-                        executedQuantity,
-                        quoteResult.quote().price(),
+                        requestedQuantity,
+                        unitPrice,
                         leverage,
                         marginAmount,
                         actualNotional,
@@ -123,13 +120,12 @@ public class TradeExecutionService {
                 TradeSide.BUY,
                 quoteResult.quote().market(),
                 normalizedSymbol,
-                requestedMargin,
-                null,
+                requestedQuantity,
                 leverage,
                 marginAmount,
                 actualNotional,
-                executedQuantity,
-                quoteResult.quote().price(),
+                requestedQuantity,
+                unitPrice,
                 marginAmount,
                 account.getCashBalance(),
                 position.getQuantity(),
@@ -140,13 +136,14 @@ public class TradeExecutionService {
 
     @Transactional
     public TradeExecutionResult sell(long guildId, long userId, String symbol, BigDecimal quantity) {
-        validatePositive(quantity, "매도 수량");
+        BigDecimal normalizedQuantity = normalizeWholeShareQuantity(quantity, "매도 수량");
         stockWatchlistService.validateTradable(stockQuoteProperties.getDefaultMarket(), symbol);
+
         StockAccountEntity account = dailyAllowanceService.ensureSettledAccount(guildId, userId);
         String normalizedSymbol = StockQuote.normalizeSymbol(symbol);
         StockPositionEntity position = stockPositionRepository.findByAccountIdAndSymbol(account.getId(), normalizedSymbol)
                 .orElseThrow(() -> new InsufficientQuantityException("No holding exists for " + normalizedSymbol));
-        if (!position.hasEnoughQuantity(quantity)) {
+        if (!position.hasEnoughQuantity(normalizedQuantity)) {
             throw new InsufficientQuantityException("Not enough quantity to sell " + normalizedSymbol);
         }
 
@@ -157,7 +154,6 @@ public class TradeExecutionService {
         );
         ensureFreshQuote(quoteResult, normalizedSymbol);
 
-        BigDecimal normalizedQuantity = quantity.setScale(8, RoundingMode.HALF_UP);
         BigDecimal quantityRatio = normalizedQuantity.divide(position.getQuantity(), 16, RoundingMode.HALF_UP);
         BigDecimal releasedMarginAmount = scaleCash(position.getMarginAmount().multiply(quantityRatio), RoundingMode.DOWN);
         BigDecimal releasedNotionalAmount = scaleCash(position.getNotionalAmount().multiply(quantityRatio), RoundingMode.DOWN);
@@ -201,7 +197,6 @@ public class TradeExecutionService {
                 TradeSide.SELL,
                 quoteResult.quote().market(),
                 normalizedSymbol,
-                null,
                 normalizedQuantity,
                 position.getLeverage(),
                 releasedMarginAmount,
@@ -220,6 +215,15 @@ public class TradeExecutionService {
         if (amount == null || amount.signum() <= 0) {
             throw new InvalidTradeArgumentException(label + "은(는) 0보다 커야 합니다.");
         }
+    }
+
+    private BigDecimal normalizeWholeShareQuantity(BigDecimal quantity, String label) {
+        validatePositive(quantity, label);
+        BigDecimal normalized = quantity.stripTrailingZeros();
+        if (normalized.scale() > 0) {
+            throw new InvalidTradeArgumentException(label + "은(는) 정수 주식 수량만 입력할 수 있습니다.");
+        }
+        return quantity.setScale(8, RoundingMode.HALF_UP);
     }
 
     private void ensureFreshQuote(StockQuoteResult quoteResult, String symbol) {

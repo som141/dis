@@ -164,13 +164,13 @@ class StockCommandApplicationServiceTest {
     }
 
     @Test
-    void dispatchesBuyCommandWithAmountContract() {
+    void dispatchesBuyCommandWithQuantityContract() {
         StockCommandEnvelope envelope = new StockCommandEnvelope(
                 "cmd-2",
                 1,
                 1_234L,
                 "gateway",
-                new StockCommand.Buy(1001L, 2002L, "AAPL", new BigDecimal("1000.00"), 5),
+                new StockCommand.Buy(1001L, 2002L, "AAPL", new BigDecimal("5"), 5),
                 "gateway-1"
         );
         TradeExecutionResult tradeExecutionResult = new TradeExecutionResult(
@@ -180,8 +180,7 @@ class StockCommandApplicationServiceTest {
                 TradeSide.BUY,
                 "us",
                 "AAPL",
-                new BigDecimal("1000.0000"),
-                null,
+                new BigDecimal("5.00000000"),
                 5,
                 new BigDecimal("1000.0000"),
                 new BigDecimal("5000.0000"),
@@ -193,7 +192,7 @@ class StockCommandApplicationServiceTest {
                 new BigDecimal("200.0000"),
                 null
         );
-        when(tradeExecutionService.buy(1001L, 2002L, "AAPL", new BigDecimal("1000.00"), 5))
+        when(tradeExecutionService.buy(1001L, 2002L, "AAPL", new BigDecimal("5"), 5))
                 .thenReturn(tradeExecutionResult);
         when(stockResponseFormatter.formatTrade(tradeExecutionResult)).thenReturn("buy message");
 
@@ -201,7 +200,7 @@ class StockCommandApplicationServiceTest {
 
         assertThat(event.success()).isTrue();
         assertThat(event.resultType()).isEqualTo("BUY");
-        verify(tradeExecutionService).buy(1001L, 2002L, "AAPL", new BigDecimal("1000.00"), 5);
+        verify(tradeExecutionService).buy(1001L, 2002L, "AAPL", new BigDecimal("5"), 5);
     }
 
     @Test

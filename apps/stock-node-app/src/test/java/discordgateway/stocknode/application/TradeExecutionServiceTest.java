@@ -76,7 +76,7 @@ class TradeExecutionServiceTest {
     }
 
     @Test
-    void buyUsesAmountContractAndUpdatesBalanceAndPosition() {
+    void buyUsesQuantityContractAndUpdatesBalanceAndPosition() {
         StockAccountEntity account = account(10L, "10000.0000");
         when(stockWatchlistService.validateTradable("us", "aapl")).thenReturn(null);
         when(dailyAllowanceService.ensureSettledAccount(1001L, 2002L)).thenReturn(account);
@@ -85,10 +85,13 @@ class TradeExecutionServiceTest {
         );
         when(stockPositionRepository.findByAccountIdAndSymbol(10L, "AAPL")).thenReturn(Optional.empty());
 
-        TradeExecutionResult result = tradeExecutionService.buy(1001L, 2002L, "aapl", new BigDecimal("1000.00"), 1);
+        TradeExecutionResult result = tradeExecutionService.buy(1001L, 2002L, "aapl", new BigDecimal("5"), 1);
 
         assertThat(result.side()).isEqualTo(TradeSide.BUY);
         assertThat(result.executedQuantity()).isEqualByComparingTo("5.00000000");
+        assertThat(result.requestedQuantity()).isEqualByComparingTo("5.00000000");
+        assertThat(result.marginAmount()).isEqualByComparingTo("1000.0000");
+        assertThat(result.settledAmount()).isEqualByComparingTo("1000.0000");
         assertThat(result.remainingCash()).isEqualByComparingTo("9000.0000");
         assertThat(result.remainingPositionQuantity()).isEqualByComparingTo("5.00000000");
         assertThat(result.remainingPositionAverageCost()).isEqualByComparingTo("200.0000");
@@ -112,11 +115,20 @@ class TradeExecutionServiceTest {
         TradeExecutionResult result = tradeExecutionService.sell(1001L, 2002L, "AAPL", new BigDecimal("5.00000000"));
 
         assertThat(result.side()).isEqualTo(TradeSide.SELL);
+        assertThat(result.settledAmount()).isEqualByComparingTo("1050.0000");
         assertThat(result.remainingCash()).isEqualByComparingTo("10050.0000");
         assertThat(result.remainingPositionQuantity()).isEqualByComparingTo("0.00000000");
         verify(stockPositionRepository).delete(position);
         verify(tradeLedgerRepository).save(any());
         verify(rankingCacheRepository).evictGuild(1001L, "legacy");
+    }
+
+    @Test
+    void rejectsFractionalBuyQuantity() {
+        assertThatThrownBy(() ->
+                tradeExecutionService.buy(1001L, 2002L, "AAPL", new BigDecimal("1.5"), 1)
+        ).isInstanceOf(InvalidTradeArgumentException.class)
+                .hasMessageContaining("정수 주식 수량");
     }
 
     @Test

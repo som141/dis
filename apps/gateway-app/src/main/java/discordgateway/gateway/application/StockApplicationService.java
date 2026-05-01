@@ -39,14 +39,14 @@ public class StockApplicationService {
             long guildId,
             long requesterId,
             String symbol,
-            BigDecimal amount,
+            BigDecimal quantity,
             Integer leverage
     ) {
         return stockCommandMessageFactory.createEnvelope(new StockCommand.Buy(
                 guildId,
                 requesterId,
                 normalizeSymbol(symbol),
-                amount,
+                quantity,
                 leverage == null ? 1 : leverage
         ));
     }
