@@ -2,172 +2,159 @@
 
 ## 요약
 
-현재 시스템은 `gateway-app + audio-node-app + common-core` 구조다.
+현재 저장소는 세 개의 실행 앱과 두 개의 공용 모듈로 구성된다.
 
 - `gateway-app`
-  - Discord command 진입점
-  - RabbitMQ command producer
-  - RabbitMQ command result consumer
-  - deferred ephemeral 응답 관리
 - `audio-node-app`
-  - RabbitMQ command consumer
-  - 실제 재생, 복구, 유휴 퇴장 실행
-  - RabbitMQ command result publisher
-- `common-core`
-  - 공용 계약
-  - playback 코어
-  - Redis / RabbitMQ / JDA 인프라
+- `stock-node-app`
+- `modules/common-core`
+- `modules/stock-core`
 
-고정된 실행 경로:
+음악과 주식은 모두 `gateway-app`에서 Discord 명령을 받고, 실제 작업은 각자 별도 worker가 처리한다.
 
-- 상태 저장소: Redis
-- 명령 transport: RabbitMQ async publish
-- 명령 결과 transport: RabbitMQ direct exchange
-- 내부 상태 이벤트: Spring local event
-
-## 패키지 계층
-
-- `discordgateway.gateway.*`
-- `discordgateway.audionode.*`
-- `discordgateway.common.*`
-- `discordgateway.playback.*`
-- `discordgateway.infra.*`
-
-## 시스템 다이어그램
+## 전체 구성
 
 ```mermaid
 flowchart LR
     U[Discord User]
     D[Discord API]
-
-    subgraph APPS[Docker Compose Stack]
-        G[gateway-app]
-        A[audio-node-app]
-        R[(Redis)]
-        MQ[(RabbitMQ)]
-    end
+    G[gateway-app]
+    MQ[(RabbitMQ)]
+    A[audio-node-app]
+    S[stock-node-app]
+    R[(Redis)]
+    P[(PostgreSQL)]
+    F[Finnhub REST API]
 
     U --> D
     D --> G
-    G -->|MusicCommandEnvelope publish| MQ
-    MQ -->|command consume| A
-    A -->|MusicCommandResultEvent publish| MQ
-    MQ -->|result consume| G
-    A -->|state read/write| R
-    A -->|voice/playback| D
+
+    G -->|music command| MQ
+    MQ --> A
+    A -->|music result| MQ
+    MQ --> G
+
+    G -->|stock command| MQ
+    MQ --> S
+    S -->|stock result| MQ
+    MQ --> G
+
+    A --> R
+    S --> R
+    S --> P
+    S --> F
 ```
 
-## 관측성 다이어그램
+## 노드별 책임
+
+### gateway-app
+
+- Discord slash command 진입점
+- interaction `deferReply` 시작
+- command envelope 생성
+- RabbitMQ publish
+- result event 수신 후 원래 응답 수정
+
+### audio-node-app
+
+- 음악 명령 consumer
+- 실제 재생, queue 처리, recovery, idle disconnect
+- Redis 상태 저장
+- music result event publish
+
+### stock-node-app
+
+- 주식 명령 consumer
+- quote 조회, 매수/매도, 잔고/포트폴리오/거래내역/랭킹 처리
+- PostgreSQL 영속 계층 사용
+- Redis quote cache와 rank cache 사용
+- Finnhub REST API를 20초 주기로 호출해 quote cache 갱신
+
+### modules/common-core
+
+- 음악 command/event 계약
+- playback 코어
+- RabbitMQ/Redis/JDA 인프라 구현
+
+### modules/stock-core
+
+- 주식 command/result 계약
+- stock 메시지 속성/프로토콜 정의
+
+## 데이터 저장소별 역할
+
+| 구성요소 | 역할 |
+| --- | --- |
+| Redis | 음악 상태 저장, pending interaction, stock quote cache, rank cache |
+| RabbitMQ | music command/result, stock command/result 비동기 transport |
+| PostgreSQL | stock account, position, ledger, snapshot, watchlist 저장 |
+
+## 음악 명령 흐름
+
+1. 사용자가 Discord에서 음악 slash command를 실행한다.
+2. `gateway-app`이 비공개 deferred reply를 시작한다.
+3. `gateway-app`이 `MusicCommandEnvelope`를 RabbitMQ로 publish한다.
+4. `audio-node-app`이 consume 후 재생 로직을 처리한다.
+5. 처리 결과를 `MusicCommandResultEvent`로 publish한다.
+6. `gateway-app`이 result event를 받아 원래 interaction 응답을 수정한다.
+
+## 주식 명령 흐름
+
+1. 사용자가 Discord에서 `/stock` 하위 명령을 실행한다.
+2. `gateway-app`이 subcommand에 따라 공개 또는 비공개 deferred reply를 시작한다.
+3. `gateway-app`이 `StockCommandEnvelope`를 RabbitMQ로 publish한다.
+4. `stock-node-app`이 consume 후 quote/거래/조회/랭킹 로직을 수행한다.
+5. `stock-node-app`이 `StockCommandResultEvent`를 publish한다.
+6. `gateway-app`이 result event를 받아 원래 interaction 응답을 수정한다.
+
+## 주식 시세 갱신 흐름
 
 ```mermaid
 flowchart LR
+    W[(stock_watchlist)]
+    S[stock-node-app]
+    F[Finnhub REST API]
+    R[(Redis quote cache)]
     G[gateway-app]
-    A[audio-node-app]
-    R[(Redis)]
-    MQ[(RabbitMQ)]
-    AL[Alloy]
-    P[Prometheus]
-    L[Loki]
-    GR[Grafana]
+    U[Discord User]
 
-    G -->|stdout logs| AL
-    A -->|stdout logs| AL
-    AL -->|logs| L
-
-    P -->|scrape| G
-    P -->|scrape| A
-    P -->|scrape| R
-    P -->|scrape| MQ
-    P -->|scrape| AL
-
-    P --> GR
-    L --> GR
+    W --> S
+    S -->|20초마다 Top10 순차 호출| F
+    F --> S
+    S -->|TTL 60초 저장| R
+    U --> G
+    G -->|stock command| S
+    S -->|cache read only| R
 ```
 
-## 명령 흐름
+중요한 정책:
 
-1. 사용자가 Discord slash command를 호출한다.
-2. `gateway-app`의 `DiscordBotListener`가 interaction을 받는다.
-3. gateway가 `deferReply(true)`를 먼저 수행한다.
-4. `MusicApplicationService`가 요청을 `MusicCommandEnvelope`로 변환한다.
-5. `RabbitMusicCommandBus`가 envelope를 RabbitMQ에 publish한다.
-6. `audio-node-app`의 `RabbitMusicCommandListener`가 command를 소비한다.
-7. `MusicWorkerService`가 실제 비즈니스 로직을 실행한다.
-8. 처리 결과는 `MusicCommandResultEvent`로 다시 RabbitMQ에 발행된다.
-9. `gateway-app`의 `RabbitMusicCommandResultListener`가 result event를 받아 original ephemeral reply를 수정한다.
+- Discord 명령 처리 중 외부 API를 직접 호출하지 않는다.
+- 거래는 Redis에 45초 이내 fresh quote가 있을 때만 허용한다.
+- 조회는 stale quote도 허용하지만 지연 안내를 붙인다.
 
-## 재생 흐름
+## Discord 응답 공개 범위
 
-1. `MusicWorkerService`가 playback / voice gateway를 호출한다.
-2. `PlayerManager`가 곡 로드와 큐 반영을 처리한다.
-3. `TrackScheduler`가 재생 전이와 다음 곡 결정을 처리한다.
-4. 종료가 필요하면 `VoiceSessionLifecycleService`가 stop, clear, disconnect, state cleanup을 공통 처리한다.
-5. `VoiceChannelIdleListener`와 `VoiceChannelIdleDisconnectService`가 유휴 음성 채널 퇴장을 수행한다.
-6. 상태 변화는 Redis와 Spring local event, 구조 로그로 반영된다.
+- 공개 응답
+  - `/stock buy`
+  - `/stock sell`
+  - `/stock rank`
+- 비공개 응답
+  - 모든 음악 명령
+  - `/stock quote`
+  - `/stock list`
+  - `/stock balance`
+  - `/stock portfolio`
+  - `/stock history`
 
-## 복구 흐름
+## 관측성 현재 상태
 
-1. `audio-node-app`이 기동한다.
-2. JDA Ready 이후 `PlaybackRecoveryReadyListener`가 시작한다.
-3. `PlaybackRecoveryService`가 Redis에서 guild / player / queue 상태를 읽는다.
-4. 저장된 음성 채널과 현재 재생 상태를 기준으로 복구를 시도한다.
-
-## 컴포넌트별 특징
-
-### Gateway App
-
-| 항목 | 내용 |
-| --- | --- |
-| 역할 | Discord 요청 수신, deferred ephemeral 응답 시작, command publish, result consume |
-| 주요 클래스 | `DiscordBotListener`, `MusicApplicationService`, `RabbitMusicCommandBus`, `RabbitMusicCommandResultListener` |
-| 상태 보유 | pending interaction Redis TTL registry |
-| 워크로드 | slash command burst, autocomplete, result reply edit |
-
-### Audio Node App
-
-| 항목 | 내용 |
-| --- | --- |
-| 역할 | command 소비, 실제 재생, 복구, 유휴 퇴장, result 발행 |
-| 주요 클래스 | `RabbitMusicCommandListener`, `PlaybackRecoveryService`, `VoiceChannelIdleDisconnectService`, `VoiceChannelIdleListener` |
-| 상태 보유 | Redis를 source of truth로 사용 |
-| 워크로드 | 음성 연결, 곡 로드, 재생, recovery, voice state 감시 |
-
-### Common Core
-
-| 항목 | 내용 |
-| --- | --- |
-| 역할 | 공용 계약과 코어 로직 제공 |
-| 주요 클래스 | `MusicWorkerService`, `PlayerManager`, `TrackScheduler`, `ApplicationFactory` |
-| 상태 보유 | 직접 상태를 갖지 않고 Redis 경로를 통해 접근 |
-| 워크로드 | 코어 로직, bootstrap, 저장소 및 메시지 연결 |
-
-### Redis
-
-| 항목 | 내용 |
-| --- | --- |
-| 역할 | shared source of truth |
-| 저장 대상 | guild state, queue state, player state, processed command |
-| 비고 | in-memory fallback 제거 |
-
-### RabbitMQ
-
-| 항목 | 내용 |
-| --- | --- |
-| 역할 | gateway와 audio-node 사이 command / result transport |
-| 사용 범위 | command exchange, command queue, command result exchange, DLQ |
-| 비고 | RPC는 제거됨 |
-
-## 관측성
-
-- Actuator `health`, `info`, `prometheus`
-- ECS JSON structured logging
-- Grafana dashboard provisioning
-- Prometheus alert rules
-- Grafana managed alert rules
-- Discord webhook 알림 경로
-
-## 현재 운영 이슈
-
-- YouTube 재생은 로컬과 원격 서버에서 결과 차이가 있다.
-- 현재까지는 관측상 코드보다 서버 IP/ASN과 YouTube anti-bot 응답 차이 영향이 더 크다.
-- Grafana 관리자 계정은 첫 기동 시점의 env만 반영된다.
+- Prometheus scrape 대상
+  - `gateway-app`
+  - `audio-node-app`
+  - `redis-exporter`
+  - `rabbitmq`
+  - `prometheus`
+  - `loki`
+  - `alloy`
+- 현재 `stock-node-app`은 Prometheus scrape 대상에 포함되지 않았다.

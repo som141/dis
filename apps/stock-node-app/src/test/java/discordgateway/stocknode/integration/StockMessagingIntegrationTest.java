@@ -23,6 +23,8 @@ import org.springframework.test.annotation.DirtiesContext;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.YearMonth;
+import java.time.ZoneId;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -93,8 +95,9 @@ class StockMessagingIntegrationTest extends StockNodeMessagingIntegrationTestSup
 
         assertThat(event.success()).isTrue();
         assertThat(event.resultType()).isEqualTo("QUOTE");
-        assertThat(event.message()).contains("stock quote");
         assertThat(event.message()).contains("AAPL");
+        assertThat(event.message()).contains("200.0000");
+        assertThat(event.message()).contains("KST");
     }
 
     @Test
@@ -110,10 +113,11 @@ class StockMessagingIntegrationTest extends StockNodeMessagingIntegrationTestSup
 
         assertThat(event.success()).isTrue();
         assertThat(event.resultType()).isEqualTo("QUOTE");
-        assertThat(event.message()).contains("stock quotes");
         assertThat(event.message()).contains("AAPL");
         assertThat(event.message()).contains("MSFT");
         assertThat(event.message()).contains("```text");
+        assertThat(event.message()).contains("SYMBOL");
+        assertThat(event.message()).contains("PRICE");
     }
 
     @Test
@@ -129,9 +133,10 @@ class StockMessagingIntegrationTest extends StockNodeMessagingIntegrationTestSup
 
         assertThat(event.success()).isTrue();
         assertThat(event.resultType()).isEqualTo("LIST");
-        assertThat(event.message()).contains("US Top10 by market cap");
+        assertThat(event.message()).contains("AAPL");
         assertThat(event.message()).contains("NVDA");
         assertThat(event.message()).contains("Finnhub REST API");
+        assertThat(event.message()).contains("```text");
     }
 
     @Test
@@ -157,8 +162,8 @@ class StockMessagingIntegrationTest extends StockNodeMessagingIntegrationTestSup
         ));
         assertThat(historyEvent.success()).isTrue();
         assertThat(historyEvent.resultType()).isEqualTo("HISTORY");
-        assertThat(historyEvent.message()).contains("stock history");
-        assertThat(historyEvent.message()).contains("BUY AAPL");
+        assertThat(historyEvent.message()).contains("AAPL");
+        assertThat(historyEvent.message()).contains("200.0000");
     }
 
     @Test
@@ -174,7 +179,8 @@ class StockMessagingIntegrationTest extends StockNodeMessagingIntegrationTestSup
 
         assertThat(event.success()).isTrue();
         assertThat(event.resultType()).isEqualTo("RANK");
-        assertThat(event.message()).contains("stock ranking");
+        assertThat(event.message()).contains(YearMonth.now(ZoneId.of("Asia/Seoul")).toString());
+        assertThat(event.message()).contains("KST");
     }
 
     private StockCommandResultEvent sendAndReceive(StockCommandEnvelope envelope) {

@@ -1,81 +1,66 @@
 # 서버 배포 스크립트 가이드
 
-## 1. 개요
+## 개요
 
-현재 원격 배포는 GitHub Actions와 `deploy.sh`를 기준으로 동작한다.
+현재 배포는 GitHub Actions `Deploy Bot` 워크플로우와 서버의 `deploy.sh`를 기준으로 동작한다.
 
 배포 대상:
 
 - `gateway-app`
 - `audio-node-app`
-- `redis`
-- `rabbitmq`
-- 관측성 스택
-  - `prometheus`
-  - `loki`
-  - `alloy`
-  - `redis-exporter`
-  - `grafana`
+- `stock-node-app`
+- `docker-compose.yml`
+- `ops/`
+- `ops/observability/`
+- `.env.cicd`
 
-단, 관측성 스택은 `OBSERVABILITY_ENABLED=true`일 때만 같이 올라간다.
+## CI 흐름
 
-## 2. 배포 흐름
-
-1. `main` push 또는 workflow_dispatch
-2. GitHub Actions가 `bootJarAll` 수행
-3. `gateway-app`, `audio-node-app` 이미지를 `<git-sha>` 태그로 빌드
-4. 이미지를 `tar.gz`로 저장
-5. `.env.cicd`, `docker-compose.yml`, `ops/`, `ops/observability/`를 서버 `incoming`으로 업로드
+1. `main` push 또는 `workflow_dispatch`
+2. `./gradlew clean test bootJarAll --no-daemon`
+3. 세 앱 Docker image build
+4. image를 `tar.gz`로 저장
+5. `.env.cicd`, `docker-compose.yml`, `ops/`, `ops/observability/` 업로드
 6. 서버에서 `deploy.sh <git-sha>` 실행
-7. `deploy.sh`가 release 디렉터리를 만들고 파일을 복사
-8. `docker load`로 이미지를 적재
-9. 이전 release가 있으면 `docker compose down --remove-orphans`
-10. 새 release를 `current` 심볼릭 링크로 전환
-11. `OBSERVABILITY_ENABLED` 값에 따라 일반 compose 또는 `--profile observability`로 기동
 
-## 3. 서버 디렉터리 구조
+## 서버 디렉터리 구조
 
 ```text
 /home/ubuntu/dis-bot
-├─ incoming/
-│  └─ ops/
-│     └─ observability/
-├─ releases/
-│  └─ <git-sha>/
-│     ├─ docker-compose.yml
-│     ├─ .env
-│     ├─ discord-gateway.tar.gz
-│     ├─ discord-audio-node.tar.gz
-│     └─ ops/
-│        └─ observability/
-└─ current -> /home/ubuntu/dis-bot/releases/<git-sha>
+  deploy.sh
+  incoming/
+    discord-gateway-<sha>.tar.gz
+    discord-audio-node-<sha>.tar.gz
+    discord-stock-node-<sha>.tar.gz
+    .env.cicd
+    docker-compose.yml
+    ops/
+  releases/
+    <sha>/
+      docker-compose.yml
+      .env
+      discord-gateway.tar.gz
+      discord-audio-node.tar.gz
+      discord-stock-node.tar.gz
+      ops/
+  current -> /home/ubuntu/dis-bot/releases/<sha>
 ```
 
-## 4. `deploy.sh`가 하는 일
+## deploy.sh 동작
 
-- release 디렉터리 생성
-- `incoming` 파일 복사
-- `ops/` 복사 및 실행 권한 부여
-- gateway/audio-node 이미지 `docker load`
-- 레거시 고정 이름 컨테이너 자동 정리
-- 이전 release compose down
-- `current` 심볼릭 링크 갱신
-- `OBSERVABILITY_ENABLED`에 따라 compose up
+- `incoming`에 필요한 파일이 다 있는지 검증
+- 새 release 디렉터리 생성
+- compose, env, image archive, `ops/` 복사
+- `docker load`로 세 image 적재
+- 이전 release가 있으면 `docker compose down --remove-orphans`
+- `current` symlink 교체
+- 새 release에서 `docker compose up -d --no-build --remove-orphans`
 - `incoming` 정리
-- 오래된 release 5개만 유지
+- 오래된 release 5개 초과분 삭제
 
-## 5. Compose 프로젝트 이름
+## GitHub Actions 변수와 시크릿
 
-원격 배포는 `COMPOSE_PROJECT_NAME=discord-bot` 기준으로 고정되어 있다.
-
-이렇게 하는 이유:
-
-- release 디렉터리 이름이 바뀌어도 compose 프로젝트명이 매번 달라지지 않게 하기 위해서
-- 예전 `container_name` 충돌 문제를 피하기 위해서
-
-## 6. GitHub Secrets
-
-### 필수
+### 필수 Secrets
 
 - `SSH_PRIVATE_KEY`
 - `SSH_HOST`
@@ -84,92 +69,45 @@
 - `DISCORD_TOKEN` 또는 `TOKEN`
 - `RABBITMQ_USERNAME`
 - `RABBITMQ_PASSWORD`
+- `POSTGRES_PASSWORD`
 
-### 권장
+Finnhub 사용 시:
 
-- `DISCORD_DEV_GUILD_ID`
-- `YOUTUBE_REFRESH_TOKEN`
-- `YOUTUBE_PO_TOKEN`
-- `YOUTUBE_VISITOR_DATA`
-- `YOUTUBE_REMOTE_CIPHER_URL`
-- `YOUTUBE_REMOTE_CIPHER_PASSWORD`
-- `YOUTUBE_REMOTE_CIPHER_USER_AGENT`
-- `GRAFANA_ADMIN_USER`
-- `GRAFANA_ADMIN_PASSWORD`
-- `GRAFANA_ALERT_DISCORD_WEBHOOK_URL`
+- `FINNHUB_API_KEY`
 
-## 7. GitHub Variables
+### 주요 Variables
 
-권장 값:
+- `OBSERVABILITY_ENABLED`
+- `STOCK_QUOTE_PROVIDER`
+- `STOCK_MARKET_DATA_ENABLED`
+- `STOCK_MARKET_REFRESH_DELAY_MS`
+- `POSTGRES_DB`
+- `POSTGRES_USER`
 
-- `APP_ENV=prod`
-- `OBSERVABILITY_ENABLED=true`
-- `GRAFANA_ANONYMOUS_ENABLED=false`
-- `GRAFANA_ALERT_DEFAULT_RECEIVER=observability-noop`
-- `GRAFANA_ALERT_NOOP_WEBHOOK_URL=http://127.0.0.1:9/disabled`
-- `GRAFANA_ALERT_DISCORD_AVATAR_URL=`
-- `GRAFANA_ALERT_DISCORD_USE_USERNAME=true`
+권장:
 
-이미지 버전 오버라이드가 필요하면:
+- `STOCK_QUOTE_PROVIDER=finnhub` 또는 `mock`
 
-- `GRAFANA_IMAGE`
-- `PROMETHEUS_IMAGE`
-- `LOKI_IMAGE`
-- `ALLOY_IMAGE`
-- `REDIS_EXPORTER_IMAGE`
+## Finnhub 배포 반영 조건
 
-## 8. 관측성 자동 배포 조건
+실제로 Finnhub 모드로 뜨려면 아래 두 조건이 모두 필요하다.
 
-`OBSERVABILITY_ENABLED=true`면 아래가 같이 올라간다.
+1. `FINNHUB_API_KEY` secret 존재
+2. `STOCK_QUOTE_PROVIDER=finnhub` variable 존재
 
-- `prometheus`
-- `loki`
-- `alloy`
-- `redis-exporter`
-- `grafana`
+이 두 값이 `.env.cicd`에 써져서 `stock-node` 컨테이너 env로 전달된다.
 
-`false`면 앱과 Redis/RabbitMQ만 올라간다.
-
-## 9. 수동 배포
-
-GitHub Actions 없이 수동으로 하려면 먼저 `incoming/`에 아래를 넣어야 한다.
-
-- `discord-gateway-<git-sha>.tar.gz`
-- `discord-audio-node-<git-sha>.tar.gz`
-- `.env.cicd`
-- `docker-compose.yml`
-- `ops/`
-
-그 다음:
-
-```bash
-bash /home/ubuntu/dis-bot/deploy.sh <git-sha>
-```
-
-## 10. 배포 후 확인
-
-전체 상태:
+## 배포 후 확인
 
 ```bash
 cd /home/ubuntu/dis-bot/current
 docker compose --env-file .env ps
+docker compose --project-name discord-bot --env-file .env logs stock-node --tail=200
+docker inspect discord-bot-stock-node-1 --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -E 'STOCK_QUOTE_PROVIDER|FINNHUB_API_KEY'
 ```
 
-관측성 포함 상태:
+## 알려진 리스크
 
-```bash
-cd /home/ubuntu/dis-bot/current
-docker compose --profile observability --env-file .env ps
-```
-
-Grafana health:
-
-```bash
-curl http://127.0.0.1:3000/api/health
-```
-
-Prometheus rules:
-
-```bash
-curl http://127.0.0.1:9090/api/v1/rules
-```
+- 현재 스크립트는 image archive를 release 디렉터리로 복사한 뒤 `docker load`한다.
+- 디스크가 작은 서버에서는 배포 중간에 용량이 두 번 잡힐 수 있다.
+- 서버에 별도 디스크를 붙여도 `DEPLOY_DIR`과 Docker `data-root`가 루트 디스크를 계속 쓰면 해결되지 않는다.

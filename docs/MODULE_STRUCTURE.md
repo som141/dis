@@ -1,135 +1,122 @@
 # 모듈 구조
 
-## 개요
+## Gradle 구성
 
-현재 저장소는 공용 코어와 두 실행 앱으로 분리돼 있다.
+현재 `settings.gradle`에 등록된 모듈은 다음과 같다.
 
-- `modules/common-core`
-- `apps/gateway-app`
-- `apps/audio-node-app`
+- `modules:common-core`
+- `modules:stock-core`
+- `apps:gateway-app`
+- `apps:audio-node-app`
+- `apps:stock-node-app`
 
-원칙은 두 가지다.
-
-1. 실행 단위는 앱 모듈에 둔다.
-2. 공용 계약과 재생 코어는 `common-core`에 둔다.
-
-## 디렉터리
+## 디렉터리 구조
 
 ```text
 apps/
   gateway-app/
-    src/main/java/discordgateway/gateway/
-      application/
-      config/
-      interaction/
-      messaging/
-      presentation/discord/
   audio-node-app/
-    src/main/java/discordgateway/audionode/
-      config/
-      lifecycle/
-      recovery/
+  stock-node-app/
 modules/
   common-core/
-    src/main/java/discordgateway/common/
-      bootstrap/
-      command/
-      event/
-    src/main/java/discordgateway/playback/
-      application/
-      audio/
-      domain/
-    src/main/java/discordgateway/infra/
-      audio/
-      discord/
-      messaging/rabbit/
-      redis/
+  stock-core/
+docs/
+ops/
+docker-compose.yml
+deploy.sh
 ```
 
-## 패키지 루트 규칙
+## 앱별 책임
 
-### `discordgateway.gateway.*`
+### apps/gateway-app
 
-- gateway 전용 진입점
-- Discord interaction 처리
-- command envelope 생성
-- pending interaction / result consumer
+- Discord slash command 진입점
+- music/stock command envelope 생성
+- pending interaction 저장
+- result event 수신 후 응답 수정
 
-### `discordgateway.audionode.*`
+주요 패키지:
 
-- audio-node 전용 진입점
+- `application`
+- `config`
+- `interaction`
+- `messaging`
+- `presentation/discord`
+
+### apps/audio-node-app
+
+- 음악 command consumer
+- 재생 실행
 - recovery
-- voice idle lifecycle
+- idle disconnect
 
-### `discordgateway.common.*`
+주요 패키지:
 
-- 공용 bootstrap
-- 공용 command 계약
-- 공용 event 계약
+- `config`
+- `lifecycle`
+- `recovery`
 
-### `discordgateway.playback.*`
+### apps/stock-node-app
 
-- 실제 재생 비즈니스 로직
-- worker 서비스
-- scheduler
-- 도메인 모델 / repository port
+- 주식 command consumer
+- quote cache 조회/갱신
+- 거래 실행
+- 포트폴리오/랭킹/스냅샷 계산
+- PostgreSQL persistence
 
-### `discordgateway.infra.*`
+주요 패키지:
 
-- Redis 구현
-- RabbitMQ 구현
-- Discord/JDA 구현
-- playback gateway 구현
+- `application`
+- `bootstrap`
+- `cache`
+- `config`
+- `lock`
+- `messaging`
+- `persistence/entity`
+- `persistence/repository`
+- `quote/finnhub`
+- `quote/model`
+- `quote/provider`
+- `quote/service`
 
-## 모듈별 책임
+## 공용 모듈 책임
 
-### `modules/common-core`
+### modules/common-core
 
-- 공용 계약과 코어 로직 제공
-- 실행 진입점 없음
-- 최종 산출물은 앱 모듈이 만든다
+- 음악 command/event 계약
+- playback 코어 로직
+- Redis/RabbitMQ/JDA 인프라
+- 공용 bootstrap 설정
 
-### `apps/gateway-app`
+주요 패키지:
 
-- Discord slash command 수신
-- autocomplete 처리
-- 입력 검증
-- `MusicCommandEnvelope` 생성 후 RabbitMQ publish
-- result event를 받아 original ephemeral reply 수정
+- `discordgateway.common.*`
+- `discordgateway.playback.*`
+- `discordgateway.infra.*`
 
-### `apps/audio-node-app`
+### modules/stock-core
 
-- RabbitMQ command 소비
-- 실제 재생과 음성 연결 실행
-- recovery 수행
-- 유휴 음성 채널 자동 퇴장 수행
-- 처리 결과를 result event로 발행
+- 주식 command 계약
+- 주식 result event 계약
+- stock 메시징 속성/프로토콜
 
-## 빌드
+주요 패키지:
 
-Gateway만:
+- `discordgateway.stock.command`
+- `discordgateway.stock.event`
+- `discordgateway.stock.messaging`
 
-```powershell
-.\gradlew.bat :apps:gateway-app:bootJar
-```
+## 경계 규칙
 
-Audio Node만:
+- `gateway-app`은 Discord/JDA 진입만 담당한다.
+- `audio-node-app`은 음악만 담당한다.
+- `stock-node-app`은 주식만 담당한다.
+- `common-core`는 음악 공용 코어다.
+- `stock-core`는 주식 공용 계약 모듈이다.
 
-```powershell
-.\gradlew.bat :apps:audio-node-app:bootJar
-```
+## 왜 이렇게 분리했는가
 
-전체:
-
-```powershell
-.\gradlew.bat bootJarAll
-```
-
-산출물:
-
-- `apps/gateway-app/build/libs/gateway-app.jar`
-- `apps/audio-node-app/build/libs/audio-node-app.jar`
-
-## 정리 기준
-
-이번 패키지 재정리의 목적은 소스가 어디에 속하는지 패키지 이름만 보고도 구분되게 만드는 것이다. 예전처럼 `application`, `discord`, `infrastructure` 같은 넓은 이름으로 경계가 섞이지 않도록, 앱 경계와 공용 경계를 패키지 루트에서 바로 드러내는 쪽으로 정리했다.
+- Discord 진입과 실제 처리 worker를 분리해 응답 지연과 책임을 분리한다.
+- 음악과 주식을 별도 worker로 나눠 서로의 도메인 변경이 섞이지 않게 한다.
+- Redis, RabbitMQ, JDA 구현은 공용 모듈에 모아 중복을 줄인다.
+- 주식 계약은 stock 전용 모듈로 분리해 `common-core`가 불필요하게 비대해지지 않게 한다.

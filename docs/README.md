@@ -1,60 +1,48 @@
 # 문서 인덱스
 
-이 디렉터리에는 현재 코드 구조, 운영 방식, 주식 시스템 개발 기록, CI 검증 문서를 정리한다.
+이 디렉터리에는 현재 운영 문서와 주식 기능 개발 기록 문서를 함께 둔다.
 
-## 구조 문서
+## 현재 상태 문서
 
 - [CURRENT_ARCHITECTURE.md](CURRENT_ARCHITECTURE.md)
-  - 현재 시스템 구성, 흐름, 컴포넌트 역할
-- [CODEBASE_ANALYSIS.md](CODEBASE_ANALYSIS.md)
-  - 저장소 전체 구조 분석
+  - 현재 서비스 구성과 데이터/이벤트 흐름
 - [MODULE_STRUCTURE.md](MODULE_STRUCTURE.md)
-  - 모듈 경계와 패키지 기준
-
-## 계약 문서
-
+  - 앱/모듈 책임 분리와 패키지 경계
 - [EVENT_CONTRACT.md](EVENT_CONTRACT.md)
-  - `MusicEvent` 구조와 발행 방식
-
-## 운영 / 배포 문서
-
+  - 음악/주식 command-result 계약과 RabbitMQ 토폴로지 개요
 - [OPERATIONS_RUNBOOK.md](OPERATIONS_RUNBOOK.md)
-  - 운영 모드, 복구, DLQ, 점검 기준
+  - 운영 중 확인할 명령, 로그, health check
 - [SERVER_DEPLOY_SCRIPT.md](SERVER_DEPLOY_SCRIPT.md)
-  - GitHub Actions + `deploy.sh` 기반 배포 구조
-- [CI_TESTING.md](CI_TESTING.md)
-  - CI 테스트 범위, 확인 위치, 로컬 재현 방법
-
-## 관측성 문서
-
+  - GitHub Actions와 `deploy.sh` 기반 원격 배포 구조
 - [OBSERVABILITY_PLAN.md](OBSERVABILITY_PLAN.md)
-  - 현재 관측성 구성과 이후 확장 방향
-- [../ops/observability/README.md](../ops/observability/README.md)
-  - 로그/메트릭 관측성 스택 실행법
+  - 현재 관측성 스택과 앞으로의 확장 우선순위
+- [CI_TESTING.md](CI_TESTING.md)
+  - CI에서 어떤 테스트를 돌리고 어디서 결과를 보는지
+- [POSTGRESQL_STOCK_SCHEMA.md](POSTGRESQL_STOCK_SCHEMA.md)
+  - 주식 시스템 PostgreSQL 스키마 설명
 
-## 기록 문서
+## 보조 문서
 
+- [CODEBASE_ANALYSIS.md](CODEBASE_ANALYSIS.md)
+  - 코드베이스 전체 분석 메모
 - [CODEX_WORK_LOG.md](CODEX_WORK_LOG.md)
-  - 단계별 작업 기록과 현재 상태 메모
+  - 작업 로그
+
+## 주식 개발 기록
+
+아래 문서는 해당 시점의 구현 계획과 보고서다. 현재 상태 설명이 아니라 주차별 기록으로 본다.
+
 - [STOCK_WEEK0_BOUNDARIES.md](STOCK_WEEK0_BOUNDARIES.md)
-  - 주식 시스템 0주차 책임 경계 정리
 - [STOCK_WEEK0_REPORT.md](STOCK_WEEK0_REPORT.md)
-  - 주식 시스템 0주차 작업 보고서
 - [STOCK_WEEK1_WEEK2_TASK_BREAKDOWN.md](STOCK_WEEK1_WEEK2_TASK_BREAKDOWN.md)
-  - 주식 시스템 1주차, 2주차 작업 분해와 검증 기준
 - [STOCK_WEEK1_WEEK2_REPORT.md](STOCK_WEEK1_WEEK2_REPORT.md)
-  - 주식 시스템 1주차, 2주차 구현 및 검증 보고서
 - [STOCK_WEEK3_WEEK4_TASK_BREAKDOWN.md](STOCK_WEEK3_WEEK4_TASK_BREAKDOWN.md)
-  - 주식 시스템 3주차, 4주차 작업 분해와 테스트 게이트 기준
 - [STOCK_WEEK3_WEEK4_REPORT.md](STOCK_WEEK3_WEEK4_REPORT.md)
-  - 주식 시스템 3주차, 4주차 구현 및 검증 보고서
 - [STOCK_WEEK3_REPORT.md](STOCK_WEEK3_REPORT.md)
-  - 요청 형식 기준 3주차 상세 구현 및 테스트 보고서
 - [STOCK_WEEK5_TASK_BREAKDOWN.md](STOCK_WEEK5_TASK_BREAKDOWN.md)
-  - 주식 시스템 5주차 gateway `/stock` 연동 작업 분해와 검증 기준
 - [STOCK_WEEK5_REPORT.md](STOCK_WEEK5_REPORT.md)
-  - 주식 시스템 5주차 gateway `/stock` 연동 구현 및 검증 보고서
 - [STOCK_WEEK6_WEEK8_TASK_BREAKDOWN.md](STOCK_WEEK6_WEEK8_TASK_BREAKDOWN.md)
-  - 주식 시스템 6주차-8주차 작업 분해와 검증 기준
 - [STOCK_WEEK6_WEEK8_REPORT.md](STOCK_WEEK6_WEEK8_REPORT.md)
-  - 주식 시스템 6주차-8주차 구현 및 검증 보고서
+- [STOCK_FINNHUB_TOP10_TASK_BREAKDOWN.md](STOCK_FINNHUB_TOP10_TASK_BREAKDOWN.md)
+- [STOCK_LEVERAGE_MONTHLY_SEASON_PLAN.md](STOCK_LEVERAGE_MONTHLY_SEASON_PLAN.md)
+- [STOCK_LEVERAGE_MONTHLY_SEASON_REPORT.md](STOCK_LEVERAGE_MONTHLY_SEASON_REPORT.md)

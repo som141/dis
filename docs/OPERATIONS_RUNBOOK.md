@@ -1,133 +1,156 @@
 # 운영 런북
 
-## 1. 목적
+## 목적
 
-이 문서는 현재 배포 구조에서 운영자가 바로 사용할 수 있는 점검 절차를 정리한다.
+이 문서는 현재 DIS 운영 환경에서 자주 확인하는 명령과 점검 포인트를 정리한다.
 
-대상:
+## 기본 구성
 
-- 앱 기동 / 정지
-- 장애 확인
-- DLQ 재처리
-- 관측성 스택 확인
-- 배포 후 스모크 체크
+기본 compose 서비스:
 
-## 2. 현재 운영 구조
+- `gateway`
+- `audio-node`
+- `stock-node`
+- `redis`
+- `rabbitmq`
+- `postgres`
 
-- 앱:
-  - `gateway-app`
-  - `audio-node-app`
-- 공통 인프라:
-  - Redis
-  - RabbitMQ
-- 관측성:
-  - Prometheus
-  - Loki
-  - Alloy
-  - redis-exporter
-  - Grafana
+관측성 profile 추가 시:
 
-현재 운영 경로:
+- `prometheus`
+- `loki`
+- `alloy`
+- `redis-exporter`
+- `grafana`
 
-- 상태 저장소: Redis
-- 명령 전달: RabbitMQ
-- 이벤트 전달: Spring local event
+## 기본 작업 디렉터리
 
-## 3. 원격 서버 기본 명령
-
-작업 디렉터리:
+성공적으로 배포된 서버 기준 작업 디렉터리:
 
 ```bash
 cd /home/ubuntu/dis-bot/current
 ```
 
-전체 상태 확인:
+`current`가 없으면 배포가 중간에 실패했거나 release symlink가 아직 잡히지 않은 상태다.
+
+## 컨테이너 상태 확인
+
+전체 상태:
 
 ```bash
 docker compose --env-file .env ps
 ```
 
-관측성 포함 상태 확인:
+관측성 포함 상태:
 
 ```bash
 docker compose --profile observability --env-file .env ps
 ```
 
-## 4. 봇 정지 / 시작
-
-앱만 잠깐 정지:
+compose 파일이 없는 위치라면 직접 컨테이너를 본다.
 
 ```bash
-docker compose --project-name discord-bot --env-file .env stop gateway audio-node
+docker ps --format 'table {{.Names}}\t{{.Status}}'
 ```
 
-앱만 다시 시작:
+## 로그 확인
 
-```bash
-docker compose --project-name discord-bot --env-file .env start gateway audio-node
-```
-
-전체 스택 정지:
-
-```bash
-docker compose --project-name discord-bot --env-file .env stop
-```
-
-전체 스택 시작:
-
-```bash
-docker compose --project-name discord-bot --env-file .env start
-```
-
-## 5. 로그 확인
-
-앱 로그:
+핵심 앱 로그:
 
 ```bash
 docker compose --project-name discord-bot --env-file .env logs gateway --tail=200
 docker compose --project-name discord-bot --env-file .env logs audio-node --tail=200
+docker compose --project-name discord-bot --env-file .env logs stock-node --tail=200
+```
+
+infra 로그:
+
+```bash
+docker compose --project-name discord-bot --env-file .env logs redis --tail=100
+docker compose --project-name discord-bot --env-file .env logs rabbitmq --tail=100
+docker compose --project-name discord-bot --env-file .env logs postgres --tail=100
 ```
 
 실시간 추적:
 
 ```bash
-docker compose --project-name discord-bot --env-file .env logs -f gateway audio-node
+docker compose --project-name discord-bot --env-file .env logs -f gateway audio-node stock-node
 ```
 
-관측성 로그:
-
-```bash
-docker compose --project-name discord-bot --profile observability --env-file .env logs grafana --tail=200
-docker compose --project-name discord-bot --profile observability --env-file .env logs prometheus --tail=200
-```
-
-## 6. 헬스 체크
-
-Gateway:
+## health check
 
 ```bash
 curl http://127.0.0.1:8081/actuator/health
-```
-
-Audio Node:
-
-```bash
 curl http://127.0.0.1:8082/actuator/health
-```
-
-Prometheus:
-
-```bash
+curl http://127.0.0.1:8083/actuator/health
 curl http://127.0.0.1:9090/-/ready
-```
-
-Grafana:
-
-```bash
 curl http://127.0.0.1:3000/api/health
 ```
 
-## 7. 스모크 체크
+## stock-node 운영 체크
+
+### provider 상태 확인
+
+```bash
+docker inspect discord-bot-stock-node-1 --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -E 'STOCK_QUOTE_PROVIDER|FINNHUB_API_KEY|STOCK_MARKET'
+```
+
+정상 예시:
+
+- `STOCK_QUOTE_PROVIDER=finnhub`
+- `FINNHUB_API_KEY=...`
+- `STOCK_MARKET=US`
+
+### Finnhub 갱신 로그 확인
+
+```bash
+docker logs discord-bot-stock-node-1 --tail=200
+```
+
+확인할 메시지:
+
+- watchlist refresh 시작
+- 종목별 refresh 성공/실패
+- 전체 success count
+
+### Redis quote cache 확인
+
+```bash
+docker exec -it discord-bot-redis-1 redis-cli KEYS 'stock:quote:US:*'
+```
+
+정상이라면 `NVDA`, `AAPL` 등 10개 키가 보여야 한다.
+
+### PostgreSQL 테이블 확인
+
+```bash
+docker exec -it discord-bot-postgres-1 psql -U stock -d stock -c '\dt'
+```
+
+주식 관련 핵심 테이블:
+
+- `stock_account`
+- `stock_position`
+- `trade_ledger`
+- `allowance_ledger`
+- `account_snapshot`
+- `stock_watchlist`
+
+## 재시작
+
+앱만 재시작:
+
+```bash
+docker compose --project-name discord-bot --env-file .env restart gateway audio-node stock-node
+```
+
+관측성 포함 전체 재시작:
+
+```bash
+docker compose --project-name discord-bot --profile observability --env-file .env restart
+```
+
+## smoke check
 
 배포 직후:
 
@@ -135,97 +158,57 @@ curl http://127.0.0.1:3000/api/health
 bash /home/ubuntu/dis-bot/current/ops/smoke-check.sh
 ```
 
-추가 수동 확인:
+주식 쪽 추가 수동 확인:
 
-1. slash command가 Discord에서 보이는지 확인
-2. `/join` 응답 확인
-3. `/play`로 실제 재생 확인
-4. `/skip`, `/stop` 응답 확인
-5. 컨테이너 재시작 후 recovery 확인
+1. `/stock list`가 watchlist를 보여주는지
+2. `finnhub` 모드면 `quote pending`이 아닌 실제 가격이 보이는지
+3. `/stock buy`가 공개 메시지로 보이는지
+4. `/stock balance`, `/stock portfolio`, `/stock history`는 비공개인지
 
-## 8. Command DLQ 재처리
+## DLQ 재처리
 
-기본 실행:
+음악 command DLQ 재처리:
 
 ```bash
 bash /home/ubuntu/dis-bot/current/ops/replay-command-dlq.sh
 ```
 
-최대 메시지 수 제한:
+## 용량 문제 점검
+
+전체 디스크:
 
 ```bash
-bash /home/ubuntu/dis-bot/current/ops/replay-command-dlq.sh 100
+df -h
 ```
 
-동작 방식:
-
-1. DLQ에서 메시지를 읽는다.
-2. `MusicCommandMessage`로 역직렬화한다.
-3. 메인 command exchange로 다시 발행한다.
-4. 성공 시 ACK
-5. 실패 시 중단
-
-DLQ 재처리 모드에서는 JDA와 일반 command consumer가 같이 뜨지 않도록 구성되어 있다.
-
-## 9. 레거시 컨테이너 정리
-
-예전 배포 잔재가 남아 있으면:
+배포 디렉터리 크기:
 
 ```bash
-bash /home/ubuntu/dis-bot/current/ops/cleanup-legacy-deploy.sh
+du -sh /home/ubuntu/dis-bot
+du -sh /home/ubuntu/dis-bot/incoming
+du -sh /home/ubuntu/dis-bot/releases
 ```
 
-이미지까지 정리:
+Docker 사용량:
 
 ```bash
-PURGE_BOT_IMAGES=true bash /home/ubuntu/dis-bot/current/ops/cleanup-legacy-deploy.sh
+docker system df
 ```
 
-## 10. 관측성 스택
-
-기동:
+이미지 정리:
 
 ```bash
-docker compose --profile observability --env-file .env up -d prometheus loki alloy redis-exporter grafana
+docker image prune -a -f
 ```
 
-정지:
+주의:
 
-```bash
-docker compose --profile observability --env-file .env stop prometheus loki alloy redis-exporter grafana
-```
+- 현재 배포 스크립트는 image tar.gz를 release 디렉터리로 한 번 더 복사한다.
+- 디스크 여유가 적으면 배포 중 `No space left on device`가 날 수 있다.
 
-접속:
+## 현재 운영 주의사항
 
-- Grafana: `http://127.0.0.1:3000`
-- Prometheus: `http://127.0.0.1:9090`
-- Loki: `http://127.0.0.1:3100`
-- Alloy: `http://127.0.0.1:12345`
-
-## 11. Grafana 운영 주의점
-
-- `GRAFANA_ADMIN_USER`, `GRAFANA_ADMIN_PASSWORD`는 최초 기동 시점에만 적용된다.
-- 기존 `grafana-data` 볼륨이 있으면 env 변경만으로 계정이 바뀌지 않는다.
-
-비밀번호 재설정:
-
-```bash
-docker compose --profile observability --env-file .env exec grafana grafana cli --homepath /usr/share/grafana admin reset-admin-password '<새비밀번호>'
-```
-
-## 12. 알림
-
-기본 상태:
-
-- `GRAFANA_ALERT_DEFAULT_RECEIVER=observability-noop`
-
-Discord 알림 활성화:
-
-- `GRAFANA_ALERT_DEFAULT_RECEIVER=observability-discord`
-- `GRAFANA_ALERT_DISCORD_WEBHOOK_URL=<실제 webhook>`
-
-## 13. 현재 알려진 운영 리스크
-
-- 원격 서버에서 YouTube 재생이 로컬보다 더 자주 실패할 수 있다.
-- 이 문제는 현재까지의 관측상 코드 자체보다 서버 IP/ASN과 YouTube 응답 차이의 영향을 크게 받는다.
-- `gateway-app`과 `audio-node-app`은 같은 Discord 토큰으로 각각 JDA 세션을 연다.
+- `stock-node`는 현재 Prometheus scrape 대상이 아니다.
+- Finnhub API 키는 `FINNHUB_API_KEY` secret로만 넣는다.
+- `STOCK_QUOTE_PROVIDER`는 GitHub Actions Variable로 관리하는 쪽이 가장 단순하다.
+- 주식 거래는 실제 주문이 아니라 모의투자 게임이다.
