@@ -21,6 +21,7 @@ class StockMetricsRecorderTest {
         recorder.recordTradeExecution("BUY", "US", "NVDA");
         recorder.recordTradeRejection("SELL", "StaleQuoteException");
         recorder.recordAutoLiquidations("US", "NVDA", 2);
+        recorder.recordQuoteCacheState("US", 10, 8, 2, 44);
 
         assertThat(meterRegistry.counter("stock.commands", "command", "buy", "result", "success").count())
                 .isEqualTo(1.0);
@@ -58,5 +59,13 @@ class StockMetricsRecorderTest {
                 "market", "us",
                 "symbol", "nvda"
         ).count()).isEqualTo(2.0);
+        assertThat(meterRegistry.find("stock.quote.cache.expected").tag("market", "us").gauge().value())
+                .isEqualTo(10.0);
+        assertThat(meterRegistry.find("stock.quote.cache.ready").tag("market", "us").gauge().value())
+                .isEqualTo(8.0);
+        assertThat(meterRegistry.find("stock.quote.cache.stale").tag("market", "us").gauge().value())
+                .isEqualTo(2.0);
+        assertThat(meterRegistry.find("stock.quote.cache.oldest.age").tag("market", "us").gauge().value())
+                .isEqualTo(44.0);
     }
 }

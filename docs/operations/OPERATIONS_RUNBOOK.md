@@ -21,6 +21,7 @@
 - `loki`
 - `alloy`
 - `redis-exporter`
+- `postgres-exporter`
 - `grafana`
 
 ## 작업 디렉터리
@@ -133,8 +134,26 @@ Prometheus query:
 ```promql
 up{job="stock-node"}
 stock_quote_refresh_success_total
+stock_quote_cache_ready
+stock_quote_cache_expected
+stock_quote_cache_oldest_age
 stock_trade_executions_total
 stock_auto_liquidations_total
+```
+
+### PostgreSQL metrics 확인
+
+```bash
+curl http://127.0.0.1:9187/metrics | grep 'pg_up'
+```
+
+Prometheus query:
+
+```promql
+up{job="postgres-exporter"}
+pg_up{job="postgres-exporter"}
+sum by(datname, state) (pg_stat_activity_count{job="postgres-exporter"})
+pg_database_size_bytes{job="postgres-exporter"}
 ```
 
 ## 재시작
@@ -216,7 +235,7 @@ docker image prune -a -f
 
 ## 운영 주의사항
 
-- `stock-node`는 Prometheus scrape 대상이다.
+- `stock-node`와 `postgres-exporter`는 Prometheus scrape 대상이다.
 - Finnhub API 키는 `FINNHUB_API_KEY` secret로만 넣는다.
 - `STOCK_QUOTE_PROVIDER`는 GitHub Actions Variable로 관리하는 쪽이 가장 단순하다.
 - 주식 거래는 실제 주문이 아닌 모의투자 게임이다.

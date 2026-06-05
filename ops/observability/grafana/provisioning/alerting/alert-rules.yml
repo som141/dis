@@ -31,8 +31,8 @@ groups:
         execErrState: Error
         for: 1m
         annotations:
-          summary: gateway 가 응답하지 않습니다
-          description: gateway-app 의 /actuator/prometheus scrape 가 1분 이상 실패했습니다.
+          summary: gateway가 응답하지 않습니다
+          description: gateway-app의 /actuator/prometheus scrape가 1분 이상 실패했습니다.
         labels:
           severity: critical
           service: gateway
@@ -62,11 +62,42 @@ groups:
         execErrState: Error
         for: 1m
         annotations:
-          summary: audio-node 가 응답하지 않습니다
-          description: audio-node-app 의 /actuator/prometheus scrape 가 1분 이상 실패했습니다.
+          summary: audio-node가 응답하지 않습니다
+          description: audio-node-app의 /actuator/prometheus scrape가 1분 이상 실패했습니다.
         labels:
           severity: critical
           service: audio-node
+
+      - uid: stock_node_down_grafana
+        title: StockNodeDownGrafana
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: max(up{job="stock-node"} == 0)
+              instant: true
+              intervalMs: 1000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: A
+        noDataState: OK
+        execErrState: Error
+        for: 1m
+        annotations:
+          summary: stock-node가 응답하지 않습니다
+          description: stock-node-app의 /actuator/prometheus scrape가 1분 이상 실패했습니다.
+        labels:
+          severity: critical
+          service: stock-node
 
       - uid: app_heap_high_grafana
         title: AppHighJvmHeapUsageGrafana
@@ -82,7 +113,7 @@ groups:
                 type: prometheus
                 uid: prometheus
               editorMode: code
-              expr: 100 * sum by(job) (jvm_memory_used_bytes{area="heap", job=~"gateway|audio-node"}) / sum by(job) (jvm_memory_max_bytes{area="heap", job=~"gateway|audio-node"}) > 85
+              expr: 100 * sum by(job) (jvm_memory_used_bytes{area="heap", job=~"gateway|audio-node|stock-node"}) / sum by(job) (jvm_memory_max_bytes{area="heap", job=~"gateway|audio-node|stock-node"}) > 85
               instant: true
               intervalMs: 1000
               legendFormat: __auto
@@ -94,10 +125,227 @@ groups:
         for: 10m
         annotations:
           summary: 애플리케이션 JVM heap 사용률이 높습니다
-          description: gateway 또는 audio-node heap 사용률이 10분 이상 85%를 초과했습니다.
+          description: gateway, audio-node 또는 stock-node heap 사용률이 10분 이상 85%를 초과했습니다.
         labels:
           severity: warning
           service: app
+
+      - uid: stock_quote_refresh_stalled_grafana
+        title: StockQuoteRefreshStalledGrafana
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: sum(increase(stock_quote_refresh_success_total{provider="finnhub"}[2m])) < 1
+              instant: true
+              intervalMs: 1000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: A
+        noDataState: OK
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: Finnhub 시세 갱신이 멈춘 것으로 보입니다
+          description: 2분 이상 Finnhub quote refresh 성공 metric이 증가하지 않았습니다.
+        labels:
+          severity: warning
+          service: stock-node
+
+      - uid: stock_quote_refresh_failures_high_grafana
+        title: StockQuoteRefreshFailuresHighGrafana
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: sum(increase(stock_quote_refresh_failures_total{provider="finnhub"}[5m])) > 10
+              instant: true
+              intervalMs: 1000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: A
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: Finnhub 시세 갱신 실패가 많습니다
+          description: 최근 5분 동안 Finnhub quote refresh 실패가 10회를 초과했습니다.
+        labels:
+          severity: warning
+          service: stock-node
+
+      - uid: stock_trade_rejections_high_grafana
+        title: StockTradeRejectionsHighGrafana
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: sum(increase(stock_trade_rejections_total[5m])) > 10
+              instant: true
+              intervalMs: 1000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: A
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        annotations:
+          summary: 주식 거래 거절이 많습니다
+          description: 최근 5분 동안 stock trade rejection이 10회를 초과했습니다.
+        labels:
+          severity: warning
+          service: stock-node
+
+      - uid: stock_quote_cache_not_ready_grafana
+        title: StockQuoteCacheNotReadyGrafana
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: max(stock_quote_cache_ready < stock_quote_cache_expected)
+              instant: true
+              intervalMs: 1000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: A
+        noDataState: OK
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: Redis 시세 cache가 완전히 준비되지 않았습니다
+          description: watchlist 종목 수보다 Redis에 준비된 quote 수가 적습니다.
+        labels:
+          severity: warning
+          service: stock-node
+
+      - uid: stock_quote_cache_stale_grafana
+        title: StockQuoteCacheStaleGrafana
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: max(stock_quote_cache_oldest_age > 45)
+              instant: true
+              intervalMs: 1000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: A
+        noDataState: OK
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: Redis 시세 cache가 오래되었습니다
+          description: 가장 오래된 quote age가 거래 freshness 기준인 45초를 초과했습니다.
+        labels:
+          severity: warning
+          service: stock-node
+
+      - uid: postgres_exporter_down_grafana
+        title: PostgresExporterDownGrafana
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: max(up{job="postgres-exporter"} == 0)
+              instant: true
+              intervalMs: 1000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: A
+        noDataState: OK
+        execErrState: Error
+        for: 1m
+        annotations:
+          summary: postgres-exporter가 응답하지 않습니다
+          description: PostgreSQL metrics scrape가 1분 이상 실패했습니다.
+        labels:
+          severity: critical
+          service: postgres
+
+      - uid: postgres_down_grafana
+        title: PostgresDownGrafana
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: max(pg_up{job="postgres-exporter"} == 0)
+              instant: true
+              intervalMs: 1000
+              legendFormat: __auto
+              maxDataPoints: 43200
+              range: false
+              refId: A
+        noDataState: OK
+        execErrState: Error
+        for: 1m
+        annotations:
+          summary: PostgreSQL이 응답하지 않습니다
+          description: postgres-exporter가 PostgreSQL에 연결하지 못하고 있습니다.
+        labels:
+          severity: critical
+          service: postgres
 
       - uid: rabbitmq_consumer_missing_g
         title: RabbitMqConsumerMissingGrafana
@@ -124,8 +372,8 @@ groups:
         execErrState: Error
         for: 5m
         annotations:
-          summary: RabbitMQ consumer 가 없습니다
-          description: command queue 를 소비하는 consumer 수가 5분 이상 0 입니다.
+          summary: RabbitMQ consumer가 없습니다
+          description: command queue를 소비하는 consumer 수가 5분 이상 0입니다.
         labels:
           severity: warning
           service: rabbitmq

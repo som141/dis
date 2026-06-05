@@ -160,11 +160,13 @@ docker compose --profile observability up -d --build
 - Alloy
 - Grafana
 - redis-exporter
+- postgres-exporter
 
 중요한 점:
 
-- 현재 Prometheus scrape 대상은 `gateway-app`, `audio-node-app`, `stock-node-app`, `redis-exporter`, `rabbitmq`, `prometheus`, `loki`, `alloy`다.
-- `stock-node-app`은 quote refresh, command, trade, liquidation 관련 Micrometer metric을 노출한다.
+- 현재 Prometheus scrape 대상은 `gateway-app`, `audio-node-app`, `stock-node-app`, `redis-exporter`, `postgres-exporter`, `rabbitmq`, `prometheus`, `loki`, `alloy`다.
+- `stock-node-app`은 quote refresh, Redis quote cache, command, trade, liquidation 관련 Micrometer metric을 노출한다.
+- PostgreSQL은 `postgres-exporter`를 통해 연결 상태, connection count, database size, transaction rate를 노출한다.
 
 ## 배포
 

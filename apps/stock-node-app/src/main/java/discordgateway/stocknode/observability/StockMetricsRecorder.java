@@ -1,14 +1,19 @@
 package discordgateway.stocknode.observability;
 
 import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 
 import java.time.Duration;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class StockMetricsRecorder {
 
     private final MeterRegistry meterRegistry;
+    private final ConcurrentMap<String, AtomicLong> gauges = new ConcurrentHashMap<>();
 
     public StockMetricsRecorder(MeterRegistry meterRegistry) {
         this.meterRegistry = meterRegistry;
@@ -79,6 +84,26 @@ public class StockMetricsRecorder {
                 .tag("symbol", normalizeTag(symbol))
                 .register(meterRegistry)
                 .increment(count);
+    }
+
+    public void recordQuoteCacheState(String market, int expectedCount, int readyCount, int staleCount, long oldestAgeSeconds) {
+        String normalizedMarket = normalizeTag(market);
+        updateGauge("stock.quote.cache.expected", normalizedMarket, Math.max(expectedCount, 0));
+        updateGauge("stock.quote.cache.ready", normalizedMarket, Math.max(readyCount, 0));
+        updateGauge("stock.quote.cache.stale", normalizedMarket, Math.max(staleCount, 0));
+        updateGauge("stock.quote.cache.oldest.age", normalizedMarket, Math.max(oldestAgeSeconds, 0));
+    }
+
+    private void updateGauge(String metricName, String market, long value) {
+        String key = metricName + "|" + market;
+        AtomicLong gaugeValue = gauges.computeIfAbsent(key, ignored -> {
+            AtomicLong holder = new AtomicLong();
+            Gauge.builder(metricName, holder, AtomicLong::get)
+                    .tag("market", market)
+                    .register(meterRegistry);
+            return holder;
+        });
+        gaugeValue.set(value);
     }
 
     private String normalizeTag(String value) {

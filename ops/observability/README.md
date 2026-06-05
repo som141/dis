@@ -1,6 +1,6 @@
 # Observability Stack
 
-이 디렉터리는 현재 observability stack 설정을 모아 둔다.
+이 디렉터리는 DIS Discord bot의 로컬/운영 관측성 설정을 모아 둔다.
 
 구성 요소:
 
@@ -13,13 +13,24 @@
 
 - gateway-app metrics
 - audio-node-app metrics
+- stock-node-app metrics
 - Redis metrics
+- PostgreSQL metrics
 - RabbitMQ metrics
-- Loki metrics
-- Alloy metrics
-- structured logs
+- Prometheus/Loki/Alloy metrics
+- Docker stdout 기반 structured logs
 
-현재 `stock-node-app` metrics scrape는 아직 포함되지 않았다.
+Prometheus scrape 대상:
+
+- `gateway`
+- `audio-node`
+- `stock-node`
+- `redis-exporter`
+- `postgres-exporter`
+- `rabbitmq`
+- `prometheus`
+- `loki`
+- `alloy`
 
 ## 실행
 
@@ -30,7 +41,7 @@ docker compose --profile observability up -d
 중지:
 
 ```powershell
-docker compose --profile observability stop prometheus loki alloy redis-exporter grafana
+docker compose --profile observability stop prometheus loki alloy redis-exporter postgres-exporter grafana
 ```
 
 ## 접근 주소
@@ -39,29 +50,31 @@ docker compose --profile observability stop prometheus loki alloy redis-exporter
 - Prometheus: `http://localhost:9090`
 - Loki: `http://localhost:3100`
 - Alloy UI: `http://localhost:12345`
+- Redis exporter: `http://localhost:9121/metrics`
+- PostgreSQL exporter: `http://localhost:9187/metrics`
 
 ## Grafana 기본 계정
 
 - `GRAFANA_ADMIN_USER`
 - `GRAFANA_ADMIN_PASSWORD`
 
-주의:
-
-- Grafana admin 계정은 최초 볼륨 생성 시점에만 env가 반영된다.
+Grafana admin 계정은 최초 volume 생성 시점에 반영된다. 이미 `grafana-data` volume이 있으면 계정 env를 바꿔도 기존 계정이 유지될 수 있다.
 
 ## 기본 provision
 
-datasource:
+Datasource:
 
 - Prometheus
 - Loki
 
-dashboard:
+Dashboard:
 
 - `Discord Bot App Overview`
 - `Discord Bot Infra Overview`
+- `Discord Bot Stock Node`
+- `Discord Bot PostgreSQL Overview`
 
-contact point:
+Contact point:
 
 - `observability-noop`
 - `observability-discord`

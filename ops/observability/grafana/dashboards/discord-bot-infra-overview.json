@@ -85,7 +85,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "up{job=~\"redis-exporter|rabbitmq|prometheus|loki|alloy\"}",
+          "expr": "up{job=~\"redis-exporter|postgres-exporter|rabbitmq|prometheus|loki|alloy\"}",
           "legendFormat": "{{job}}",
           "range": true,
           "refId": "A"

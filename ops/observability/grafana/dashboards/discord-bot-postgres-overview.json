@@ -85,13 +85,13 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "up{job=~\"gateway|audio-node|stock-node\"}",
-          "legendFormat": "{{job}}",
+          "expr": "pg_up{job=\"postgres-exporter\"}",
+          "legendFormat": "postgres",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "서비스 상태",
+      "title": "PostgreSQL 상태",
       "type": "stat"
     },
     {
@@ -101,33 +101,13 @@
       },
       "fieldConfig": {
         "defaults": {
-          "decimals": 1,
-          "max": 100,
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 75
-              },
-              {
-                "color": "red",
-                "value": 85
-              }
-            ]
-          },
-          "unit": "percent"
+          "unit": "short"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 9,
-        "w": 12,
+        "h": 8,
+        "w": 10,
         "x": 6,
         "y": 0
       },
@@ -146,13 +126,13 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "100 * sum by(job) (jvm_memory_used_bytes{area=\"heap\",job=~\"gateway|audio-node|stock-node\"}) / sum by(job) (jvm_memory_max_bytes{area=\"heap\",job=~\"gateway|audio-node|stock-node\"})",
-          "legendFormat": "{{job}}",
+          "expr": "sum by(datname, state) (pg_stat_activity_count{job=\"postgres-exporter\"})",
+          "legendFormat": "{{datname}} {{state}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "JVM Heap 사용률",
+      "title": "PostgreSQL 연결 수",
       "type": "timeseries"
     },
     {
@@ -162,34 +142,14 @@
       },
       "fieldConfig": {
         "defaults": {
-          "decimals": 1,
-          "max": 100,
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 60
-              },
-              {
-                "color": "red",
-                "value": 85
-              }
-            ]
-          },
-          "unit": "percent"
+          "unit": "bytes"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 9,
-        "w": 6,
-        "x": 18,
+        "h": 8,
+        "w": 8,
+        "x": 16,
         "y": 0
       },
       "id": 3,
@@ -207,54 +167,13 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "process_cpu_usage{job=~\"gateway|audio-node|stock-node\"} * 100",
-          "legendFormat": "{{job}}",
+          "expr": "pg_database_size_bytes{job=\"postgres-exporter\"}",
+          "legendFormat": "{{datname}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Process CPU 사용률",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 9
-      },
-      "id": 4,
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "editorMode": "code",
-          "expr": "jvm_threads_live_threads{job=~\"gateway|audio-node|stock-node\"}",
-          "legendFormat": "{{job}}",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Live Threads",
+      "title": "Database 크기",
       "type": "timeseries"
     },
     {
@@ -270,11 +189,11 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 9
+        "w": 24,
+        "x": 0,
+        "y": 8
       },
-      "id": 5,
+      "id": 4,
       "options": {
         "legend": {
           "displayMode": "table",
@@ -289,13 +208,20 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum by(job,level) (rate(logback_events_total{job=~\"gateway|audio-node|stock-node\",level=~\"warn|error\"}[5m]))",
-          "legendFormat": "{{job}} {{level}}",
+          "expr": "sum by(datname) (rate(pg_stat_database_xact_commit{job=\"postgres-exporter\"}[5m]))",
+          "legendFormat": "{{datname}} commit",
           "range": true,
           "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "sum by(datname) (rate(pg_stat_database_xact_rollback{job=\"postgres-exporter\"}[5m]))",
+          "legendFormat": "{{datname}} rollback",
+          "range": true,
+          "refId": "B"
         }
       ],
-      "title": "Warn/Error 로그 발생률",
+      "title": "Transaction 처리율",
       "type": "timeseries"
     }
   ],
@@ -303,7 +229,7 @@
   "schemaVersion": 39,
   "tags": [
     "discord-bot",
-    "app"
+    "postgres"
   ],
   "templating": {
     "list": []
@@ -314,8 +240,8 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "Discord Bot App Overview",
-  "uid": "discord-app-overview",
+  "title": "Discord Bot PostgreSQL Overview",
+  "uid": "discord-postgres-overview",
   "version": 1,
   "weekStart": ""
 }

@@ -75,6 +75,26 @@ groups:
           summary: "Finnhub quote refresh failures are high"
           description: "Finnhub quote refresh failures exceeded 10 events during the last 5 minutes."
 
+      - alert: StockQuoteCacheNotReady
+        expr: stock_quote_cache_ready < stock_quote_cache_expected
+        for: 2m
+        labels:
+          severity: warning
+          service: stock-node
+        annotations:
+          summary: "stock quote cache is not fully ready"
+          description: "Redis quote cache has fewer ready quotes than the configured watchlist."
+
+      - alert: StockQuoteCacheStale
+        expr: stock_quote_cache_oldest_age > 45
+        for: 2m
+        labels:
+          severity: warning
+          service: stock-node
+        annotations:
+          summary: "stock quote cache is stale"
+          description: "The oldest cached quote is older than the 45 second trade freshness threshold."
+
       - alert: StockTradeRejectionsHigh
         expr: increase(stock_trade_rejections_total[5m]) > 10
         for: 5m
@@ -96,6 +116,36 @@ groups:
         annotations:
           summary: "redis-exporter is not responding"
           description: "Redis metrics scrape has failed for more than 1 minute."
+
+      - alert: PostgresExporterDown
+        expr: up{job="postgres-exporter"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: postgres
+        annotations:
+          summary: "postgres-exporter is not responding"
+          description: "PostgreSQL metrics scrape has failed for more than 1 minute."
+
+      - alert: PostgresDown
+        expr: pg_up{job="postgres-exporter"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: postgres
+        annotations:
+          summary: "PostgreSQL is not responding"
+          description: "postgres-exporter cannot connect to PostgreSQL."
+
+      - alert: PostgresConnectionsHigh
+        expr: sum(pg_stat_activity_count{job="postgres-exporter"}) > 80
+        for: 10m
+        labels:
+          severity: warning
+          service: postgres
+        annotations:
+          summary: "PostgreSQL connection count is high"
+          description: "PostgreSQL active connection count has exceeded 80 for more than 10 minutes."
 
       - alert: RabbitMqExporterDown
         expr: up{job="rabbitmq"} == 0

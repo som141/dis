@@ -183,6 +183,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      postgres-exporter:
+        condition: service_started
     restart: unless-stopped
 
   loki:
@@ -225,6 +227,18 @@ services:
       - "9121:9121"
     depends_on:
       redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres-exporter:
+    profiles: ["observability"]
+    image: ${POSTGRES_EXPORTER_IMAGE:-prometheuscommunity/postgres-exporter:latest}
+    environment:
+      DATA_SOURCE_NAME: postgresql://${POSTGRES_USER:-stock}:${POSTGRES_PASSWORD:-stock}@postgres:5432/${POSTGRES_DB:-stock}?sslmode=disable
+    ports:
+      - "9187:9187"
+    depends_on:
+      postgres:
         condition: service_healthy
     restart: unless-stopped
 

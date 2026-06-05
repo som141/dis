@@ -144,6 +144,7 @@ Prometheus scrape 대상:
 - `audio-node-app`
 - `stock-node-app`
 - `redis-exporter`
+- `postgres-exporter`
 - `rabbitmq`
 - `prometheus`
 - `loki`
@@ -160,6 +161,10 @@ stock-node 주요 메트릭:
 - `stock_command_duration_seconds`
 - `stock_quote_refresh_success_total`
 - `stock_quote_refresh_failures_total`
+- `stock_quote_cache_expected`
+- `stock_quote_cache_ready`
+- `stock_quote_cache_stale`
+- `stock_quote_cache_oldest_age`
 - `stock_trade_executions_total`
 - `stock_trade_rejections_total`
 - `stock_auto_liquidations_total`

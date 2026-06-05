@@ -32,6 +32,7 @@ import discordgateway.stocknode.cache.StockRedisKeyFactory;
 import discordgateway.stocknode.lock.QuoteLockService;
 import discordgateway.stocknode.lock.RedisLockService;
 import discordgateway.stocknode.observability.StockMetricsRecorder;
+import discordgateway.stocknode.observability.StockQuoteCacheMetricsService;
 import discordgateway.stocknode.persistence.repository.AccountSnapshotRepository;
 import discordgateway.stocknode.persistence.repository.AllowanceLedgerRepository;
 import discordgateway.stocknode.persistence.repository.StockAccountRepository;
@@ -144,6 +145,19 @@ public class StockNodeComponentConfiguration {
     @Bean
     public StockMetricsRecorder stockMetricsRecorder(MeterRegistry meterRegistry) {
         return new StockMetricsRecorder(meterRegistry);
+    }
+
+    @Bean
+    public StockQuoteCacheMetricsService stockQuoteCacheMetricsService(
+            QuoteRepository quoteRepository,
+            StockMetricsRecorder stockMetricsRecorder,
+            Clock stockClock
+    ) {
+        return new StockQuoteCacheMetricsService(
+                quoteRepository,
+                stockMetricsRecorder,
+                stockClock
+        );
     }
 
     @Bean
@@ -375,6 +389,7 @@ public class StockNodeComponentConfiguration {
             StockWatchlistService stockWatchlistService,
             MarketQuoteRefreshService marketQuoteRefreshService,
             AutoLiquidationService autoLiquidationService,
+            StockQuoteCacheMetricsService stockQuoteCacheMetricsService,
             StockMarketDataProperties stockMarketDataProperties,
             StockQuoteProperties stockQuoteProperties,
             Clock stockClock
@@ -383,6 +398,7 @@ public class StockNodeComponentConfiguration {
                 stockWatchlistService,
                 marketQuoteRefreshService,
                 autoLiquidationService,
+                stockQuoteCacheMetricsService,
                 stockMarketDataProperties,
                 stockQuoteProperties,
                 stockClock

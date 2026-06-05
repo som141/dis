@@ -7,34 +7,35 @@
 - Alloy
 - Grafana
 - redis-exporter
+- postgres-exporter
 
-로그는 Alloy가 Docker stdout을 수집해 Loki로 보낸다. 메트릭은 Prometheus가 scrape한다. 대시보드와 알림은 Grafana와 Prometheus rule이 담당한다.
+로그는 Alloy가 Docker stdout을 수집해 Loki로 보낸다. 메트릭은 Prometheus가 scrape한다. 대시보드와 알림은 Grafana provisioning으로 로드한다.
 
 ## 현재 scrape 대상
 
-- `gateway-app`
-- `audio-node-app`
-- `stock-node-app`
+- `gateway`
+- `audio-node`
+- `stock-node`
 - `redis-exporter`
+- `postgres-exporter`
 - `rabbitmq`
 - `prometheus`
 - `loki`
 - `alloy`
 
-`stock-node-app`은 `/actuator/prometheus`를 노출하며 Prometheus scrape 대상에 포함된다.
+`gateway-app`, `audio-node-app`, `stock-node-app`은 `/actuator/prometheus`를 노출한다.
 
 ## stock-node 관측성
 
-stock-node에서 확인하는 주요 지표는 다음과 같다.
+stock-node에서 확인하는 주요 지표:
 
-- JVM heap / process / HTTP actuator metric
-- stock command 처리량과 성공/실패
+- JVM heap / process / actuator metric
+- stock command 처리 성공/실패와 duration
 - Finnhub quote refresh 성공/실패
+- Redis quote cache 준비 수량, stale 수량, 가장 오래된 quote age
 - provider rate limit 초과
 - 거래 체결과 거래 거절
 - 자동 청산 발생 수
-
-비즈니스 메트릭은 Micrometer 기반으로 노출한다.
 
 대표 Prometheus query:
 
@@ -42,9 +43,28 @@ stock-node에서 확인하는 주요 지표는 다음과 같다.
 up{job="stock-node"}
 stock_quote_refresh_success_total
 stock_quote_refresh_failures_total
+stock_quote_cache_ready
+stock_quote_cache_expected
+stock_quote_cache_stale
+stock_quote_cache_oldest_age
 stock_trade_executions_total
 stock_trade_rejections_total
 stock_auto_liquidations_total
+```
+
+## PostgreSQL 관측성
+
+PostgreSQL은 `postgres-exporter`로 scrape한다.
+
+대표 Prometheus query:
+
+```promql
+up{job="postgres-exporter"}
+pg_up{job="postgres-exporter"}
+sum by(datname, state) (pg_stat_activity_count{job="postgres-exporter"})
+pg_database_size_bytes{job="postgres-exporter"}
+rate(pg_stat_database_xact_commit{job="postgres-exporter"}[5m])
+rate(pg_stat_database_xact_rollback{job="postgres-exporter"}[5m])
 ```
 
 ## 대시보드
@@ -54,37 +74,41 @@ Grafana dashboard는 file provisioning으로 로드된다.
 - `discord-bot-app-overview.json`
 - `discord-bot-infra-overview.json`
 - `discord-bot-stock-node-overview.json`
-
-stock-node dashboard는 quote refresh, command, trade, liquidation 지표를 본다.
+- `discord-bot-postgres-overview.json`
 
 ## 알림
 
-현재 Prometheus rule 기준으로 아래 알림을 둔다.
+Grafana-managed alert rule:
 
-- `GatewayDown`
-- `AudioNodeDown`
-- `StockNodeDown`
-- `AppHighJvmHeapUsage`
-- `ApplicationErrorLogsDetected`
-- `StockQuoteRefreshStalled`
-- `StockQuoteRefreshFailuresHigh`
-- `StockTradeRejectionsHigh`
-- `RedisExporterDown`
-- `RabbitMqExporterDown`
-- `RabbitMqConsumerMissing`
-- `RabbitMqQueueBacklog`
-- `RabbitMqUnackedBacklog`
+- `GatewayDownGrafana`
+- `AudioNodeDownGrafana`
+- `StockNodeDownGrafana`
+- `AppHighJvmHeapUsageGrafana`
+- `StockQuoteRefreshStalledGrafana`
+- `StockQuoteRefreshFailuresHighGrafana`
+- `StockQuoteCacheNotReadyGrafana`
+- `StockQuoteCacheStaleGrafana`
+- `StockTradeRejectionsHighGrafana`
+- `PostgresExporterDownGrafana`
+- `PostgresDownGrafana`
+- `RabbitMqConsumerMissingGrafana`
 
-운영 전환 시 Discord webhook receiver를 활성화한다.
+Prometheus rule 파일에도 동일 계열의 infrastructure/business alert를 둔다.
+
+운영 전환 시 Discord 알림은 아래 env로 켠다.
+
+```env
+GRAFANA_ALERT_DEFAULT_RECEIVER=observability-discord
+GRAFANA_ALERT_DISCORD_WEBHOOK_URL=...
+```
 
 ## 남은 확장 후보
 
 - OpenTelemetry + Tempo trace
 - gateway -> RabbitMQ -> stock-node command trace
 - gateway -> RabbitMQ -> audio-node command trace
-- quote cache hit/miss gauge
-- PostgreSQL exporter
 - stock account/position aggregate gauge
+- PostgreSQL slow query/lock 세부 dashboard
 
 ## 관련 파일
 

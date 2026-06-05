@@ -2,6 +2,7 @@ package discordgateway.stocknode.application;
 
 import discordgateway.stocknode.bootstrap.StockMarketDataProperties;
 import discordgateway.stocknode.bootstrap.StockQuoteProperties;
+import discordgateway.stocknode.observability.StockQuoteCacheMetricsService;
 import discordgateway.stocknode.persistence.entity.StockWatchlistEntity;
 import discordgateway.stocknode.quote.model.StockQuote;
 import discordgateway.stocknode.quote.service.MarketQuoteRefreshService;
@@ -21,6 +22,7 @@ public class FinnhubTop10RefreshScheduler {
     private final StockWatchlistService stockWatchlistService;
     private final MarketQuoteRefreshService marketQuoteRefreshService;
     private final AutoLiquidationService autoLiquidationService;
+    private final StockQuoteCacheMetricsService stockQuoteCacheMetricsService;
     private final StockMarketDataProperties stockMarketDataProperties;
     private final StockQuoteProperties stockQuoteProperties;
     private final Clock clock;
@@ -29,6 +31,7 @@ public class FinnhubTop10RefreshScheduler {
             StockWatchlistService stockWatchlistService,
             MarketQuoteRefreshService marketQuoteRefreshService,
             AutoLiquidationService autoLiquidationService,
+            StockQuoteCacheMetricsService stockQuoteCacheMetricsService,
             StockMarketDataProperties stockMarketDataProperties,
             StockQuoteProperties stockQuoteProperties,
             Clock clock
@@ -36,6 +39,7 @@ public class FinnhubTop10RefreshScheduler {
         this.stockWatchlistService = stockWatchlistService;
         this.marketQuoteRefreshService = marketQuoteRefreshService;
         this.autoLiquidationService = autoLiquidationService;
+        this.stockQuoteCacheMetricsService = stockQuoteCacheMetricsService;
         this.stockMarketDataProperties = stockMarketDataProperties;
         this.stockQuoteProperties = stockQuoteProperties;
         this.clock = clock;
@@ -83,6 +87,7 @@ public class FinnhubTop10RefreshScheduler {
                 );
             }
         }
+        recordQuoteCacheMetrics(watchlist);
 
         log.info(
                 "completed stock watchlist refresh run market={} startedAt={} successCount={} failureCount={}",
@@ -91,5 +96,17 @@ public class FinnhubTop10RefreshScheduler {
                 successCount,
                 failureCount
         );
+    }
+
+    private void recordQuoteCacheMetrics(List<StockWatchlistEntity> watchlist) {
+        try {
+            stockQuoteCacheMetricsService.recordWatchlistCacheState(
+                    stockMarketDataProperties.getMarket(),
+                    watchlist,
+                    stockQuoteProperties.getFreshness()
+            );
+        } catch (Exception exception) {
+            log.warn("failed to record stock quote cache metrics market={}", stockMarketDataProperties.getMarket(), exception);
+        }
     }
 }

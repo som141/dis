@@ -2,6 +2,7 @@ package discordgateway.stocknode.application;
 
 import discordgateway.stocknode.bootstrap.StockMarketDataProperties;
 import discordgateway.stocknode.bootstrap.StockQuoteProperties;
+import discordgateway.stocknode.observability.StockQuoteCacheMetricsService;
 import discordgateway.stocknode.persistence.entity.StockWatchlistEntity;
 import discordgateway.stocknode.quote.model.StockQuote;
 import discordgateway.stocknode.quote.service.MarketQuoteRefreshService;
@@ -25,6 +26,7 @@ class FinnhubTop10RefreshSchedulerTest {
         StockWatchlistService stockWatchlistService = mock(StockWatchlistService.class);
         MarketQuoteRefreshService marketQuoteRefreshService = mock(MarketQuoteRefreshService.class);
         AutoLiquidationService autoLiquidationService = mock(AutoLiquidationService.class);
+        StockQuoteCacheMetricsService stockQuoteCacheMetricsService = mock(StockQuoteCacheMetricsService.class);
         StockMarketDataProperties marketDataProperties = new StockMarketDataProperties();
         marketDataProperties.setMarket("US");
         marketDataProperties.setTopRankLimit(10);
@@ -35,6 +37,7 @@ class FinnhubTop10RefreshSchedulerTest {
                 stockWatchlistService,
                 marketQuoteRefreshService,
                 autoLiquidationService,
+                stockQuoteCacheMetricsService,
                 marketDataProperties,
                 quoteProperties,
                 Clock.fixed(Instant.parse("2026-05-01T00:00:00Z"), ZoneOffset.UTC)
@@ -45,6 +48,7 @@ class FinnhubTop10RefreshSchedulerTest {
         verify(stockWatchlistService, never()).getEnabledByMarket("US", 10);
         verify(marketQuoteRefreshService, never()).refreshQuote("US", "NVDA");
         verify(autoLiquidationService, never()).liquidateExhaustedPositions(any());
+        verify(stockQuoteCacheMetricsService, never()).recordWatchlistCacheState(any(), any(), any());
     }
 
     @Test
@@ -52,6 +56,7 @@ class FinnhubTop10RefreshSchedulerTest {
         StockWatchlistService stockWatchlistService = mock(StockWatchlistService.class);
         MarketQuoteRefreshService marketQuoteRefreshService = mock(MarketQuoteRefreshService.class);
         AutoLiquidationService autoLiquidationService = mock(AutoLiquidationService.class);
+        StockQuoteCacheMetricsService stockQuoteCacheMetricsService = mock(StockQuoteCacheMetricsService.class);
         StockMarketDataProperties marketDataProperties = new StockMarketDataProperties();
         marketDataProperties.setMarket("US");
         marketDataProperties.setTopRankLimit(10);
@@ -77,6 +82,7 @@ class FinnhubTop10RefreshSchedulerTest {
                 stockWatchlistService,
                 marketQuoteRefreshService,
                 autoLiquidationService,
+                stockQuoteCacheMetricsService,
                 marketDataProperties,
                 quoteProperties,
                 Clock.fixed(Instant.parse("2026-05-01T00:00:00Z"), ZoneOffset.UTC)
@@ -87,5 +93,6 @@ class FinnhubTop10RefreshSchedulerTest {
         verify(marketQuoteRefreshService).refreshQuote("US", "NVDA");
         verify(marketQuoteRefreshService).refreshQuote("US", "AAPL");
         verify(autoLiquidationService).liquidateExhaustedPositions(any());
+        verify(stockQuoteCacheMetricsService).recordWatchlistCacheState("US", List.of(nvda, aapl), quoteProperties.getFreshness());
     }
 }
