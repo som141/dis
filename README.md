@@ -163,8 +163,8 @@ docker compose --profile observability up -d --build
 
 중요한 점:
 
-- 현재 Prometheus scrape 대상은 `gateway-app`, `audio-node-app`, `redis-exporter`, `rabbitmq`, `prometheus`, `loki`, `alloy`다.
-- `stock-node-app`은 아직 Prometheus scrape 대상에 포함되지 않는다.
+- 현재 Prometheus scrape 대상은 `gateway-app`, `audio-node-app`, `stock-node-app`, `redis-exporter`, `rabbitmq`, `prometheus`, `loki`, `alloy`다.
+- `stock-node-app`은 quote refresh, command, trade, liquidation 관련 Micrometer metric을 노출한다.
 
 ## 배포
 

@@ -4,11 +4,14 @@ import discordgateway.stock.command.StockCommand;
 import discordgateway.stock.command.StockCommandEnvelope;
 import discordgateway.stock.event.StockCommandResultEvent;
 import discordgateway.stocknode.bootstrap.StockQuoteProperties;
+import discordgateway.stocknode.observability.StockMetricsRecorder;
 import discordgateway.stocknode.quote.service.StockQuoteResult;
 import discordgateway.stocknode.quote.service.QuoteService;
 import discordgateway.stocknode.quote.service.QuoteUsage;
 
 import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 
 public class StockCommandApplicationService {
@@ -23,6 +26,7 @@ public class StockCommandApplicationService {
     private final RankingService rankingService;
     private final StockResponseFormatter stockResponseFormatter;
     private final StockQuoteProperties stockQuoteProperties;
+    private final StockMetricsRecorder stockMetricsRecorder;
     private final Clock clock;
     private final String producerNode;
 
@@ -37,6 +41,7 @@ public class StockCommandApplicationService {
             RankingService rankingService,
             StockResponseFormatter stockResponseFormatter,
             StockQuoteProperties stockQuoteProperties,
+            StockMetricsRecorder stockMetricsRecorder,
             Clock clock,
             String producerNode
     ) {
@@ -50,100 +55,115 @@ public class StockCommandApplicationService {
         this.rankingService = rankingService;
         this.stockResponseFormatter = stockResponseFormatter;
         this.stockQuoteProperties = stockQuoteProperties;
+        this.stockMetricsRecorder = stockMetricsRecorder;
         this.clock = clock;
         this.producerNode = producerNode;
     }
 
     public StockCommandResultEvent handle(StockCommandEnvelope envelope) {
+        Instant startedAt = clock.instant();
         StockCommand command = envelope.command();
-        return switch (command) {
-            case StockCommand.Quote quote -> {
-                quote.symbols().forEach(symbol ->
-                        stockWatchlistService.validateTradable(stockQuoteProperties.getDefaultMarket(), symbol)
+        String commandName = commandName(command);
+        try {
+            StockCommandResultEvent result = switch (command) {
+                case StockCommand.Quote quote -> {
+                    quote.symbols().forEach(symbol ->
+                            stockWatchlistService.validateTradable(stockQuoteProperties.getDefaultMarket(), symbol)
+                    );
+                    List<StockQuoteResult> quotes = quote.symbols().stream()
+                            .map(symbol -> quoteService.getQuote(
+                                    stockQuoteProperties.getDefaultMarket(),
+                                    symbol,
+                                    QuoteUsage.QUERY
+                            ))
+                            .toList();
+                    String message = quote.symbols().size() == 1
+                            ? stockResponseFormatter.formatQuote(
+                                    stockQuoteProperties.getDefaultMarket(),
+                                    quote.symbols().getFirst(),
+                                    quotes.getFirst()
+                            )
+                            : stockResponseFormatter.formatQuoteTable(
+                                    stockQuoteProperties.getDefaultMarket(),
+                                    quote.symbols(),
+                                    quotes
+                    );
+                    yield success(envelope, message, "QUOTE");
+                }
+                case StockCommand.ListQuotes ignored -> success(
+                        envelope,
+                        stockResponseFormatter.formatWatchlist(stockListQueryService.getUsTopList()),
+                        "LIST"
                 );
-                List<StockQuoteResult> quotes = quote.symbols().stream()
-                        .map(symbol -> quoteService.getQuote(
-                                stockQuoteProperties.getDefaultMarket(),
-                                symbol,
-                                QuoteUsage.QUERY
-                        ))
-                        .toList();
-                String message = quote.symbols().size() == 1
-                        ? stockResponseFormatter.formatQuote(
-                                stockQuoteProperties.getDefaultMarket(),
-                                quote.symbols().getFirst(),
-                                quotes.getFirst()
-                        )
-                        : stockResponseFormatter.formatQuoteTable(
-                                stockQuoteProperties.getDefaultMarket(),
-                                quote.symbols(),
-                                quotes
+                case StockCommand.Buy buy -> success(
+                        envelope,
+                        stockResponseFormatter.formatTrade(
+                                tradeExecutionService.buy(
+                                        buy.guildId(),
+                                        buy.requesterId(),
+                                        buy.symbol(),
+                                        buy.quantity(),
+                                        buy.leverage()
+                                )
+                        ),
+                        "BUY"
                 );
-                yield success(envelope, message, "QUOTE");
+                case StockCommand.Sell sell -> success(
+                        envelope,
+                        stockResponseFormatter.formatTrade(
+                                tradeExecutionService.sell(
+                                        sell.guildId(),
+                                        sell.requesterId(),
+                                        sell.symbol(),
+                                        sell.quantity()
+                                )
+                        ),
+                        "SELL"
+                );
+                case StockCommand.Balance balance -> success(
+                        envelope,
+                        stockResponseFormatter.formatBalance(
+                                balanceQueryService.getBalance(balance.guildId(), balance.requesterId())
+                        ),
+                        "BALANCE"
+                );
+                case StockCommand.Portfolio portfolio -> success(
+                        envelope,
+                        stockResponseFormatter.formatPortfolio(
+                                portfolioQueryService.getPortfolio(portfolio.guildId(), portfolio.requesterId())
+                        ),
+                        "PORTFOLIO"
+                );
+                case StockCommand.History history -> success(
+                        envelope,
+                        stockResponseFormatter.formatHistory(
+                                tradeHistoryQueryService.getHistory(
+                                        history.guildId(),
+                                        history.requesterId(),
+                                        history.limit()
+                                )
+                        ),
+                        "HISTORY"
+                );
+                case StockCommand.Rank rank -> success(
+                        envelope,
+                        stockResponseFormatter.formatRanking(
+                                rankingService.getRanking(rank.guildId(), rank.period())
+                        ),
+                        "RANK"
+                );
+            };
+            stockMetricsRecorder.recordCommand(commandName, "success", Duration.between(startedAt, clock.instant()));
+            return result;
+        } catch (RuntimeException exception) {
+            stockMetricsRecorder.recordCommand(commandName, "failure", Duration.between(startedAt, clock.instant()));
+            if (command instanceof StockCommand.Buy) {
+                stockMetricsRecorder.recordTradeRejection("buy", exception.getClass().getSimpleName());
+            } else if (command instanceof StockCommand.Sell) {
+                stockMetricsRecorder.recordTradeRejection("sell", exception.getClass().getSimpleName());
             }
-            case StockCommand.ListQuotes ignored -> success(
-                    envelope,
-                    stockResponseFormatter.formatWatchlist(stockListQueryService.getUsTopList()),
-                    "LIST"
-            );
-            case StockCommand.Buy buy -> success(
-                    envelope,
-                    stockResponseFormatter.formatTrade(
-                            tradeExecutionService.buy(
-                                    buy.guildId(),
-                                    buy.requesterId(),
-                                    buy.symbol(),
-                                    buy.quantity(),
-                                    buy.leverage()
-                            )
-                    ),
-                    "BUY"
-            );
-            case StockCommand.Sell sell -> success(
-                    envelope,
-                    stockResponseFormatter.formatTrade(
-                            tradeExecutionService.sell(
-                                    sell.guildId(),
-                                    sell.requesterId(),
-                                    sell.symbol(),
-                                    sell.quantity()
-                            )
-                    ),
-                    "SELL"
-            );
-            case StockCommand.Balance balance -> success(
-                    envelope,
-                    stockResponseFormatter.formatBalance(
-                            balanceQueryService.getBalance(balance.guildId(), balance.requesterId())
-                    ),
-                    "BALANCE"
-            );
-            case StockCommand.Portfolio portfolio -> success(
-                    envelope,
-                    stockResponseFormatter.formatPortfolio(
-                            portfolioQueryService.getPortfolio(portfolio.guildId(), portfolio.requesterId())
-                    ),
-                    "PORTFOLIO"
-            );
-            case StockCommand.History history -> success(
-                    envelope,
-                    stockResponseFormatter.formatHistory(
-                            tradeHistoryQueryService.getHistory(
-                                    history.guildId(),
-                                    history.requesterId(),
-                                    history.limit()
-                            )
-                    ),
-                    "HISTORY"
-            );
-            case StockCommand.Rank rank -> success(
-                    envelope,
-                    stockResponseFormatter.formatRanking(
-                            rankingService.getRanking(rank.guildId(), rank.period())
-                    ),
-                    "RANK"
-            );
-        };
+            throw exception;
+        }
     }
 
     public StockCommandResultEvent failure(StockCommandEnvelope envelope, Throwable throwable) {
@@ -180,5 +200,18 @@ public class StockCommandApplicationService {
                 message,
                 resultType
         );
+    }
+
+    private String commandName(StockCommand command) {
+        return switch (command) {
+            case StockCommand.Quote ignored -> "quote";
+            case StockCommand.ListQuotes ignored -> "list";
+            case StockCommand.Buy ignored -> "buy";
+            case StockCommand.Sell ignored -> "sell";
+            case StockCommand.Balance ignored -> "balance";
+            case StockCommand.Portfolio ignored -> "portfolio";
+            case StockCommand.History ignored -> "history";
+            case StockCommand.Rank ignored -> "rank";
+        };
     }
 }

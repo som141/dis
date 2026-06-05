@@ -31,6 +31,7 @@ import discordgateway.stocknode.cache.RedisRankingCacheRepository;
 import discordgateway.stocknode.cache.StockRedisKeyFactory;
 import discordgateway.stocknode.lock.QuoteLockService;
 import discordgateway.stocknode.lock.RedisLockService;
+import discordgateway.stocknode.observability.StockMetricsRecorder;
 import discordgateway.stocknode.persistence.repository.AccountSnapshotRepository;
 import discordgateway.stocknode.persistence.repository.AllowanceLedgerRepository;
 import discordgateway.stocknode.persistence.repository.StockAccountRepository;
@@ -46,6 +47,7 @@ import discordgateway.stocknode.quote.service.MarketQuoteRefreshService;
 import discordgateway.stocknode.quote.service.ProviderRateLimitService;
 import discordgateway.stocknode.quote.service.ProviderRateLimiter;
 import discordgateway.stocknode.quote.service.QuoteService;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -140,6 +142,11 @@ public class StockNodeComponentConfiguration {
     }
 
     @Bean
+    public StockMetricsRecorder stockMetricsRecorder(MeterRegistry meterRegistry) {
+        return new StockMetricsRecorder(meterRegistry);
+    }
+
+    @Bean
     public MockQuoteProvider mockQuoteProvider(Clock stockClock) {
         return new MockQuoteProvider(stockClock);
     }
@@ -219,6 +226,7 @@ public class StockNodeComponentConfiguration {
             QuoteProvider quoteProvider,
             ProviderRateLimiter providerRateLimiter,
             StockQuoteProperties stockQuoteProperties,
+            StockMetricsRecorder stockMetricsRecorder,
             Clock stockClock
     ) {
         return new MarketQuoteRefreshService(
@@ -227,6 +235,7 @@ public class StockNodeComponentConfiguration {
                 quoteProvider,
                 providerRateLimiter,
                 stockQuoteProperties,
+                stockMetricsRecorder,
                 stockClock
         );
     }
@@ -258,6 +267,7 @@ public class StockNodeComponentConfiguration {
             QuoteService quoteService,
             RankingCacheRepository rankingCacheRepository,
             StockQuoteProperties stockQuoteProperties,
+            StockMetricsRecorder stockMetricsRecorder,
             Clock stockClock
     ) {
         return new TradeExecutionService(
@@ -269,6 +279,7 @@ public class StockNodeComponentConfiguration {
                 quoteService,
                 rankingCacheRepository,
                 stockQuoteProperties,
+                stockMetricsRecorder,
                 stockClock
         );
     }
@@ -278,6 +289,7 @@ public class StockNodeComponentConfiguration {
             StockPositionRepository stockPositionRepository,
             TradeLedgerRepository tradeLedgerRepository,
             RankingCacheRepository rankingCacheRepository,
+            StockMetricsRecorder stockMetricsRecorder,
             Clock stockClock,
             PlatformTransactionManager transactionManager
     ) {
@@ -285,6 +297,7 @@ public class StockNodeComponentConfiguration {
                 stockPositionRepository,
                 tradeLedgerRepository,
                 rankingCacheRepository,
+                stockMetricsRecorder,
                 stockClock,
                 new TransactionTemplate(transactionManager)
         );
@@ -423,6 +436,7 @@ public class StockNodeComponentConfiguration {
             RankingService rankingService,
             StockResponseFormatter stockResponseFormatter,
             StockQuoteProperties stockQuoteProperties,
+            StockMetricsRecorder stockMetricsRecorder,
             Clock stockClock,
             @Value("${app.node-name:stock-node-1}") String producerNode
     ) {
@@ -437,6 +451,7 @@ public class StockNodeComponentConfiguration {
                 rankingService,
                 stockResponseFormatter,
                 stockQuoteProperties,
+                stockMetricsRecorder,
                 stockClock,
                 producerNode
         );

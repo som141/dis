@@ -4,6 +4,7 @@ import discordgateway.stock.command.StockCommand;
 import discordgateway.stock.command.StockCommandEnvelope;
 import discordgateway.stock.event.StockCommandResultEvent;
 import discordgateway.stocknode.bootstrap.StockQuoteProperties;
+import discordgateway.stocknode.observability.StockMetricsRecorder;
 import discordgateway.stocknode.quote.model.StockQuote;
 import discordgateway.stocknode.quote.service.QuoteService;
 import discordgateway.stocknode.quote.service.QuoteSource;
@@ -12,6 +13,7 @@ import discordgateway.stocknode.quote.service.StockQuoteResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -56,11 +58,13 @@ class StockCommandApplicationServiceTest {
     private StockResponseFormatter stockResponseFormatter;
 
     private StockCommandApplicationService stockCommandApplicationService;
+    private SimpleMeterRegistry meterRegistry;
 
     @BeforeEach
     void setUp() {
         StockQuoteProperties stockQuoteProperties = new StockQuoteProperties();
         stockQuoteProperties.setDefaultMarket("us");
+        meterRegistry = new SimpleMeterRegistry();
         stockCommandApplicationService = new StockCommandApplicationService(
                 quoteService,
                 tradeExecutionService,
@@ -72,6 +76,7 @@ class StockCommandApplicationServiceTest {
                 rankingService,
                 stockResponseFormatter,
                 stockQuoteProperties,
+                new StockMetricsRecorder(meterRegistry),
                 Clock.fixed(Instant.parse("2026-04-30T01:00:00Z"), ZoneOffset.UTC),
                 "stock-node-1"
         );
@@ -101,6 +106,8 @@ class StockCommandApplicationServiceTest {
         assertThat(event.success()).isTrue();
         assertThat(event.resultType()).isEqualTo("QUOTE");
         assertThat(event.message()).isEqualTo("quote message");
+        assertThat(meterRegistry.counter("stock.commands", "command", "quote", "result", "success").count())
+                .isEqualTo(1.0);
         verify(quoteService).getQuote("us", "AAPL", QuoteUsage.QUERY);
     }
 

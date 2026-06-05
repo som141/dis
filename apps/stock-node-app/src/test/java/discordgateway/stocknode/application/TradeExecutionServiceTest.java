@@ -2,6 +2,7 @@ package discordgateway.stocknode.application;
 
 import discordgateway.stocknode.bootstrap.StockQuoteProperties;
 import discordgateway.stocknode.cache.RankingCacheRepository;
+import discordgateway.stocknode.observability.StockMetricsRecorder;
 import discordgateway.stocknode.persistence.entity.StockAccountEntity;
 import discordgateway.stocknode.persistence.entity.StockPositionEntity;
 import discordgateway.stocknode.persistence.repository.StockAccountRepository;
@@ -15,6 +16,7 @@ import discordgateway.stocknode.quote.service.StockQuoteResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -56,12 +58,14 @@ class TradeExecutionServiceTest {
     private RankingCacheRepository rankingCacheRepository;
 
     private TradeExecutionService tradeExecutionService;
+    private SimpleMeterRegistry meterRegistry;
     private final StockQuoteProperties stockQuoteProperties = new StockQuoteProperties();
     private final Clock clock = Clock.fixed(Instant.parse("2026-04-30T01:00:00Z"), ZoneOffset.UTC);
 
     @BeforeEach
     void setUp() {
         stockQuoteProperties.setDefaultMarket("us");
+        meterRegistry = new SimpleMeterRegistry();
         tradeExecutionService = new TradeExecutionService(
                 dailyAllowanceService,
                 stockWatchlistService,
@@ -71,6 +75,7 @@ class TradeExecutionServiceTest {
                 quoteService,
                 rankingCacheRepository,
                 stockQuoteProperties,
+                new StockMetricsRecorder(meterRegistry),
                 clock
         );
     }
@@ -95,6 +100,12 @@ class TradeExecutionServiceTest {
         assertThat(result.remainingCash()).isEqualByComparingTo("9000.0000");
         assertThat(result.remainingPositionQuantity()).isEqualByComparingTo("5.00000000");
         assertThat(result.remainingPositionAverageCost()).isEqualByComparingTo("200.0000");
+        assertThat(meterRegistry.counter(
+                "stock.trade.executions",
+                "side", "buy",
+                "market", "us",
+                "symbol", "aapl"
+        ).count()).isEqualTo(1.0);
         verify(stockPositionRepository).save(any(StockPositionEntity.class));
         verify(tradeLedgerRepository).save(any());
         verify(rankingCacheRepository).evictGuild(1001L, "legacy");

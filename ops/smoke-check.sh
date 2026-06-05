@@ -8,6 +8,7 @@ COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-discord-bot}"
 GATEWAY_HEALTH_URL="${GATEWAY_HEALTH_URL:-http://127.0.0.1:8081/actuator/health}"
 AUDIO_NODE_HEALTH_URL="${AUDIO_NODE_HEALTH_URL:-http://127.0.0.1:8082/actuator/health}"
 STOCK_NODE_HEALTH_URL="${STOCK_NODE_HEALTH_URL:-http://127.0.0.1:8083/actuator/health}"
+STOCK_NODE_METRICS_URL="${STOCK_NODE_METRICS_URL:-http://127.0.0.1:8083/actuator/prometheus}"
 
 if [[ ! -d "${CURRENT_DIR}" ]]; then
   echo "missing current release directory: ${CURRENT_DIR}"
@@ -31,9 +32,13 @@ echo "[3/4] audio-node health"
 curl -fsS "${AUDIO_NODE_HEALTH_URL}"
 echo
 
-echo "[4/4] stock-node health"
+echo "[4/5] stock-node health"
 curl -fsS "${STOCK_NODE_HEALTH_URL}"
 echo
+
+echo "[5/5] stock-node metrics"
+curl -fsS "${STOCK_NODE_METRICS_URL}" | grep -q "jvm_memory_used_bytes"
+echo "stock-node metrics endpoint is available"
 popd >/dev/null
 
 cat <<'EOF'

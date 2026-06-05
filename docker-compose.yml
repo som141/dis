@@ -177,6 +177,8 @@ services:
         condition: service_started
       audio-node:
         condition: service_started
+      stock-node:
+        condition: service_started
       redis:
         condition: service_healthy
       rabbitmq:

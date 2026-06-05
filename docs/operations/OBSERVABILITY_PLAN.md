@@ -8,83 +8,83 @@
 - Grafana
 - redis-exporter
 
-로그는 Alloy가 Docker stdout을 수집해 Loki로 보낸다. 메트릭은 Prometheus가 scrape한다. 대시보드와 알림은 Grafana가 담당한다.
+로그는 Alloy가 Docker stdout을 수집해 Loki로 보낸다. 메트릭은 Prometheus가 scrape한다. 대시보드와 알림은 Grafana와 Prometheus rule이 담당한다.
 
 ## 현재 scrape 대상
 
 - `gateway-app`
 - `audio-node-app`
+- `stock-node-app`
 - `redis-exporter`
 - `rabbitmq`
 - `prometheus`
 - `loki`
 - `alloy`
 
-중요:
+`stock-node-app`은 `/actuator/prometheus`를 노출하며 Prometheus scrape 대상에 포함된다.
 
-- 현재 `stock-node-app`은 Prometheus scrape 대상이 아니다.
-- 따라서 stock-node JVM/앱 메트릭은 아직 Grafana에서 직접 보이지 않는다.
+## stock-node 관측성
 
-## 현재 알림
+stock-node에서 확인하는 주요 지표는 다음과 같다.
 
-Prometheus/Grafana 쪽에서 현재 다루는 핵심 알림은 다음 범주다.
+- JVM heap / process / HTTP actuator metric
+- stock command 처리량과 성공/실패
+- Finnhub quote refresh 성공/실패
+- provider rate limit 초과
+- 거래 체결과 거래 거절
+- 자동 청산 발생 수
 
-- gateway down
-- audio-node down
-- Redis exporter down
-- RabbitMQ exporter down
-- JVM heap high
-- application error logs
-- RabbitMQ consumer missing
-- queue backlog
+비즈니스 메트릭은 Micrometer 기반으로 노출한다.
 
-## 현재 한계
+대표 Prometheus query:
 
-- `stock-node` 메트릭이 scrape되지 않는다.
-- trace 시스템이 없다.
-- stock 거래/시세/랭킹 전용 메트릭이 없다.
+```promql
+up{job="stock-node"}
+stock_quote_refresh_success_total
+stock_quote_refresh_failures_total
+stock_trade_executions_total
+stock_trade_rejections_total
+stock_auto_liquidations_total
+```
 
-## 다음 우선순위
+## 대시보드
 
-### 1. stock-node scrape 추가
+Grafana dashboard는 file provisioning으로 로드된다.
 
-가장 먼저 할 일은 `stock-node:8080/actuator/prometheus`를 Prometheus scrape에 넣는 것이다.
+- `discord-bot-app-overview.json`
+- `discord-bot-infra-overview.json`
+- `discord-bot-stock-node-overview.json`
 
-추가되면 볼 수 있는 항목:
+stock-node dashboard는 quote refresh, command, trade, liquidation 지표를 본다.
 
-- stock command 처리량
-- JVM/actuator health
-- scheduler 실행 패턴
+## 알림
 
-### 2. stock 비즈니스 메트릭 추가
+현재 Prometheus rule 기준으로 아래 알림을 둔다.
 
-예시:
+- `GatewayDown`
+- `AudioNodeDown`
+- `StockNodeDown`
+- `AppHighJvmHeapUsage`
+- `ApplicationErrorLogsDetected`
+- `StockQuoteRefreshStalled`
+- `StockQuoteRefreshFailuresHigh`
+- `StockTradeRejectionsHigh`
+- `RedisExporterDown`
+- `RabbitMqExporterDown`
+- `RabbitMqConsumerMissing`
+- `RabbitMqQueueBacklog`
+- `RabbitMqUnackedBacklog`
 
-- `stock_commands_total`
-- `stock_command_duration_seconds`
-- `stock_quote_refresh_total`
-- `stock_quote_refresh_failures_total`
-- `stock_trade_rejections_total`
-- `stock_rank_requests_total`
+운영 전환 시 Discord webhook receiver를 활성화한다.
 
-### 3. stock 전용 알림 추가
+## 남은 확장 후보
 
-예시:
-
-- `stock-node down`
-- `finnhub refresh stalled`
-- `quote cache empty`
-- `quote refresh failure spike`
-
-### 4. trace 도입 검토
-
-필요 시 `gateway -> RabbitMQ -> stock-node`와 `gateway -> RabbitMQ -> audio-node` 흐름을 OpenTelemetry로 잇는다.
-
-## 운영 기준
-
-- 로그는 Loki에서 본다.
-- 메트릭은 Prometheus/Grafana에서 본다.
-- Discord 웹훅 알림은 운영 전환 시 `observability-discord`를 활성화한다.
+- OpenTelemetry + Tempo trace
+- gateway -> RabbitMQ -> stock-node command trace
+- gateway -> RabbitMQ -> audio-node command trace
+- quote cache hit/miss gauge
+- PostgreSQL exporter
+- stock account/position aggregate gauge
 
 ## 관련 파일
 
@@ -92,4 +92,5 @@ Prometheus/Grafana 쪽에서 현재 다루는 핵심 알림은 다음 범주다.
 - `ops/observability/prometheus/alerts.yml`
 - `ops/observability/loki/loki-config.yml`
 - `ops/observability/alloy/config.alloy`
+- `ops/observability/grafana/dashboards/**`
 - `ops/observability/grafana/provisioning/**`

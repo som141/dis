@@ -1,8 +1,8 @@
 # 문서 인덱스
 
-`docs/`는 공개용 운영 문서와 내부 작업 기록을 분리해서 관리한다.
+`docs/`는 공개 기준 문서, 운영 문서, 내부 작업 기록을 분리해서 관리한다.
 
-## 공개 문서
+## 공개 기준 문서
 
 ### Reference
 
@@ -11,9 +11,9 @@
 - [reference/MODULE_STRUCTURE.md](reference/MODULE_STRUCTURE.md)
   - 앱과 모듈의 책임 분리, 패키지 경계
 - [reference/EVENT_CONTRACT.md](reference/EVENT_CONTRACT.md)
-  - music/stock command-result 계약과 RabbitMQ 토폴로지 개요
+  - music/stock command-result 계약과 RabbitMQ topology 개요
 - [reference/POSTGRESQL_STOCK_SCHEMA.md](reference/POSTGRESQL_STOCK_SCHEMA.md)
-  - 주식 시스템 PostgreSQL 스키마와 운영 확인 SQL
+  - 주식 시스템 PostgreSQL schema와 운영 확인 SQL
 
 ### Operations
 
@@ -33,7 +33,9 @@
 - [internal/analysis/CODEBASE_ANALYSIS.md](internal/analysis/CODEBASE_ANALYSIS.md)
   - 코드베이스 분석 메모
 - [internal/analysis/CODEX_WORK_LOG.md](internal/analysis/CODEX_WORK_LOG.md)
-  - 에이전트 작업 로그
+  - Codex 작업 로그
+- [internal/analysis/CODEX_USAGE_PLAYBOOK.md](internal/analysis/CODEX_USAGE_PLAYBOOK.md)
+  - Codex 활용 방식, 프롬프트 패턴, 작업 운영 기준
 
 ### Stock History
 
@@ -43,5 +45,5 @@
 ## 관리 기준
 
 - `reference/`, `operations/`는 GitHub 공개 문서 기준으로 유지한다.
-- `internal/`은 내부 계획, 회고, 작업 기록을 모아 둔다.
-- 과거 계획 문서는 기록 보존 목적이므로 현재 상태 설명으로 간주하지 않는다.
+- `internal/`은 내부 계획, 보고서, 작업 로그를 모아 둔다.
+- 과거 계획 문서는 기록 보존 목적이며, 현재 상태 설명으로 간주하지 않는다.

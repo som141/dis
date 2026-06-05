@@ -2,6 +2,7 @@ package discordgateway.stocknode.application;
 
 import discordgateway.stocknode.bootstrap.StockQuoteProperties;
 import discordgateway.stocknode.cache.RankingCacheRepository;
+import discordgateway.stocknode.observability.StockMetricsRecorder;
 import discordgateway.stocknode.persistence.entity.StockAccountEntity;
 import discordgateway.stocknode.persistence.entity.StockPositionEntity;
 import discordgateway.stocknode.persistence.entity.TradeLedgerEntity;
@@ -33,6 +34,7 @@ public class TradeExecutionService {
     private final QuoteService quoteService;
     private final RankingCacheRepository rankingCacheRepository;
     private final StockQuoteProperties stockQuoteProperties;
+    private final StockMetricsRecorder stockMetricsRecorder;
     private final Clock clock;
 
     public TradeExecutionService(
@@ -44,6 +46,7 @@ public class TradeExecutionService {
             QuoteService quoteService,
             RankingCacheRepository rankingCacheRepository,
             StockQuoteProperties stockQuoteProperties,
+            StockMetricsRecorder stockMetricsRecorder,
             Clock clock
     ) {
         this.dailyAllowanceService = dailyAllowanceService;
@@ -54,6 +57,7 @@ public class TradeExecutionService {
         this.quoteService = quoteService;
         this.rankingCacheRepository = rankingCacheRepository;
         this.stockQuoteProperties = stockQuoteProperties;
+        this.stockMetricsRecorder = stockMetricsRecorder;
         this.clock = clock;
     }
 
@@ -112,6 +116,7 @@ public class TradeExecutionService {
                 )
         );
         rankingCacheRepository.evictGuild(guildId, account.getSeasonKey());
+        stockMetricsRecorder.recordTradeExecution(TradeSide.BUY.name(), quoteResult.quote().market(), normalizedSymbol);
 
         return new TradeExecutionResult(
                 account.getId(),
@@ -189,6 +194,7 @@ public class TradeExecutionService {
                 )
         );
         rankingCacheRepository.evictGuild(guildId, account.getSeasonKey());
+        stockMetricsRecorder.recordTradeExecution(TradeSide.SELL.name(), quoteResult.quote().market(), normalizedSymbol);
 
         return new TradeExecutionResult(
                 account.getId(),

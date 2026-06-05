@@ -1,6 +1,7 @@
 package discordgateway.stocknode.application;
 
 import discordgateway.stocknode.cache.RankingCacheRepository;
+import discordgateway.stocknode.observability.StockMetricsRecorder;
 import discordgateway.stocknode.persistence.entity.StockAccountEntity;
 import discordgateway.stocknode.persistence.entity.StockPositionEntity;
 import discordgateway.stocknode.persistence.repository.StockPositionRepository;
@@ -9,6 +10,7 @@ import discordgateway.stocknode.quote.model.StockQuote;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -44,6 +46,7 @@ class AutoLiquidationServiceTest {
     private TransactionOperations transactionOperations;
 
     private AutoLiquidationService autoLiquidationService;
+    private SimpleMeterRegistry meterRegistry;
     private final Clock clock = Clock.fixed(Instant.parse("2026-05-01T00:00:00Z"), ZoneOffset.UTC);
 
     @BeforeEach
@@ -52,10 +55,12 @@ class AutoLiquidationServiceTest {
         when(transactionOperations.execute(any())).thenAnswer(invocation ->
                 ((TransactionCallback<Object>) invocation.getArgument(0)).doInTransaction(null)
         );
+        meterRegistry = new SimpleMeterRegistry();
         autoLiquidationService = new AutoLiquidationService(
                 stockPositionRepository,
                 tradeLedgerRepository,
                 rankingCacheRepository,
+                new StockMetricsRecorder(meterRegistry),
                 clock,
                 transactionOperations
         );
@@ -89,6 +94,11 @@ class AutoLiquidationServiceTest {
         );
 
         assertThat(result.liquidatedCount()).isEqualTo(1);
+        assertThat(meterRegistry.counter(
+                "stock.auto.liquidations",
+                "market", "us",
+                "symbol", "nvda"
+        ).count()).isEqualTo(1.0);
         verify(stockPositionRepository).delete(position);
         verify(tradeLedgerRepository).save(any());
         verify(rankingCacheRepository).evictGuild(1001L, "2026-05");

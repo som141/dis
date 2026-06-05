@@ -24,6 +24,15 @@ scrape_configs:
           component: audio-node
           env: local
 
+  - job_name: stock-node
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["stock-node:8080"]
+        labels:
+          app: stock-node-app
+          component: stock-node
+          env: local
+
   - job_name: redis-exporter
     static_configs:
       - targets: ["redis-exporter:9121"]

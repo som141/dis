@@ -1,6 +1,7 @@
 package discordgateway.stocknode.application;
 
 import discordgateway.stocknode.cache.RankingCacheRepository;
+import discordgateway.stocknode.observability.StockMetricsRecorder;
 import discordgateway.stocknode.persistence.entity.StockAccountEntity;
 import discordgateway.stocknode.persistence.entity.StockPositionEntity;
 import discordgateway.stocknode.persistence.entity.TradeLedgerEntity;
@@ -23,6 +24,7 @@ public class AutoLiquidationService {
     private final StockPositionRepository stockPositionRepository;
     private final TradeLedgerRepository tradeLedgerRepository;
     private final RankingCacheRepository rankingCacheRepository;
+    private final StockMetricsRecorder stockMetricsRecorder;
     private final Clock clock;
     private final TransactionOperations transactionOperations;
 
@@ -30,12 +32,14 @@ public class AutoLiquidationService {
             StockPositionRepository stockPositionRepository,
             TradeLedgerRepository tradeLedgerRepository,
             RankingCacheRepository rankingCacheRepository,
+            StockMetricsRecorder stockMetricsRecorder,
             Clock clock,
             TransactionOperations transactionOperations
     ) {
         this.stockPositionRepository = stockPositionRepository;
         this.tradeLedgerRepository = tradeLedgerRepository;
         this.rankingCacheRepository = rankingCacheRepository;
+        this.stockMetricsRecorder = stockMetricsRecorder;
         this.clock = clock;
         this.transactionOperations = transactionOperations;
     }
@@ -67,6 +71,7 @@ public class AutoLiquidationService {
                 );
             }
         }
+        stockMetricsRecorder.recordAutoLiquidations(quote.market(), normalizedSymbol, liquidatedCount);
 
         return new LiquidationBatchResult(
                 normalizedSymbol,

@@ -1,6 +1,6 @@
 # Stock Development History
 
-이 디렉터리는 stock 기능 개발 과정에서 만든 계획서와 주차별 작업 보고서를 보관한다.
+이 디렉터리는 stock 기능 개발 과정에서 만든 계획서, 작업 보고서, 경계 문서를 보관한다.
 
 ## 계획서
 
@@ -11,6 +11,7 @@
 - [STOCK_WEEK3_WEEK4_TASK_BREAKDOWN.md](STOCK_WEEK3_WEEK4_TASK_BREAKDOWN.md)
 - [STOCK_WEEK5_TASK_BREAKDOWN.md](STOCK_WEEK5_TASK_BREAKDOWN.md)
 - [STOCK_WEEK6_WEEK8_TASK_BREAKDOWN.md](STOCK_WEEK6_WEEK8_TASK_BREAKDOWN.md)
+- [STOCK_WEEK7_OBSERVABILITY_PLAN.md](STOCK_WEEK7_OBSERVABILITY_PLAN.md)
 
 ## 보고서 / 경계 문서
 
@@ -21,6 +22,7 @@
 - [STOCK_WEEK3_WEEK4_REPORT.md](STOCK_WEEK3_WEEK4_REPORT.md)
 - [STOCK_WEEK5_REPORT.md](STOCK_WEEK5_REPORT.md)
 - [STOCK_WEEK6_WEEK8_REPORT.md](STOCK_WEEK6_WEEK8_REPORT.md)
+- [STOCK_WEEK7_OBSERVABILITY_REPORT.md](STOCK_WEEK7_OBSERVABILITY_REPORT.md)
 - [STOCK_LEVERAGE_MONTHLY_SEASON_REPORT.md](STOCK_LEVERAGE_MONTHLY_SEASON_REPORT.md)
 
-이 문서들은 특정 시점의 작업 기록이므로 현재 런타임 설명과 다를 수 있다.
+이 문서들은 특정 시점의 작업 기록이다. 현재 동작 기준은 `docs/reference/`와 `docs/operations/` 문서를 우선한다.
