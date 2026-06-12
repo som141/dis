@@ -161,7 +161,7 @@ groups:
           severity: warning
           service: stock-node
 
-      - uid: stock_quote_refresh_failures_high_grafana
+      - uid: stock_quote_refresh_fail_high_g
         title: StockQuoteRefreshFailuresHighGrafana
         condition: A
         data:
