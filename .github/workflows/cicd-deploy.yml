@@ -184,7 +184,7 @@ jobs:
           SSH_PORT: ${{ secrets.SSH_PORT }}
         run: |
           ssh -p "${SSH_PORT}" -i ~/.ssh/id_ed25519 "${SSH_USER}@${SSH_HOST}" \
-            "mkdir -p '${DEPLOY_DIR}/incoming/ops' '${DEPLOY_DIR}/incoming/ops/observability'"
+            "rm -rf '${DEPLOY_DIR}/incoming/ops' && mkdir -p '${DEPLOY_DIR}/incoming/ops'"
 
           scp -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \
             "out/${GATEWAY_IMAGE_NAME}-${{ github.sha }}.tar.gz" \

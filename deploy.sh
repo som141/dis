@@ -43,6 +43,24 @@ require_file "${STOCKNODE_IMAGE_ARCHIVE}"
 require_file "${ENV_FILE}"
 require_file "${COMPOSE_FILE}"
 
+validate_observability_files() {
+  local release_dir="$1"
+  local required_paths=(
+    "ops/observability/prometheus/prometheus.yml"
+    "ops/observability/grafana/provisioning/dashboards/dashboards.yml"
+    "ops/observability/grafana/provisioning/datasources/datasources.yml"
+    "ops/observability/grafana/dashboards/discord-bot-app-overview.json"
+    "ops/observability/grafana/dashboards/discord-bot-infra-overview.json"
+    "ops/observability/grafana/dashboards/discord-bot-postgres-overview.json"
+    "ops/observability/grafana/dashboards/discord-bot-stock-node-overview.json"
+  )
+  local path
+
+  for path in "${required_paths[@]}"; do
+    require_file "${release_dir}/${path}"
+  done
+}
+
 if [[ -L "${CURRENT_LINK}" || -e "${CURRENT_LINK}" ]]; then
   PREVIOUS_RELEASE_DIR="$(readlink -f "${CURRENT_LINK}" || true)"
 fi
@@ -112,6 +130,12 @@ if [[ -d "${OPS_DIR}" ]]; then
   rm -rf "${RELEASE_DIR}/ops"
   cp -R "${OPS_DIR}" "${RELEASE_DIR}/ops"
   find "${RELEASE_DIR}/ops" -type f -name "*.sh" -exec chmod +x {} \;
+fi
+
+RELEASE_OBSERVABILITY_ENABLED="$(env_value_from_file "${RELEASE_DIR}/.env" "OBSERVABILITY_ENABLED")"
+if [[ "${RELEASE_OBSERVABILITY_ENABLED,,}" == "true" ]]; then
+  echo "validating observability provisioning files"
+  validate_observability_files "${RELEASE_DIR}"
 fi
 
 echo "loading gateway image archive"
