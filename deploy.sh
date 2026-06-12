@@ -21,6 +21,7 @@ INCOMING_DIR="${DEPLOY_DIR}/incoming"
 RELEASES_DIR="${DEPLOY_DIR}/releases"
 RELEASE_DIR="${RELEASES_DIR}/${SHA}"
 CURRENT_LINK="${DEPLOY_DIR}/current"
+RELEASES_TO_KEEP="${RELEASES_TO_KEEP:-2}"
 GATEWAY_IMAGE_ARCHIVE="${INCOMING_DIR}/discord-gateway-${SHA}.tar.gz"
 AUDIONODE_IMAGE_ARCHIVE="${INCOMING_DIR}/discord-audio-node-${SHA}.tar.gz"
 STOCKNODE_IMAGE_ARCHIVE="${INCOMING_DIR}/discord-stock-node-${SHA}.tar.gz"
@@ -184,6 +185,6 @@ compose_in_dir "${RELEASE_DIR}" "${COMPOSE_PROJECT_NAME}" "${CURRENT_OBSERVABILI
 echo "cleaning incoming artifacts"
 rm -f "${GATEWAY_IMAGE_ARCHIVE}" "${AUDIONODE_IMAGE_ARCHIVE}" "${STOCKNODE_IMAGE_ARCHIVE}" "${ENV_FILE}" "${COMPOSE_FILE}"
 rm -rf "${OPS_DIR}"
-find "${RELEASES_DIR}" -mindepth 1 -maxdepth 1 -type d | sort | head -n -5 | xargs -r rm -rf
+find "${RELEASES_DIR}" -mindepth 1 -maxdepth 1 -type d | sort | head -n "-${RELEASES_TO_KEEP}" | xargs -r rm -rf
 
 echo "deployed release ${SHA}"
