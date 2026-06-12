@@ -61,6 +61,15 @@ validate_observability_files() {
   done
 }
 
+prune_unused_dis_images() {
+  echo "pruning unused DIS docker images before loading release"
+  docker image prune -f || true
+  docker images --format '{{.Repository}} {{.ID}}' \
+    | awk '$1 == "discord-gateway" || $1 == "discord-audio-node" || $1 == "discord-stock-node" { print $2 }' \
+    | sort -u \
+    | xargs -r docker image rm || true
+}
+
 if [[ -L "${CURRENT_LINK}" || -e "${CURRENT_LINK}" ]]; then
   PREVIOUS_RELEASE_DIR="$(readlink -f "${CURRENT_LINK}" || true)"
 fi
@@ -137,6 +146,8 @@ if [[ "${RELEASE_OBSERVABILITY_ENABLED,,}" == "true" ]]; then
   echo "validating observability provisioning files"
   validate_observability_files "${RELEASE_DIR}"
 fi
+
+prune_unused_dis_images
 
 echo "loading gateway image archive"
 gzip -dc "${RELEASE_DIR}/discord-gateway.tar.gz" | docker load
