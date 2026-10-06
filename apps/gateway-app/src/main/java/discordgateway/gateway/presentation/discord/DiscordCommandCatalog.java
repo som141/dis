@@ -4,6 +4,7 @@ import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.CommandData;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
+import net.dv8tion.jda.api.interactions.commands.build.SlashCommandData;
 import net.dv8tion.jda.api.interactions.commands.build.SubcommandData;
 
 import java.util.List;
@@ -13,6 +14,7 @@ public final class DiscordCommandCatalog {
     public static final String PIZZA_IMAGE =
             "https://i.namu.wiki/i/fnE10XPWcq13FQcHrKhGdFBC4gJbwvQIm2uBHVfjR0b5CBEoS7d72f4wCapkmtS6mwQPhDO6L1-VsAfP_nvR0vaedr4eg8mN-eOfPVbR3EGdlIAJhi6qEtgAkbLCZUfjewnMR18sLcz_u_-wsSGrsA.webp";
 
+    public static final String CMD_MAN = "man";
     public static final String CMD_JOIN = "join";
     public static final String CMD_LEAVE = "leave";
     public static final String CMD_PLAY = "play";
@@ -85,6 +87,7 @@ public final class DiscordCommandCatalog {
                         .addChoice("시즌 누적", "all"));
 
         return List.of(
+                Commands.slash(CMD_MAN, "명령어 사용법을 확인합니다"),
                 Commands.slash(CMD_JOIN, "현재 음성 채널에 입장합니다"),
                 Commands.slash(CMD_LEAVE, "현재 음성 채널에서 나갑니다"),
                 Commands.slash(CMD_PLAY, "음악을 재생합니다").addOptions(playQuery, playAuto),
@@ -108,5 +111,42 @@ public final class DiscordCommandCatalog {
                                 stockRank
                         )
         );
+    }
+
+    public static String manual() {
+        StringBuilder help = new StringBuilder("**명령어 사용법**\n"
+                + "`<옵션>`은 필수, `[옵션]`은 선택입니다.\n"
+                + "음악·효과음 명령은 음성 채널에 입장한 뒤 사용하세요.\n\n");
+
+        for (CommandData command : commands()) {
+            SlashCommandData slash = (SlashCommandData) command;
+            if (slash.getSubcommands().isEmpty()) {
+                appendUsage(help, "/" + slash.getName(), slash.getDescription(), slash.getOptions());
+            } else {
+                for (SubcommandData subcommand : slash.getSubcommands()) {
+                    appendUsage(help, "/" + slash.getName() + " " + subcommand.getName(),
+                            subcommand.getDescription(), subcommand.getOptions());
+                }
+            }
+        }
+        return help.toString();
+    }
+
+    private static void appendUsage(StringBuilder help, String command, String description, List<OptionData> options) {
+        help.append('`').append(command);
+        for (OptionData option : options) {
+            help.append(' ').append(option.isRequired() ? '<' : '[')
+                    .append(option.getName()).append(option.isRequired() ? '>' : ']');
+        }
+        help.append("` — ").append(description);
+        for (OptionData option : options) {
+            if (!option.getChoices().isEmpty()) {
+                help.append(" (").append(option.getName()).append(": ");
+                help.append(String.join(", ", option.getChoices().stream()
+                        .map(choice -> choice.getName()).toList()));
+                help.append(')');
+            }
+        }
+        help.append('\n');
     }
 }

@@ -62,6 +62,9 @@ public class DiscordBotListener extends ListenerAdapter {
 
         try {
             switch (event.getName()) {
+                case DiscordCommandCatalog.CMD_MAN -> event.reply(DiscordCommandCatalog.manual())
+                        .setEphemeral(true)
+                        .queue();
                 case DiscordCommandCatalog.CMD_JOIN -> handleJoin(event);
                 case DiscordCommandCatalog.CMD_LEAVE -> handleLeave(event);
                 case DiscordCommandCatalog.CMD_PLAY -> handlePlay(event);
