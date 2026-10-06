@@ -126,7 +126,8 @@ public class ApplicationFactory {
             AppProperties appProperties,
             YouTubeProperties youTubeProperties,
             MusicEventPublisher musicEventPublisher,
-            MusicEventFactory musicEventFactory
+            MusicEventFactory musicEventFactory,
+            RabbitMusicCommandResultPublisher rabbitMusicCommandResultPublisher
     ) {
         return new PlayerManager(
                 queueRepository,
@@ -135,7 +136,8 @@ public class ApplicationFactory {
                 appProperties,
                 youTubeProperties,
                 musicEventPublisher,
-                musicEventFactory
+                musicEventFactory,
+                rabbitMusicCommandResultPublisher::publish
         );
     }
 

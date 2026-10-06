@@ -14,13 +14,13 @@ import dev.lavalink.youtube.clients.AndroidMusic;
 import dev.lavalink.youtube.clients.AndroidVr;
 import dev.lavalink.youtube.clients.MWeb;
 import dev.lavalink.youtube.clients.Music;
-import dev.lavalink.youtube.clients.Tv;
 import dev.lavalink.youtube.clients.TvHtml5Simply;
 import dev.lavalink.youtube.clients.Web;
 import dev.lavalink.youtube.clients.WebEmbedded;
 import discordgateway.common.command.CommandResult;
 import discordgateway.common.command.MusicCommandTrace;
 import discordgateway.common.command.MusicCommandTraceContext;
+import discordgateway.common.command.MusicCommandResultEvent;
 import discordgateway.common.event.MusicEvent;
 import discordgateway.common.event.MusicEventFactory;
 import discordgateway.common.event.MusicEventPublisher;
@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 
 public class PlayerManager {
 
@@ -52,6 +53,7 @@ public class PlayerManager {
     private final GuildPlaybackLockManager playbackLockManager;
     private final MusicEventPublisher musicEventPublisher;
     private final MusicEventFactory musicEventFactory;
+    private final Consumer<MusicCommandResultEvent> playbackResultPublisher;
     private final String nodeName;
 
     public PlayerManager(
@@ -61,13 +63,15 @@ public class PlayerManager {
             AppProperties appProperties,
             YouTubeProperties youTubeProperties,
             MusicEventPublisher musicEventPublisher,
-            MusicEventFactory musicEventFactory
+            MusicEventFactory musicEventFactory,
+            Consumer<MusicCommandResultEvent> playbackResultPublisher
     ) {
         this.queueRepository = queueRepository;
         this.playerStateRepository = playerStateRepository;
         this.playbackLockManager = playbackLockManager;
         this.musicEventPublisher = musicEventPublisher;
         this.musicEventFactory = musicEventFactory;
+        this.playbackResultPublisher = playbackResultPublisher;
         this.nodeName = resolveNodeName(appProperties.getNodeName());
         this.audioPlayerManager = createAudioPlayerManager(youTubeProperties);
     }
@@ -140,7 +144,8 @@ public class PlayerManager {
                     playbackLockManager,
                     musicEventPublisher,
                     musicEventFactory,
-                    nodeName
+                    nodeName,
+                    playbackResultPublisher
             );
             guild.getAudioManager().setSendingHandler(guildMusicManager.getSendHandler());
             return guildMusicManager;
@@ -160,7 +165,7 @@ public class PlayerManager {
                     boolean queued = musicManager.scheduler.queue(audioTrack, textChannel);
                     complete(resultFuture, queued
                             ? CommandResult.ephemeral("대기열에 추가했습니다: " + audioTrack.getInfo().title)
-                            : CommandResult.ephemeral("재생을 시작했습니다: " + audioTrack.getInfo().title));
+                            : CommandResult.ephemeral("재생 요청을 접수했습니다: " + audioTrack.getInfo().title));
                 });
             }
 
@@ -188,7 +193,7 @@ public class PlayerManager {
                     boolean queued = musicManager.scheduler.queue(firstTrack, textChannel);
                     complete(resultFuture, queued
                             ? CommandResult.ephemeral("대기열에 추가했습니다: " + firstTrack.getInfo().title)
-                            : CommandResult.ephemeral("재생을 시작했습니다: " + firstTrack.getInfo().title));
+                            : CommandResult.ephemeral("재생 요청을 접수했습니다: " + firstTrack.getInfo().title));
                 });
             }
 
@@ -256,7 +261,7 @@ public class PlayerManager {
                 new Web(),
                 new MWeb(),
                 new WebEmbedded(),
-                new Tv(),
+                new YoutubeTvClient(),
                 new AndroidMusic(),
                 new AndroidVr()
         );
@@ -347,4 +352,3 @@ public class PlayerManager {
         return e.getMessage();
     }
 }
-

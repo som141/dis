@@ -3,6 +3,7 @@ package discordgateway.playback.application;
 import discordgateway.common.command.CommandResult;
 import discordgateway.common.command.DiscordReferenceResolver;
 import discordgateway.common.command.MusicCommand;
+import discordgateway.common.command.MusicCommandEnvelope;
 import discordgateway.common.command.MusicCommandMessage;
 import discordgateway.common.command.MusicCommandTrace;
 import discordgateway.common.command.MusicCommandTraceContext;
@@ -68,6 +69,13 @@ public class MusicWorkerService {
         return MusicCommandTraceContext.callWith(
                 MusicCommandTrace.from(message),
                 () -> dispatch(message.command())
+        );
+    }
+
+    public CompletableFuture<CommandResult> handle(MusicCommandEnvelope envelope) {
+        return MusicCommandTraceContext.callWith(
+                MusicCommandTrace.from(envelope),
+                () -> dispatch(envelope.message().command())
         );
     }
 

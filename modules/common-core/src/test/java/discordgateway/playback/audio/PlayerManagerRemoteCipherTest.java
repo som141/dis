@@ -109,7 +109,7 @@ class PlayerManagerRemoteCipherTest {
 
         // These repositories are only used when creating a guild player; this test exercises source configuration.
         PlayerManager playerManager = new PlayerManager(null, null, null, appProperties, properties,
-                event -> { }, new MusicEventFactory(appProperties));
+                event -> { }, new MusicEventFactory(appProperties), event -> { });
         Field managerField = PlayerManager.class.getDeclaredField("audioPlayerManager");
         managerField.setAccessible(true);
         audioPlayerManager = (AudioPlayerManager) managerField.get(playerManager);

@@ -140,6 +140,22 @@ docker compose --project-name discord-bot --env-file .env logs youtube-cipher --
 
 HTTP healthcheck는 서비스 준비 상태를 확인한다. 배포 후 실제 곡 재생에서 `RemoteCipherManager`가 사용되고 오디오가 재생되는지 별도로 확인한다. 토큰이나 signed stream URL이 포함될 수 있는 YouTube DEBUG 로그를 공유할 때는 값을 가린다.
 
+### 음원 요청 실패와 OAuth 확인
+
+youtube-source 1.18.2의 TV 클라이언트에는 YouTube가 거절하는 Cobalt User-Agent가 남아 있다. 앱의 `YoutubeTvClient`는 [upstream 수정 b33460b](https://github.com/lavalink-devs/youtube-source/commit/b33460b38ad13b5cd07da75e46444397cf0ea2df)의 PlayStation 4 User-Agent를 TV 요청에만 적용한다. 이 수정은 `The page needs to be reloaded.` 응답을 대상으로 하며, 기존 OAuth 인증이 필요하다.
+
+검색 성공이나 `TrackStartEvent`는 음원 다운로드 성공을 보장하지 않는다. 봇은 곡을 받았을 때 재생 요청 접수를 알리고, 다운로드 또는 재생 중 오류가 나면 같은 명령 응답을 실패 메시지로 수정한다. 원래 interaction의 유효 기간(15분)이 지난 대기곡의 오류는 로그로 확인한다.
+
+MWEB의 Googlevideo HTTP 403은 서명 해독 성공 뒤에도 발생할 수 있다. [upstream 안내](https://github.com/lavalink-devs/youtube-source/issues/169#issuecomment-3212246556)는 playback에 OAuth + TV 사용을 권장한다. [현재 PO token 안내](https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide)에 따르면 MWEB 음원 요청에는 추가 인증이 필요할 수 있고 token은 영상에 묶일 수 있으므로, 고정 `YOUTUBE_PO_TOKEN` 하나가 모든 곡을 해결한다고 가정하지 않는다.
+
+CI는 매 배포마다 `YOUTUBE_REFRESH_TOKEN` Secret에서 `.env`를 생성한다. 배포 전 컨테이너에 token이 있어도 새 컨테이너의 OAuth 활성화는 다시 확인한다. 아래 명령은 token 값을 포함하는 DEBUG 메시지를 출력하지 않고 인증 상태 문구만 추출한다.
+
+```bash
+docker logs --tail=10000 discord-bot-audio-node-1 2>&1 | grep -oE 'YouTube access token refreshed successfully|YouTube OAuth enabled with refresh token\.|YouTube OAuth disabled\. No YOUTUBE_REFRESH_TOKEN found\.|Refreshing YouTube access token failed|Refreshing access token returned error [a-z_]+' | tail -n 20
+```
+
+`YouTube access token refreshed successfully`와 `YouTube OAuth enabled with refresh token.`은 해당 시점의 인증 초기화 성공을 뜻한다. 음악이 실제로 들리는지는 배포 후 음성 채널에서 `/play`로 확인한다. OAuth DEBUG 로그에는 access token, refresh token, Authorization 값이 포함될 수 있으므로 전체를 공유하지 않는다.
+
 ## 알려진 리스크
 
 - 현재 스크립트는 image archive를 release 디렉터리로 복사한 뒤 `docker load`한다.

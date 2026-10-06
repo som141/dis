@@ -4,6 +4,7 @@ import discordgateway.common.command.MusicCommandResultEvent;
 import discordgateway.gateway.interaction.InteractionResponseContext;
 import discordgateway.gateway.interaction.InteractionResponseEditor;
 import discordgateway.gateway.interaction.PendingInteractionRepository;
+import discordgateway.gateway.presentation.discord.DiscordCommandCatalog;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -24,8 +25,16 @@ public class RabbitMusicCommandResultListener {
     }
 
     @RabbitListener(queues = "#{gatewayCommandResultQueue.name}")
-    public void handle(MusicCommandResultEvent event) {
-        InteractionResponseContext context = pendingInteractionRepository.take(event.commandId());
+    public synchronized void handle(MusicCommandResultEvent event) {
+        // Keep the original playback interaction available for a later decoder/stream failure.
+        // A terminal failure consumes it, so an accepted result delivered afterwards cannot overwrite the error.
+        boolean playbackFailure = "PLAYBACK_FAILED".equals(event.resultType());
+        InteractionResponseContext context = playbackFailure
+                ? pendingInteractionRepository.take(event.commandId())
+                : pendingInteractionRepository.find(event.commandId());
+        if (context != null && !playbackFailure && !retainForPlaybackFailure(context, event)) {
+            context = pendingInteractionRepository.take(event.commandId());
+        }
         if (context == null) {
             log.atWarn()
                     .addKeyValue("commandId", event.commandId())
@@ -42,5 +51,10 @@ public class RabbitMusicCommandResultListener {
                 event.resultType(),
                 event.message()
         );
+    }
+
+    private boolean retainForPlaybackFailure(InteractionResponseContext context, MusicCommandResultEvent event) {
+        return event.success() && (DiscordCommandCatalog.CMD_PLAY.equals(context.commandName())
+                || DiscordCommandCatalog.CMD_SFX.equals(context.commandName()));
     }
 }

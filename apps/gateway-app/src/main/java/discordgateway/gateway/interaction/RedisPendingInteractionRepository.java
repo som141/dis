@@ -43,6 +43,20 @@ public class RedisPendingInteractionRepository implements PendingInteractionRepo
     }
 
     @Override
+    public InteractionResponseContext find(String commandId) {
+        try (Jedis jedis = jedisPool.getResource()) {
+            String raw = jedis.get(key(commandId));
+            if (raw == null) {
+                return null;
+            }
+            InteractionResponseContext context = objectMapper.readValue(raw, InteractionResponseContext.class);
+            return context.isExpired(System.currentTimeMillis()) ? null : context;
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to read pending interaction. commandId=" + commandId, e);
+        }
+    }
+
+    @Override
     public InteractionResponseContext take(String commandId) {
         try (Jedis jedis = jedisPool.getResource()) {
             Object raw = jedis.eval(GET_DELETE_SCRIPT, 1, key(commandId));

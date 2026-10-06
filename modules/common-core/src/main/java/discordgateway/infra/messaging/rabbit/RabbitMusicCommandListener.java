@@ -70,7 +70,7 @@ public class RabbitMusicCommandListener {
         }
 
         try {
-            CommandResult result = musicWorkerService.handle(message).join();
+            CommandResult result = musicWorkerService.handle(envelope).join();
             processedCommandRepository.complete(
                     message.commandId(),
                     result,

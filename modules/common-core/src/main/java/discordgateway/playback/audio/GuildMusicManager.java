@@ -3,10 +3,12 @@ package discordgateway.playback.audio;
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayerManager;
 import discordgateway.common.event.MusicEventFactory;
+import discordgateway.common.command.MusicCommandResultEvent;
 import discordgateway.common.event.MusicEventPublisher;
 import discordgateway.playback.domain.GuildPlaybackLockManager;
 import discordgateway.playback.domain.PlayerStateRepository;
 import discordgateway.playback.domain.QueueRepository;
+import java.util.function.Consumer;
 
 public class GuildMusicManager {
 
@@ -22,7 +24,8 @@ public class GuildMusicManager {
             GuildPlaybackLockManager playbackLockManager,
             MusicEventPublisher musicEventPublisher,
             MusicEventFactory musicEventFactory,
-            String nodeName
+            String nodeName,
+            Consumer<MusicCommandResultEvent> playbackResultPublisher
     ) {
         this.audioPlayer = manager.createPlayer();
         this.scheduler = new TrackScheduler(
@@ -34,7 +37,8 @@ public class GuildMusicManager {
                 playbackLockManager,
                 musicEventPublisher,
                 musicEventFactory,
-                nodeName
+                nodeName,
+                playbackResultPublisher
         );
         this.audioPlayer.addListener(this.scheduler);
         this.sendHandler = new AudioPlayerSendHandler(this.audioPlayer);

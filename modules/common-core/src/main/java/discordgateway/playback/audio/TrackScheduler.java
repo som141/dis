@@ -10,6 +10,8 @@ import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrackEndReason;
 import discordgateway.common.command.MusicCommandTrace;
 import discordgateway.common.command.MusicCommandTraceContext;
+import discordgateway.common.command.MusicCommandResponseMode;
+import discordgateway.common.command.MusicCommandResultEvent;
 import discordgateway.common.event.MusicEvent;
 import discordgateway.common.event.MusicEventFactory;
 import discordgateway.common.event.MusicEventPublisher;
@@ -19,17 +21,26 @@ import discordgateway.playback.domain.PlayerStateRepository;
 import discordgateway.playback.domain.QueueEntry;
 import discordgateway.playback.domain.QueueRepository;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.ArrayDeque;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Locale;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Consumer;
 
 public class TrackScheduler extends AudioEventAdapter {
+    private static final Logger log = LoggerFactory.getLogger(TrackScheduler.class);
     private static final int LOCK_RETRY_ATTEMPTS = 10;
     private static final long LOCK_RETRY_DELAY_NANOS = 25_000_000L;
 
@@ -42,6 +53,8 @@ public class TrackScheduler extends AudioEventAdapter {
     private final MusicEventPublisher musicEventPublisher;
     private final MusicEventFactory musicEventFactory;
     private final String ownerNode;
+    private final Consumer<MusicCommandResultEvent> playbackResultPublisher;
+    private final ConcurrentHashMap<AudioTrack, PlaybackRequest> playbackRequests = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, ConcurrentLinkedDeque<AudioTrack>> bufferedTracks;
     private final AtomicLong transitionVersion;
 
@@ -59,7 +72,8 @@ public class TrackScheduler extends AudioEventAdapter {
             GuildPlaybackLockManager playbackLockManager,
             MusicEventPublisher musicEventPublisher,
             MusicEventFactory musicEventFactory,
-            String ownerNode
+            String ownerNode,
+            Consumer<MusicCommandResultEvent> playbackResultPublisher
     ) {
         this.guildId = guildId;
         this.audioPlayer = audioPlayer;
@@ -70,6 +84,7 @@ public class TrackScheduler extends AudioEventAdapter {
         this.musicEventPublisher = musicEventPublisher;
         this.musicEventFactory = musicEventFactory;
         this.ownerNode = ownerNode;
+        this.playbackResultPublisher = playbackResultPublisher;
         this.bufferedTracks = new ConcurrentHashMap<>();
         this.transitionVersion = new AtomicLong();
     }
@@ -96,6 +111,7 @@ public class TrackScheduler extends AudioEventAdapter {
         }
 
         cancelPendingAutoplayIfIdle();
+        preparePlaybackRequest(track, MusicEvent.TransitionSource.COMMAND);
 
         if (shouldAttemptImmediateStart() && this.audioPlayer.startTrack(track, true)) {
             this.lastTrack = track;
@@ -114,16 +130,52 @@ public class TrackScheduler extends AudioEventAdapter {
     @Override
     public void onTrackEnd(AudioPlayer player, AudioTrack track, AudioTrackEndReason endReason) {
         if (!endReason.mayStartNext) {
+            playbackRequests.remove(track);
             return;
         }
 
-        publishTrackPlaybackChanged(
-                track,
-                MusicEvent.PlaybackState.FINISHED,
-                MusicEvent.TransitionSource.SYSTEM,
-                endReason.name()
-        );
+        PlaybackRequest request = playbackRequests.get(track);
+        if (endReason == AudioTrackEndReason.LOAD_FAILED) {
+            reportPlaybackFailure(track, "playback_load_failed", null);
+        } else if (request == null || !request.failureReported.get()) {
+            publishTrackPlaybackChanged(
+                    track,
+                    MusicEvent.PlaybackState.FINISHED,
+                    MusicEvent.TransitionSource.SYSTEM,
+                    endReason.name()
+            );
+        }
+        playbackRequests.remove(track);
         advancePlayback(false, true);
+    }
+
+    @Override
+    public void onTrackException(AudioPlayer player, AudioTrack track, FriendlyException exception) {
+        reportPlaybackFailure(track, "playback_exception", exception);
+        // LavaPlayer emits the end event separately; advancing here would skip the next queued track twice.
+    }
+
+    @Override
+    public void onTrackStuck(AudioPlayer player, AudioTrack track, long thresholdMs) {
+        if (!playbackRequests.containsKey(track)) {
+            return;
+        }
+        reportPlaybackFailure(track, "playback_stuck", null);
+        advanceStuckTrack(track);
+    }
+
+    private void advanceStuckTrack(AudioTrack expectedTrack) {
+        GuildPlaybackLockManager.GuildPlaybackLock lock = acquirePlaybackLock();
+        if (!lock.acquired()) {
+            return;
+        }
+        if (audioPlayer.getPlayingTrack() != expectedTrack) {
+            lock.release();
+            return;
+        }
+        long version = transitionVersion.incrementAndGet();
+        audioPlayer.stopTrack();
+        continueWithQueueEntry(lock, version, queueRepository.poll(guildId), true);
     }
 
     public List<String> showList() {
@@ -143,7 +195,7 @@ public class TrackScheduler extends AudioEventAdapter {
         boolean hadEntries = queueRepository.hasEntries(guildId);
         boolean currentTrackPreserved = audioPlayer.getPlayingTrack() != null;
         queueRepository.clear(guildId);
-        bufferedTracks.clear();
+        clearBufferedTracks();
         clearProcessingOnly();
         musicEventPublisher.publish(musicEventFactory.queueCleared(guildId, hadEntries, currentTrackPreserved));
     }
@@ -153,7 +205,7 @@ public class TrackScheduler extends AudioEventAdapter {
         boolean hadEntries = queueRepository.hasEntries(guildId);
         AudioTrack currentTrack = audioPlayer.getPlayingTrack();
         queueRepository.clear(guildId);
-        bufferedTracks.clear();
+        clearBufferedTracks();
         audioPlayer.stopTrack();
         clearNowPlaying();
         musicEventPublisher.publish(musicEventFactory.queueCleared(guildId, hadEntries, false));
@@ -509,6 +561,7 @@ public class TrackScheduler extends AudioEventAdapter {
         }
 
         this.lastTrack = track;
+        preparePlaybackRequest(track, source);
         this.audioPlayer.startTrack(track, false);
         markTrackStarted(track, source, null);
         lock.release();
@@ -541,6 +594,101 @@ public class TrackScheduler extends AudioEventAdapter {
                 toQueueIdentifier(track),
                 ignored -> new ConcurrentLinkedDeque<>()
         ).addLast(track);
+    }
+
+    private void clearBufferedTracks() {
+        bufferedTracks.values().forEach(tracks -> tracks.forEach(playbackRequests::remove));
+        bufferedTracks.clear();
+    }
+
+    private void preparePlaybackRequest(AudioTrack track, MusicEvent.TransitionSource source) {
+        // YouTubeSource owns AudioTrack.userData (including optional OAuth data); keep routing separate.
+        playbackRequests.compute(track, (ignored, existing) -> {
+            if (existing != null) {
+                existing.source = source;
+                return existing;
+            }
+            MusicCommandTrace trace = source == MusicEvent.TransitionSource.COMMAND
+                    ? MusicCommandTraceContext.current() : null;
+            return new PlaybackRequest(trace, source);
+        });
+    }
+
+    private void reportPlaybackFailure(AudioTrack track, String failureType, Throwable failure) {
+        PlaybackRequest request = playbackRequests.get(track);
+        if (request == null || !request.failureReported.compareAndSet(false, true)) {
+            return;
+        }
+        String explanation = safePlaybackFailureExplanation(failure);
+        MusicCommandTraceContext.runWith(request.trace, () -> {
+            // Raw exceptions may contain signed media URLs or credentials; keep diagnostics classified.
+            log.atWarn().addKeyValue("guildId", guildId)
+                    .addKeyValue("failureType", failureType)
+                    .addKeyValue("exceptionType", failure == null ? null : failure.getClass().getSimpleName())
+                    .addKeyValue("reason", explanation)
+                    .log("track playback failed");
+            musicEventPublisher.publish(musicEventFactory.trackLoadFailed(guildId, toQueueIdentifier(track),
+                    request.source, failureType, explanation));
+
+            MusicCommandTrace trace = request.trace;
+            if (trace == null || trace.responseTargetNode() == null || trace.responseTargetNode().isBlank()) {
+                return;
+            }
+            String title = track.getInfo().title;
+            title = title == null || title.isBlank() ? "제목 없는 곡" : title.replaceAll("[\\r\\n]", " ");
+            if (title.length() > 160) {
+                title = title.substring(0, 160);
+            }
+            try {
+                playbackResultPublisher.accept(new MusicCommandResultEvent(trace.commandId(), trace.schemaVersion(),
+                        System.currentTimeMillis(), ownerNode, trace.responseTargetNode(), guildId, false,
+                        "재생에 실패했습니다: " + title + "\n" + explanation,
+                        trace.responseMode() == MusicCommandResponseMode.EPHEMERAL, "PLAYBACK_FAILED"));
+            } catch (RuntimeException notificationFailure) {
+                log.atWarn().addKeyValue("guildId", guildId).addKeyValue("commandId", trace.commandId())
+                        .addKeyValue("exceptionType", notificationFailure.getClass().getSimpleName())
+                        .log("playback failure reply could not be published");
+            }
+        });
+    }
+
+    private String safePlaybackFailureExplanation(Throwable failure) {
+        Set<Throwable> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        ArrayDeque<Throwable> causes = new ArrayDeque<>();
+        if (failure != null) {
+            causes.add(failure);
+        }
+        boolean loginRequired = false;
+        while (!causes.isEmpty() && visited.size() < 100) {
+            Throwable cause = causes.removeFirst();
+            if (!visited.add(cause)) {
+                continue;
+            }
+            String message = cause.getMessage() == null ? "" : cause.getMessage().toLowerCase(Locale.ROOT);
+            if (message.matches("(?s).*(?:status|response|http)[^\\r\\n]{0,32}\\b403\\b.*")) {
+                return "음원 제공 서버가 접근을 거부했습니다 (HTTP 403). 다른 곡을 시도하거나 잠시 후 다시 시도해 주세요.";
+            }
+            loginRequired |= message.contains("sign in") || message.contains("login required")
+                    || message.contains("requires login") || message.contains("confirm you're not a bot");
+            if (cause.getCause() != null) {
+                causes.add(cause.getCause());
+            }
+            Collections.addAll(causes, cause.getSuppressed());
+        }
+        return loginRequired
+                ? "YouTube에서 로그인 확인을 요구하고 있습니다. 잠시 후 다른 곡으로 다시 시도해 주세요."
+                : "음원 데이터를 재생하지 못했습니다. 잠시 후 다른 곡으로 다시 시도해 주세요.";
+    }
+
+    private static final class PlaybackRequest {
+        private final MusicCommandTrace trace;
+        private volatile MusicEvent.TransitionSource source;
+        private final AtomicBoolean failureReported = new AtomicBoolean();
+
+        private PlaybackRequest(MusicCommandTrace trace, MusicEvent.TransitionSource source) {
+            this.trace = trace;
+            this.source = source;
+        }
     }
 
     private AudioTrack takeBufferedTrack(String identifier) {
@@ -713,4 +861,3 @@ public class TrackScheduler extends AudioEventAdapter {
         RECOVERY
     }
 }
-
