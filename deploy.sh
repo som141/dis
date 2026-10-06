@@ -25,6 +25,7 @@ RELEASES_TO_KEEP="${RELEASES_TO_KEEP:-2}"
 GATEWAY_IMAGE_ARCHIVE="${INCOMING_DIR}/discord-gateway-${SHA}.tar.gz"
 AUDIONODE_IMAGE_ARCHIVE="${INCOMING_DIR}/discord-audio-node-${SHA}.tar.gz"
 STOCKNODE_IMAGE_ARCHIVE="${INCOMING_DIR}/discord-stock-node-${SHA}.tar.gz"
+YOUTUBE_CIPHER_IMAGE_ARCHIVE="${INCOMING_DIR}/discord-youtube-cipher-${SHA}.tar.gz"
 ENV_FILE="${INCOMING_DIR}/.env.cicd"
 COMPOSE_FILE="${INCOMING_DIR}/docker-compose.yml"
 OPS_DIR="${INCOMING_DIR}/ops"
@@ -41,6 +42,7 @@ require_file() {
 require_file "${GATEWAY_IMAGE_ARCHIVE}"
 require_file "${AUDIONODE_IMAGE_ARCHIVE}"
 require_file "${STOCKNODE_IMAGE_ARCHIVE}"
+require_file "${YOUTUBE_CIPHER_IMAGE_ARCHIVE}"
 require_file "${ENV_FILE}"
 require_file "${COMPOSE_FILE}"
 
@@ -66,7 +68,7 @@ prune_unused_dis_images() {
   echo "pruning unused DIS docker images before loading release"
   docker image prune -f || true
   docker images --format '{{.Repository}} {{.ID}}' \
-    | awk '$1 == "discord-gateway" || $1 == "discord-audio-node" || $1 == "discord-stock-node" { print $2 }' \
+    | awk '$1 == "discord-gateway" || $1 == "discord-audio-node" || $1 == "discord-stock-node" || $1 == "discord-youtube-cipher" { print $2 }' \
     | sort -u \
     | xargs -r docker image rm || true
 }
@@ -136,6 +138,7 @@ cp "${ENV_FILE}" "${RELEASE_DIR}/.env"
 cp "${GATEWAY_IMAGE_ARCHIVE}" "${RELEASE_DIR}/discord-gateway.tar.gz"
 cp "${AUDIONODE_IMAGE_ARCHIVE}" "${RELEASE_DIR}/discord-audio-node.tar.gz"
 cp "${STOCKNODE_IMAGE_ARCHIVE}" "${RELEASE_DIR}/discord-stock-node.tar.gz"
+cp "${YOUTUBE_CIPHER_IMAGE_ARCHIVE}" "${RELEASE_DIR}/discord-youtube-cipher.tar.gz"
 if [[ -d "${OPS_DIR}" ]]; then
   rm -rf "${RELEASE_DIR}/ops"
   cp -R "${OPS_DIR}" "${RELEASE_DIR}/ops"
@@ -148,6 +151,9 @@ if [[ "${RELEASE_OBSERVABILITY_ENABLED,,}" == "true" ]]; then
   validate_observability_files "${RELEASE_DIR}"
 fi
 
+echo "validating compose configuration"
+compose_in_dir "${RELEASE_DIR}" "${COMPOSE_PROJECT_NAME}" "${RELEASE_OBSERVABILITY_ENABLED}" config --quiet
+
 prune_unused_dis_images
 
 echo "loading gateway image archive"
@@ -158,6 +164,9 @@ gzip -dc "${RELEASE_DIR}/discord-audio-node.tar.gz" | docker load
 
 echo "loading stock-node image archive"
 gzip -dc "${RELEASE_DIR}/discord-stock-node.tar.gz" | docker load
+
+echo "loading youtube-cipher image archive"
+gzip -dc "${RELEASE_DIR}/discord-youtube-cipher.tar.gz" | docker load
 
 echo "removing legacy fixed-name containers if present"
 remove_legacy_fixed_name_containers
@@ -180,10 +189,10 @@ if [[ "${CURRENT_OBSERVABILITY_ENABLED,,}" == "true" ]]; then
 else
   echo "starting compose project: ${COMPOSE_PROJECT_NAME}"
 fi
-compose_in_dir "${RELEASE_DIR}" "${COMPOSE_PROJECT_NAME}" "${CURRENT_OBSERVABILITY_ENABLED}" up -d --no-build --remove-orphans
+compose_in_dir "${RELEASE_DIR}" "${COMPOSE_PROJECT_NAME}" "${CURRENT_OBSERVABILITY_ENABLED}" up -d --no-build --remove-orphans --wait --wait-timeout 180
 
 echo "cleaning incoming artifacts"
-rm -f "${GATEWAY_IMAGE_ARCHIVE}" "${AUDIONODE_IMAGE_ARCHIVE}" "${STOCKNODE_IMAGE_ARCHIVE}" "${ENV_FILE}" "${COMPOSE_FILE}"
+rm -f "${GATEWAY_IMAGE_ARCHIVE}" "${AUDIONODE_IMAGE_ARCHIVE}" "${STOCKNODE_IMAGE_ARCHIVE}" "${YOUTUBE_CIPHER_IMAGE_ARCHIVE}" "${ENV_FILE}" "${COMPOSE_FILE}"
 rm -rf "${OPS_DIR}"
 find "${RELEASES_DIR}" -mindepth 1 -maxdepth 1 -type d | sort | head -n "-${RELEASES_TO_KEEP}" | xargs -r rm -rf
 

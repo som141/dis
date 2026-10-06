@@ -20,6 +20,7 @@ jobs:
       GATEWAY_IMAGE_NAME: discord-gateway
       AUDIO_NODE_IMAGE_NAME: discord-audio-node
       STOCK_NODE_IMAGE_NAME: discord-stock-node
+      YOUTUBE_CIPHER_IMAGE_NAME: discord-youtube-cipher
       COMPOSE_PROJECT_NAME: discord-bot
       DEPLOY_DIR: /home/ubuntu/dis-bot
 
@@ -54,6 +55,7 @@ jobs:
           docker build -f apps/gateway-app/Dockerfile -t "${GATEWAY_IMAGE_NAME}:${{ github.sha }}" .
           docker build -f apps/audio-node-app/Dockerfile -t "${AUDIO_NODE_IMAGE_NAME}:${{ github.sha }}" .
           docker build -f apps/stock-node-app/Dockerfile -t "${STOCK_NODE_IMAGE_NAME}:${{ github.sha }}" .
+          docker build -f ops/youtube-cipher/Dockerfile -t "${YOUTUBE_CIPHER_IMAGE_NAME}:${{ github.sha }}" .
 
       - name: Save Docker images to tar.gz
         run: |
@@ -61,6 +63,7 @@ jobs:
           docker save "${GATEWAY_IMAGE_NAME}:${{ github.sha }}" | gzip > "out/${GATEWAY_IMAGE_NAME}-${{ github.sha }}.tar.gz"
           docker save "${AUDIO_NODE_IMAGE_NAME}:${{ github.sha }}" | gzip > "out/${AUDIO_NODE_IMAGE_NAME}-${{ github.sha }}.tar.gz"
           docker save "${STOCK_NODE_IMAGE_NAME}:${{ github.sha }}" | gzip > "out/${STOCK_NODE_IMAGE_NAME}-${{ github.sha }}.tar.gz"
+          docker save "${YOUTUBE_CIPHER_IMAGE_NAME}:${{ github.sha }}" | gzip > "out/${YOUTUBE_CIPHER_IMAGE_NAME}-${{ github.sha }}.tar.gz"
 
       - name: Create env file
         env:
@@ -69,9 +72,10 @@ jobs:
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
           YOUTUBE_PO_TOKEN: ${{ secrets.YOUTUBE_PO_TOKEN }}
           YOUTUBE_VISITOR_DATA: ${{ secrets.YOUTUBE_VISITOR_DATA }}
-          YOUTUBE_REMOTE_CIPHER_URL: ${{ secrets.YOUTUBE_REMOTE_CIPHER_URL }}
+          YOUTUBE_REMOTE_CIPHER_URL: ${{ secrets.YOUTUBE_REMOTE_CIPHER_URL || vars.YOUTUBE_REMOTE_CIPHER_URL || 'http://youtube-cipher:8001' }}
           YOUTUBE_REMOTE_CIPHER_PASSWORD: ${{ secrets.YOUTUBE_REMOTE_CIPHER_PASSWORD }}
-          YOUTUBE_REMOTE_CIPHER_USER_AGENT: ${{ secrets.YOUTUBE_REMOTE_CIPHER_USER_AGENT }}
+          YOUTUBE_REMOTE_CIPHER_USER_AGENT: ${{ secrets.YOUTUBE_REMOTE_CIPHER_USER_AGENT || vars.YOUTUBE_REMOTE_CIPHER_USER_AGENT || 'dis-bot' }}
+          YOUTUBE_CIPHER_MAX_THREADS: ${{ vars.YOUTUBE_CIPHER_MAX_THREADS || '1' }}
           RABBITMQ_USERNAME: ${{ secrets.RABBITMQ_USERNAME }}
           RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD }}
           POSTGRES_DB: ${{ vars.POSTGRES_DB || 'stock' }}
@@ -113,6 +117,9 @@ jobs:
             printf "AUDIO_NODE_IMAGE_TAG=%s\n" "${{ github.sha }}"
             printf "STOCK_NODE_IMAGE_NAME=%s\n" "${STOCK_NODE_IMAGE_NAME}"
             printf "STOCK_NODE_IMAGE_TAG=%s\n" "${{ github.sha }}"
+            printf "YOUTUBE_CIPHER_IMAGE_NAME=%s\n" "${YOUTUBE_CIPHER_IMAGE_NAME}"
+            printf "YOUTUBE_CIPHER_IMAGE_TAG=%s\n" "${{ github.sha }}"
+            printf "YOUTUBE_CIPHER_MAX_THREADS=%s\n" "${YOUTUBE_CIPHER_MAX_THREADS}"
             printf "COMPOSE_PROJECT_NAME=%s\n" "${COMPOSE_PROJECT_NAME}"
             printf "APP_ENV=%s\n" "${APP_ENV}"
             printf "OBSERVABILITY_ENABLED=%s\n" "${OBSERVABILITY_ENABLED}"
@@ -196,6 +203,10 @@ jobs:
 
           scp -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \
             "out/${STOCK_NODE_IMAGE_NAME}-${{ github.sha }}.tar.gz" \
+            "${SSH_USER}@${SSH_HOST}:${DEPLOY_DIR}/incoming/"
+
+          scp -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \
+            "out/${YOUTUBE_CIPHER_IMAGE_NAME}-${{ github.sha }}.tar.gz" \
             "${SSH_USER}@${SSH_HOST}:${DEPLOY_DIR}/incoming/"
 
           scp -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \

@@ -50,6 +50,20 @@ services:
       timeout: 5s
       retries: 20
 
+  youtube-cipher:
+    build:
+      context: .
+      dockerfile: ops/youtube-cipher/Dockerfile
+    image: ${YOUTUBE_CIPHER_IMAGE_NAME:-discord-youtube-cipher}:${YOUTUBE_CIPHER_IMAGE_TAG:-local}
+    environment:
+      API_TOKEN: ${YOUTUBE_REMOTE_CIPHER_PASSWORD:-}
+      OVERRIDE_PLAYER_VARIANT: IAS
+      MAX_THREADS: ${YOUTUBE_CIPHER_MAX_THREADS:-1}
+      XDG_CACHE_HOME: /app/player_cache
+    volumes:
+      - youtube-cipher-cache:/app/player_cache
+    restart: unless-stopped
+
   gateway:
     build:
       context: .
@@ -60,6 +74,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      youtube-cipher:
+        condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: ""
       DISCORD_TOKEN: ${DISCORD_TOKEN}
@@ -68,9 +84,9 @@ services:
       YOUTUBE_OAUTH_INIT: ${YOUTUBE_OAUTH_INIT:-false}
       YOUTUBE_PO_TOKEN: ${YOUTUBE_PO_TOKEN:-}
       YOUTUBE_VISITOR_DATA: ${YOUTUBE_VISITOR_DATA:-}
-      YOUTUBE_REMOTE_CIPHER_URL: ${YOUTUBE_REMOTE_CIPHER_URL:-}
+      YOUTUBE_REMOTE_CIPHER_URL: ${YOUTUBE_REMOTE_CIPHER_URL:-http://youtube-cipher:8001}
       YOUTUBE_REMOTE_CIPHER_PASSWORD: ${YOUTUBE_REMOTE_CIPHER_PASSWORD:-}
-      YOUTUBE_REMOTE_CIPHER_USER_AGENT: ${YOUTUBE_REMOTE_CIPHER_USER_AGENT:-}
+      YOUTUBE_REMOTE_CIPHER_USER_AGENT: ${YOUTUBE_REMOTE_CIPHER_USER_AGENT:-dis-bot}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       RABBITMQ_HOST: rabbitmq
@@ -93,6 +109,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      youtube-cipher:
+        condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: ""
       DISCORD_TOKEN: ${DISCORD_TOKEN}
@@ -101,9 +119,9 @@ services:
       YOUTUBE_OAUTH_INIT: ${YOUTUBE_OAUTH_INIT:-false}
       YOUTUBE_PO_TOKEN: ${YOUTUBE_PO_TOKEN:-}
       YOUTUBE_VISITOR_DATA: ${YOUTUBE_VISITOR_DATA:-}
-      YOUTUBE_REMOTE_CIPHER_URL: ${YOUTUBE_REMOTE_CIPHER_URL:-}
+      YOUTUBE_REMOTE_CIPHER_URL: ${YOUTUBE_REMOTE_CIPHER_URL:-http://youtube-cipher:8001}
       YOUTUBE_REMOTE_CIPHER_PASSWORD: ${YOUTUBE_REMOTE_CIPHER_PASSWORD:-}
-      YOUTUBE_REMOTE_CIPHER_USER_AGENT: ${YOUTUBE_REMOTE_CIPHER_USER_AGENT:-}
+      YOUTUBE_REMOTE_CIPHER_USER_AGENT: ${YOUTUBE_REMOTE_CIPHER_USER_AGENT:-dis-bot}
       REDIS_HOST: redis
       REDIS_PORT: 6379
       RABBITMQ_HOST: rabbitmq
@@ -270,6 +288,7 @@ services:
 volumes:
   redis-data:
   rabbitmq-data:
+  youtube-cipher-cache:
   postgres-data:
   prometheus-data:
   loki-data:
