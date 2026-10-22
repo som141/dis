@@ -1,4 +1,6 @@
-# 관측성 계획
+# 관측성 현재 구성과 확장 후보
+
+현재 설정으로 수집하는 지표·로그와 아직 구현하지 않은 확장 후보를 구분한다. 시작·종료·Grafana 계정은 [관측성 안내](../../ops/observability/README.md), 장애 대응 순서는 [운영 런북](OPERATIONS_RUNBOOK.md)을 따른다.
 
 ## 현재 스택
 
@@ -112,9 +114,11 @@ GRAFANA_ALERT_DISCORD_WEBHOOK_URL=...
 
 ## 관련 파일
 
-- `ops/observability/prometheus/prometheus.yml`
-- `ops/observability/prometheus/alerts.yml`
-- `ops/observability/loki/loki-config.yml`
-- `ops/observability/alloy/config.alloy`
-- `ops/observability/grafana/dashboards/**`
-- `ops/observability/grafana/provisioning/**`
+- [Prometheus scrape](../../ops/observability/prometheus/prometheus.yml)
+- [Prometheus alerts](../../ops/observability/prometheus/alerts.yml)
+- [Loki 설정](../../ops/observability/loki/loki-config.yml)
+- [Alloy 로그 수집](../../ops/observability/alloy/config.alloy)
+- [대시보드 안내](../../ops/observability/grafana/dashboards/README.md)
+- [Grafana provisioning](../../ops/observability/grafana/provisioning)
+
+[개발·운영 문서 목록](README.md)

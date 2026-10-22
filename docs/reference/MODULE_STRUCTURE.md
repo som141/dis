@@ -1,122 +1,58 @@
-# 모듈 구조
+# 모듈과 디렉터리 구조
 
-## Gradle 구성
-
-현재 `settings.gradle`에 등록된 모듈은 다음과 같다.
-
-- `modules:common-core`
-- `modules:stock-core`
-- `apps:gateway-app`
-- `apps:audio-node-app`
-- `apps:stock-node-app`
-
-## 디렉터리 구조
+등록 기준은 [settings.gradle](../../settings.gradle)이다. 루트 Gradle 프로젝트 이름은 `TBot`이며 문서의 프로젝트명은 DIS다. 세 Spring Boot 앱과 두 Java 라이브러리로 구성한다.
 
 ```text
-apps/
-  gateway-app/
-  audio-node-app/
-  stock-node-app/
-modules/
-  common-core/
-  stock-core/
+apps/                   실행 앱과 앱별 README
+  gateway-app/          Discord 진입·회신
+  audio-node-app/       음악 worker 조립·복구·수명주기
+  stock-node-app/       모의투자 worker·계좌·시세·영속화
+modules/                공용 라이브러리
+  common-core/          음악 계약·재생 코어·공통 인프라
+  stock-core/           주식 메시지 계약
+ops/                    운영 스크립트·cipher·관측성 설정
 docs/
-ops/
-docker-compose.yml
-deploy.sh
+  reference/            현재 구조·계약·스키마
+  operations/           실행·테스트·배포·장애 대응
+  internal/             과거 분석·계획·보고서
+docker-compose.yml      로컬·서버 서비스 구성
+deploy.sh               서버 release 배포
 ```
 
-## 앱별 책임
+## 의존 방향
 
-### apps/gateway-app
+```mermaid
+flowchart TD
+    G[gateway-app] --> C[common-core]
+    G --> K[stock-core]
+    A[audio-node-app] --> C
+    S[stock-node-app] --> K
+```
 
-- Discord slash command 진입점
-- music/stock command envelope 생성
-- pending interaction 저장
-- result event 수신 후 응답 수정
+stock 앱은 common-core나 JDA에 의존하지 않는다. common-core의 이름은 공용이지만 현재 주된 내용은 음악 코어와 Gateway/audio 인프라다. 주식 업무 로직을 이 모듈로 옮기지 않는다.
 
-주요 패키지:
+## 기능별 수정 시작점
 
-- `application`
-- `config`
-- `interaction`
-- `messaging`
-- `presentation/discord`
+| 작업 | 시작 위치 | 함께 확인 |
+| --- | --- | --- |
+| slash command·도움말·공개 범위 | [gateway-app](../../apps/gateway-app/README.md) | Catalog와 DiscordBotListener, 관련 응답 테스트 |
+| 음악 명령·재생 실패·Opus 공급 | [common-core](../../modules/common-core/README.md) | Gateway 발행·audio 조립·음악 테스트 |
+| 음성 복구·빈 채널 퇴장 | [audio-node-app](../../apps/audio-node-app/README.md) | Redis 상태와 lifecycle/recovery |
+| 주식 명령 메시지 | [stock-core](../../modules/stock-core/README.md) | Gateway 발행·stock 소비·계약 테스트 |
+| 거래·계좌·시즌·랭킹·시세 | [stock-node-app](../../apps/stock-node-app/README.md) | application·cache·quote·persistence |
+| DB 구조 | [Flyway migrations](../../apps/stock-node-app/src/main/resources/db/migration) | entity·repository·[스키마 문서](POSTGRESQL_STOCK_SCHEMA.md) |
+| 컨테이너·관측성·배포 | [ops/](../../ops/README.md) | Compose·워크플로우·운영 문서 |
 
-### apps/audio-node-app
+## 빌드와 산출물
 
-- 음악 command consumer
-- 재생 실행
-- recovery
-- idle disconnect
+저장소 루트에서:
 
-주요 패키지:
+```bash
+bash ./gradlew bootJarAll
+```
 
-- `config`
-- `lifecycle`
-- `recovery`
+산출물은 `apps/gateway-app/build/libs/gateway-app.jar`, `apps/audio-node-app/build/libs/audio-node-app.jar`, `apps/stock-node-app/build/libs/stock-node-app.jar`다. 각 Dockerfile이 해당 JAR를 복사한다. 공용 모듈은 독립 서비스나 Boot JAR를 만들지 않는다.
 
-### apps/stock-node-app
+IDE 실행·설정은 [로컬 개발 안내](../operations/LOCAL_DEVELOPMENT.md), 테스트 명령은 [테스트 가이드](../operations/CI_TESTING.md)를 본다.
 
-- 주식 command consumer
-- quote cache 조회/갱신
-- 거래 실행
-- 포트폴리오/랭킹/스냅샷 계산
-- PostgreSQL persistence
-
-주요 패키지:
-
-- `application`
-- `bootstrap`
-- `cache`
-- `config`
-- `lock`
-- `messaging`
-- `persistence/entity`
-- `persistence/repository`
-- `quote/finnhub`
-- `quote/model`
-- `quote/provider`
-- `quote/service`
-
-## 공용 모듈 책임
-
-### modules/common-core
-
-- 음악 command/event 계약
-- playback 코어 로직
-- Redis/RabbitMQ/JDA 인프라
-- 공용 bootstrap 설정
-
-주요 패키지:
-
-- `discordgateway.common.*`
-- `discordgateway.playback.*`
-- `discordgateway.infra.*`
-
-### modules/stock-core
-
-- 주식 command 계약
-- 주식 result event 계약
-- stock 메시징 속성/프로토콜
-
-주요 패키지:
-
-- `discordgateway.stock.command`
-- `discordgateway.stock.event`
-- `discordgateway.stock.messaging`
-
-## 경계 규칙
-
-- `gateway-app`은 Discord/JDA 진입만 담당한다.
-- `audio-node-app`은 음악만 담당한다.
-- `stock-node-app`은 주식만 담당한다.
-- `common-core`는 음악 공용 코어다.
-- `stock-core`는 주식 공용 계약 모듈이다.
-
-## 왜 이렇게 분리했는가
-
-- Discord 진입과 실제 처리 worker를 분리해 응답 지연과 책임을 분리한다.
-- 음악과 주식을 별도 worker로 나눠 서로의 도메인 변경이 섞이지 않게 한다.
-- Redis, RabbitMQ, JDA 구현은 공용 모듈에 모아 중복을 줄인다.
-- 주식 계약은 stock 전용 모듈로 분리해 `common-core`가 불필요하게 비대해지지 않게 한다.
+[기준 문서 목록](README.md) · [현재 아키텍처](CURRENT_ARCHITECTURE.md)

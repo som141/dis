@@ -6,9 +6,11 @@
 
 기준 마이그레이션:
 
-- `V1__init_stock_schema.sql`
-- `V2__add_stock_watchlist.sql`
-- `V3__add_monthly_season_and_leverage.sql`
+- [V1__init_stock_schema.sql](../../apps/stock-node-app/src/main/resources/db/migration/V1__init_stock_schema.sql)
+- [V2__add_stock_watchlist.sql](../../apps/stock-node-app/src/main/resources/db/migration/V2__add_stock_watchlist.sql)
+- [V3__add_monthly_season_and_leverage.sql](../../apps/stock-node-app/src/main/resources/db/migration/V3__add_monthly_season_and_leverage.sql)
+
+Flyway는 stock 앱 시작 시 migration을 적용하고 Hibernate는 schema를 검증한다. 실행 설정은 [로컬 개발 안내](../operations/LOCAL_DEVELOPMENT.md), entity·repository는 [persistence/](../../apps/stock-node-app/src/main/java/discordgateway/stocknode/persistence)를 본다.
 
 ## 현재 테이블
 
@@ -140,7 +142,7 @@
 
 - `US` market
 - source `SEED_US_MARKET_CAP`
-- 시가총액 상위 10개 종목
+- 2026-05-01 기준으로 저장한 10개 종목. 현재 순위를 자동으로 다시 선정하지 않는다.
 
 ## 시즌 모델
 
@@ -162,7 +164,7 @@
 - `/stock buy` 입력은 정수 주식 수량으로 해석한다.
 - 포지션 규모는 `margin * leverage`
 - 포지션 손익은 `margin_amount`, `notional_amount`, 현재가 기준으로 계산한다.
-- 20초 시세 갱신 때 `isolatedEquity = marginAmount + unrealizedPnL` 를 다시 계산하고 `0 이하`이면 자동 청산한다.
+- Finnhub 정기 갱신 성공 시 `isolatedEquity = marginAmount + unrealizedPnL`을 다시 계산하고 `0 이하`이면 자동 청산한다. 기본 20초는 한 갱신 실행이 끝난 후의 대기 시간이다.
 
 ## 운영 확인 쿼리
 
@@ -180,7 +182,7 @@ from stock_watchlist
 order by market, rank_no;
 ```
 
-특정 사용자 활성 시즌 계좌:
+특정 사용자의 시즌별 계좌 (`:guild_id`, `:user_id`는 대상 ID로 지정):
 
 ```sql
 select id, guild_id, user_id, season_key, cash_balance
@@ -206,3 +208,5 @@ select account_id, amount, allowance_type, occurred_at
 from allowance_ledger
 order by occurred_at desc;
 ```
+
+[기준 문서 목록](README.md) · [주식 앱 안내](../../apps/stock-node-app/README.md) · [운영 런북](../operations/OPERATIONS_RUNBOOK.md)

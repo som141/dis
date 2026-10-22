@@ -1,187 +1,140 @@
-# DIS
+# DIS · 음악과 모의투자를 함께 쓰는 Discord 봇
 
-DIS는 Discord 기반 음악 봇과 모의투자 주식 기능을 함께 운영하는 멀티 애플리케이션 저장소다.
+DIS는 음성 채널에서 음악을 재생하고, 채팅에서 주식 모의투자를 할 수 있는 봇이다. Discord 명령을 받는 Gateway와 음악·주식 worker를 분리하고, RabbitMQ로 명령과 결과를 전달한다.
 
-현재 구성:
+[빠른 시작](#빠른-시작) · [명령어](#주요-명령어) · [아키텍처](#아키텍처) · [테스트](#테스트와-검증-범위) · [전체 문서](docs/README.md)
 
-- `apps/gateway-app`
-  - Discord slash command 진입점
-  - `deferReply` 시작
-  - RabbitMQ command publish
-  - result event 수신 후 Discord 응답 수정
-- `apps/audio-node-app`
-  - 음악 명령 worker
-  - 재생, 복구, idle disconnect 담당
-- `apps/stock-node-app`
-  - 주식 명령 worker
-  - Redis quote cache, PostgreSQL persistence, 시즌/랭킹 계산 담당
-- `modules/common-core`
-  - 음악 쪽 공용 계약, playback 코어, RabbitMQ/Redis/JDA 인프라
-- `modules/stock-core`
-  - 주식 쪽 공용 command/result 계약
+## 주요 명령어
 
-## 아키텍처
+| 기능 | 사용 예 | 응답 공개 범위 |
+| --- | --- | --- |
+| 전체 사용법 | `/man` | 본인에게만 표시 |
+| 음악 검색·재생 | `/play query:백일` | 본인에게만 표시 |
+| 자동 재생 | `/play query:백일 autoplay:true` | 본인에게만 표시 |
+| 재생 제어 | `/pause`, `/resume`, `/skip`, `/stop` | 본인에게만 표시 |
+| 대기열·음성 연결 | `/queue`, `/clear`, `/join`, `/leave` | 본인에게만 표시 |
+| 효과음 | `/sfx name:gsuck.mp3` | 본인에게만 표시 |
+| 시세·종목 목록 | `/stock quote symbol:AAPL`, `/stock list` | 본인에게만 표시 |
+| 모의 매매 | `/stock buy symbol:AAPL quantity:1`, `/stock sell symbol:AAPL quantity:1` | 채널에 공개 |
+| 계좌 조회 | `/stock balance`, `/stock portfolio`, `/stock history` | 본인에게만 표시 |
+| 수익률 순위 | `/stock rank period:day` | 채널에 공개 |
+| 이미지 | `/pizza` | 채널에 공개 |
 
-<img width="1672" height="941" alt="image" src="https://github.com/user-attachments/assets/c9c9c8c1-8632-4729-bc14-2632c4e4c92c" />
+음악을 재생하려면 먼저 사용자가 음성 채널에 들어가야 한다. `/stop`은 재생과 대기열을 함께 비운다. 명령 옵션의 최신 기준은 봇의 `/man`과 [명령 카탈로그](apps/gateway-app/src/main/java/discordgateway/gateway/presentation/discord/DiscordCommandCatalog.java)다.
 
-
-## 현재 기능
-
-### 음악
-
-- `/join`
-- `/leave`
-- `/play`
-- `/stop`
-- `/skip`
-- `/queue`
-- `/clear`
-- `/pause`
-- `/resume`
-- `/sfx`
-
-### 주식
-
-- `/stock quote`
-- `/stock list`
-- `/stock buy`
-- `/stock sell`
-- `/stock balance`
-- `/stock portfolio`
-- `/stock history`
-- `/stock rank`
-
-## Discord 응답 정책
-
-- 음악 명령은 기본적으로 비공개 응답으로 시작한다.
-- 주식 명령은 아래처럼 나뉜다.
-- `quote`, `list`, `balance`, `portfolio`, `history`는 비공개 응답
-- `buy`, `sell`, `rank`는 공개 응답
-
-## 주식 시스템 요약
-
-- 실제 투자 기능이 아닌 모의투자 게임이다.
-- 시즌 기준은 `Asia/Seoul` 기준 월 단위다.
-- 매월 1일 `00:00`에 새 시즌으로 넘어간다.
-- 시즌 시작 자금은 `10,000`이다.
-- `/stock buy`, `/stock sell`은 정수 주식 수량 기준으로 동작한다.
-- `/stock buy`는 기본 1배, 최대 50배 레버리지를 지원한다.
-- 50배 레버리지는 강한 경고 문구를 반환한다.
-- 레버리지 포지션은 20초 시세 갱신 때마다 고립 증거금을 다시 계산하고, 증거금이 모두 소진되면 자동 청산된다.
-- 미국 시가총액 상위 10개 종목 watchlist를 기본값으로 사용한다.
-- Finnhub REST API는 Discord 명령 처리 중 직접 호출하지 않는다.
-- `stock-node-app`이 20초마다 watchlist 시세를 갱신하고 Redis cache를 사용한다.
-- Redis quote TTL은 60초다.
-- 거래는 45초 이내 fresh quote가 있을 때만 허용한다.
-- 기본 provider 보호 한도는 분당 `60`, 일간 `100000`이다.
-- 현재 주기와 종목 수 기준 예상 호출량은 분당 `30`, 일간 `43200`이다.
+모의투자는 `Asia/Seoul` 기준 월 시즌제로, 시즌 시작 자금은 10,000이다. 정수 주식 수량으로 거래하고 매수 시 1~50배 레버리지를 선택할 수 있다. 기본 시세 공급자는 `mock`이지만 자동 캐시 갱신은 Finnhub 모드에서만 동작하므로, 새 환경의 가격 조회·거래에는 Finnhub 설정 또는 테스트 시세 준비가 필요하다. 종목은 DB watchlist로 관리한다. [주식 앱 안내](apps/stock-node-app/README.md)에서 시세·청산 정책을 설명한다.
 
 ## 빠른 시작
 
+필요한 도구는 **JDK 21**, Docker Engine 또는 Docker Desktop, **Docker Compose v2**다. Gradle 8.8은 저장소의 wrapper를 사용한다. 모든 명령은 저장소 루트에서 실행한다.
+
 ### 1. 환경 변수 준비
 
-```powershell
-Copy-Item .env.example .env
+```bash
+cp .env.example .env
 ```
 
-필수 값:
+Windows PowerShell에서는 `Copy-Item .env.example .env`를 사용한다. `.env`에서 다음 값을 설정한다.
 
-- `DISCORD_TOKEN`
-- `RABBITMQ_USERNAME`
-- `RABBITMQ_PASSWORD`
+| 변수 | 설정 방법 |
+| --- | --- |
+| `DISCORD_TOKEN` | Discord Developer Portal의 봇 토큰으로 교체 |
+| `DISCORD_DEV_GUILD_ID` | 개발 서버에 명령을 등록하려면 해당 서버 ID 지정. 비우면 전역 등록 |
+| `RABBITMQ_USERNAME`, `RABBITMQ_PASSWORD` | RabbitMQ와 앱이 함께 사용할 계정 |
+| `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | 로컬 기본값 제공. 앱과 DB에 같은 값 적용 |
+| `STOCK_QUOTE_PROVIDER` | 첫 실행은 `mock`. 실시간 시세는 `finnhub`와 `FINNHUB_API_KEY` 설정 |
 
-주식 기능 기본값:
+봇을 서버에 초대할 때 `bot`, `applications.commands` scope와 텍스트 응답·음성 채널 연결·말하기 권한이 필요하다. 토큰은 `.env`에만 두고 커밋하지 않는다. YouTube 인증·cipher와 전체 설정은 [로컬 개발 안내](docs/operations/LOCAL_DEVELOPMENT.md)에 있다.
 
-- `POSTGRES_DB=stock`
-- `POSTGRES_USER=stock`
-- `POSTGRES_PASSWORD=stock`
-- `STOCK_QUOTE_PROVIDER=mock`
+### 2. JAR 빌드와 컨테이너 시작
 
-Finnhub 사용 시:
+Linux/macOS 셸:
 
-```env
-STOCK_QUOTE_PROVIDER=finnhub
-FINNHUB_API_KEY=<your-key>
-STOCK_PROVIDER_PER_MINUTE_LIMIT=60
-STOCK_PROVIDER_PER_DAY_LIMIT=100000
+```bash
+bash ./gradlew bootJarAll
+docker compose --env-file .env config --quiet
+docker compose --env-file .env up -d --build --wait --wait-timeout 180
 ```
 
-### 2. 전체 빌드
+Windows PowerShell:
 
 ```powershell
 .\gradlew.bat bootJarAll
+docker compose --env-file .env config --quiet
+docker compose --env-file .env up -d --build --wait --wait-timeout 180
 ```
 
-### 3. 로컬 실행
+Dockerfile은 미리 빌드한 JAR를 복사하므로 Gradle 빌드가 먼저 필요하다. 기본 구성에는 Gateway, 음악·주식 worker, Redis, RabbitMQ, PostgreSQL, YouTube cipher가 포함된다.
 
-```powershell
-docker compose up -d --build
+### 3. 정상 작동 확인
+
+```bash
+docker compose --env-file .env ps
+docker compose --env-file .env logs --tail=100 gateway audio-node stock-node
+curl -fsS http://localhost:8081/actuator/health
+curl -fsS http://localhost:8082/actuator/health
+curl -fsS http://localhost:8083/actuator/health
 ```
 
-관측성 포함:
+PowerShell에서는 HTTP 확인에 `curl.exe`를 사용할 수 있다. health 응답을 확인한 뒤 Discord에서 `/man`, `/stock list`, 음성 채널의 `/play`를 순서대로 확인한다. 음악은 접수 응답 이후에도 다운로드·재생 오류가 생길 수 있으므로 실제 소리까지 확인한다.
 
-```powershell
-docker compose --profile observability up -d --build
+종료는 `docker compose --env-file .env down`이다. 기본 명령은 데이터 volume을 보존한다. 상세 장애 대응은 [운영 런북](docs/operations/OPERATIONS_RUNBOOK.md)을 본다.
+
+## 아키텍처
+
+```mermaid
+flowchart LR
+    D[Discord] --> G[gateway-app]
+    G -->|명령| Q[(RabbitMQ)]
+    Q --> A[audio-node-app]
+    Q --> S[stock-node-app]
+    A -->|결과| Q
+    S -->|결과| Q
+    Q -->|응답 편집| G
+    G --> D
+    G --> R[(Redis)]
+    A --> R
+    S --> R
+    S --> P[(PostgreSQL)]
+    A --> Y[YouTube / 음원]
+    A --> C[YouTube cipher]
+    A -->|음성 전송| D
+    S -->|주기적 시세 갱신| F[Finnhub]
 ```
 
-## 주요 포트
+Gateway는 명령 수신·응답을, 각 worker는 도메인 처리를 담당한다. Redis에는 pending 응답·음악 상태·캐시를, PostgreSQL에는 모의투자 계좌·포지션·원장을 저장한다. [현재 아키텍처](docs/reference/CURRENT_ARCHITECTURE.md)에서 재생과 시세 갱신 흐름을 자세히 설명한다.
 
-- Gateway actuator: `8081`
-- Audio Node actuator: `8082`
-- Stock Node actuator: `8083`
-- Redis: `6379`
-- RabbitMQ AMQP: `5672`
-- RabbitMQ UI: `15672`
-- PostgreSQL: `5432`
-- Grafana: `3000`
-- Prometheus: `9090`
-- Loki: `3100`
-- Alloy UI: `12345`
+| 디렉터리 | 역할 |
+| --- | --- |
+| [apps/](apps/README.md) | 실행 가능한 Gateway·음악·주식 앱과 코드 진입점 |
+| [modules/](modules/README.md) | 음악 공용 구현과 주식 메시지 계약 |
+| [ops/](ops/README.md) | 운영 점검, DLQ 재처리, cipher·관측성 설정 |
+| [docs/](docs/README.md) | 구조·계약·개발·운영 문서와 과거 작업 기록 |
 
-## PostgreSQL
+기술 구성은 Java 21, Spring Boot 3.5.5, JDA 6.3.1, LavaPlayer 2.2.4, youtube-source 1.18.2, Redis 7, RabbitMQ 3.13, PostgreSQL 16이다. 변경 시 [Gradle 설정](modules/common-core/build.gradle)과 [Compose](docker-compose.yml)를 함께 확인한다.
 
-주식 영속 계층은 PostgreSQL을 사용한다. 현재 핵심 테이블은 아래와 같다.
+## 테스트와 검증 범위
 
-- `stock_account`
-- `stock_position`
-- `trade_ledger`
-- `allowance_ledger`
-- `account_snapshot`
-- `stock_watchlist`
+```bash
+# Gateway의 명령·응답과 음악 코어 테스트
+bash ./gradlew :apps:gateway-app:test :modules:common-core:test
 
-자세한 스키마 설명은 [docs/reference/POSTGRESQL_STOCK_SCHEMA.md](docs/reference/POSTGRESQL_STOCK_SCHEMA.md)를 본다.
+# CI와 같은 전체 테스트·패키징. Docker/Testcontainers 필요
+bash ./gradlew clean test bootJarAll --no-daemon
+```
 
-## 관측성
+Windows에서는 `bash ./gradlew`를 `.\gradlew.bat`로 바꾼다. 테스트에는 `/man` 비공개 응답, 음악 재생 실패 통지·OAuth/cipher 설정, 주식 계좌·거래·메시징 통합 검사가 포함된다. 실행 결과는 각 모듈의 `build/reports/tests/test/index.html`에서 확인한다.
 
-현재 observability stack:
+자동 테스트와 health check만으로 실제 Discord 음질이나 최대 동시 처리량을 검증한 것은 아니다. 테스트 종류·실제 Discord 확인 절차·성능 측정 기록 기준은 [테스트 가이드](docs/operations/CI_TESTING.md)를 본다.
 
-- Prometheus
-- Loki
-- Alloy
-- Grafana
-- redis-exporter
-- postgres-exporter
+## 운영과 배포
 
-중요한 점:
+- 관측성 시작: `docker compose --env-file .env --profile observability up -d --build`
+- 대시보드: Grafana `http://localhost:3000`, Prometheus `http://localhost:9090`
+- 앱 HTTP 포트: Gateway `8081`, audio `8082`, stock `8083`
+- 전체 포트와 설정: [로컬 개발 안내](docs/operations/LOCAL_DEVELOPMENT.md), [관측성 안내](ops/observability/README.md)
+- 배포: [Deploy Bot](.github/workflows/cicd-deploy.yml)이 **`main` push 또는 수동 실행 시 테스트·이미지 빌드·서버 배포**를 수행한다. [배포 가이드](docs/operations/SERVER_DEPLOY_SCRIPT.md)를 확인한다.
 
-- 현재 Prometheus scrape 대상은 `gateway-app`, `audio-node-app`, `stock-node-app`, `redis-exporter`, `postgres-exporter`, `rabbitmq`, `prometheus`, `loki`, `alloy`다.
-- `stock-node-app`은 quote refresh, Redis quote cache, command, trade, liquidation 관련 Micrometer metric을 노출한다.
-- PostgreSQL은 `postgres-exporter`를 통해 연결 상태, connection count, database size, transaction rate를 노출한다.
+## 문서 수정 기준
 
-## 배포
-
-GitHub Actions `Deploy Bot` 워크플로우가 `main` push 기준으로 동작한다.
-
-- `clean test bootJarAll`
-- Docker image build
-- tar.gz 업로드
-- 원격 서버에서 `deploy.sh` 실행
-
-자세한 흐름은 [docs/operations/SERVER_DEPLOY_SCRIPT.md](docs/operations/SERVER_DEPLOY_SCRIPT.md)를 본다.
-
-## 문서
-
-- [문서 인덱스](docs/README.md)
-- [Reference 문서](docs/reference/README.md)
-- [Operations 문서](docs/operations/README.md)
-- [Internal 작업 기록](docs/internal/README.md)
+README는 소개와 첫 실행 경로를 유지하고, 상세 절차는 목적별 문서로 연결한다. 문서 품질·검증 기준은 [문서 작성 기준](docs/DOCUMENTATION_GUIDE.md)에 정리했다. 과거 계획과 작업 보고서는 [내부 기록](docs/internal/README.md)에서 구분해 보관한다.

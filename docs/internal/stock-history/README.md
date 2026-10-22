@@ -1,6 +1,13 @@
-# Stock Development History
+# 주식 기능 개발 기록
 
-이 디렉터리는 stock 기능 개발 과정에서 만든 계획서, 작업 보고서, 경계 문서를 보관한다.
+이 디렉터리는 stock 기능 개발 과정의 계획서, 작업 보고서, 경계 문서를 작성 당시 내용으로 보관한다. 다음 순서로 읽으면 단계별 결정과 검증 맥락을 따라갈 수 있다.
+
+| 관심사 | 읽을 기록 |
+| --- | --- |
+| 초기 경계와 구조 | Week 0 경계·보고서 |
+| 저장·메시징·거래 도입 | Week 1~5 계획·보고서 |
+| 통합 테스트·운영·관측성 | Week 6~8 보고서 |
+| Finnhub·시즌·레버리지·청산 | 해당 기능명 계획·보고서 |
 
 ## 계획서
 
@@ -26,4 +33,6 @@
 - [STOCK_WEEK8_OBSERVABILITY_REPORT.md](STOCK_WEEK8_OBSERVABILITY_REPORT.md)
 - [STOCK_LEVERAGE_MONTHLY_SEASON_REPORT.md](STOCK_LEVERAGE_MONTHLY_SEASON_REPORT.md)
 
-이 문서들은 특정 시점의 작업 기록이다. 현재 동작 기준은 `docs/reference/`와 `docs/operations/` 문서를 우선한다.
+이 문서들은 특정 시점의 기록이다. 현재 동작은 [주식 앱 안내](../../../apps/stock-node-app/README.md), [스키마](../../reference/POSTGRESQL_STOCK_SCHEMA.md), [개발·운영 문서](../../operations/README.md)를 우선한다.
+
+[내부 기록 목록](../README.md) · [전체 문서](../../README.md)

@@ -1,95 +1,66 @@
-# 이벤트 계약
+# 명령·결과 이벤트 계약
 
-현재 저장소에는 음악과 주식 두 종류의 비동기 command/result 계약이 있다.
+Gateway와 worker는 JSON 메시지를 RabbitMQ로 주고받는다. 음악과 주식의 schemaVersion은 현재 모두 1이지만 구조·중복 처리·실패 정책은 각각 다르다. 기본 토폴로지는 아래 설정과 코드가 기준이다.
 
-## 음악 계약
+## 타입과 메타데이터
 
-음악 공용 계약은 `modules/common-core`에 있다.
+| 계약 | 본문과 메타데이터 | 소스 |
+| --- | --- | --- |
+| 음악 명령 | `MusicCommandEnvelope` 안의 `message`에 commandId·schemaVersion·sentAtEpochMs·producer·command. envelope에는 responseTargetNode·responseMode | [common/command/](../../modules/common-core/src/main/java/discordgateway/common/command) |
+| 음악 결과 | commandId·schemaVersion·producer·targetNode·guildId·success·message·ephemeral·resultType 등 | [MusicCommandResultEvent](../../modules/common-core/src/main/java/discordgateway/common/command/MusicCommandResultEvent.java) |
+| 주식 명령 | `StockCommandEnvelope`에 commandId·schemaVersion·sentAtEpochMs·producer·command·responseTargetNode | [StockCommandEnvelope](../../modules/stock-core/src/main/java/discordgateway/stock/command/StockCommandEnvelope.java) |
+| 주식 결과 | commandId·schemaVersion·producer·targetNode·guildId·requesterId·success·message·resultType 등 | [StockCommandResultEvent](../../modules/stock-core/src/main/java/discordgateway/stock/event/StockCommandResultEvent.java) |
 
-주요 타입:
+`commandId`는 로그·pending·결과의 연결 키다. `producer`는 발행 노드, `responseTargetNode`/`targetNode`는 결과 목적지다. 타임스탬프는 epoch milliseconds다. 주식은 Quote·ListQuotes·Buy·Sell·Balance·Portfolio·History·Rank를 지원하며, Buy/Sell 수량은 Gateway에서 정수 입력으로 받는다.
 
-- `MusicCommand`
-- `MusicCommandEnvelope`
-- `MusicCommandResultEvent`
-- `MusicEvent`
+음악의 `MusicEvent`는 Spring 프로세스 내부 이벤트다. RabbitMQ로 보내는 `MusicCommandResultEvent`와 구분한다.
 
-역할:
+## 기본 RabbitMQ 토폴로지
 
-- `MusicCommand`
-  - worker가 처리할 실제 명령 본문
-- `MusicCommandEnvelope`
-  - command id, producer, target node 같은 메타데이터 포함
-- `MusicCommandResultEvent`
-  - command 처리 결과를 gateway로 돌려주는 메시지
-- `MusicEvent`
-  - worker 내부 상태 변화 관측용 로컬 이벤트
+exchange는 direct, queue는 durable로 선언한다. 이름은 다음 설정과 일치한다.
 
-transport:
+| 경로 | exchange | queue / routing key |
+| --- | --- | --- |
+| 음악 command | `music.command.exchange` | queue `music.command.queue`, key `music.command` |
+| 음악 result | `music.command.result.exchange` | queue·key `music.command.result.<Gateway node>` |
+| 음악 DLQ | `music.command.dlx` | queue `music.command.dlq`, key `music.command.dead` |
+| 주식 command | `stock.command.exchange` | queue `stock.command.queue`, key `stock.command` |
+| 주식 result | `stock.command.result.exchange` | queue·key `stock.command.result.<Gateway node>` |
 
-- command/result: RabbitMQ
-- `MusicEvent`: Spring local event
+예를 들어 Gateway의 `APP_NODE_NAME=gateway-1`이면 결과 queue suffix는 `gateway-1`이다. 음악 이름은 [공통 설정](../../modules/common-core/src/main/resources/application-common.yml), 주식 이름은 [StockMessagingProperties](../../modules/stock-core/src/main/java/discordgateway/stock/messaging/StockMessagingProperties.java)와 앱 설정을 기준으로 한다.
 
-## 주식 계약
+## Gateway 응답 흐름
 
-주식 공용 계약은 `modules/stock-core`에 있다.
+```mermaid
+sequenceDiagram
+    participant D as Discord
+    participant G as Gateway
+    participant R as Redis pending
+    participant Q as RabbitMQ
+    participant W as Worker
+    D->>G: Slash command
+    G-->>D: deferReply
+    G->>R: commandId와 interaction context 저장
+    G->>Q: Command envelope
+    Q->>W: Command
+    W->>Q: Result event
+    Q->>G: Gateway 노드별 결과
+    G->>R: pending 조회 또는 소비
+    G-->>D: 원래 interaction 응답 편집
+```
 
-주요 타입:
+명령 envelope는 listener에서 준비하며, pending 저장·발행은 ACK 성공 callback 뒤 실행한다. pending 유효 기간은 15분이다. 음악·효과음과 주식 조회는 비공개, stock buy/sell/rank는 공개로 ACK한다. `/man`·`/pizza`는 이 큐 흐름 없이 직접 응답한다.
 
-- `StockCommand`
-- `StockCommandEnvelope`
-- `StockCommandResultEvent`
+주식 결과는 pending을 `take()`해 응답한다. 음악 결과는 성공한 play/sfx의 pending을 후속 `PLAYBACK_FAILED` 수신용으로 유지한다. terminal failure가 pending을 소비하므로 늦게 도착한 접수 결과가 실패 안내를 덮어쓰지 않는다. 기준은 [음악 result listener](../../apps/gateway-app/src/main/java/discordgateway/gateway/messaging/RabbitMusicCommandResultListener.java)다.
 
-현재 `StockCommand` 하위 명령:
+## 접수·재생 실패·재처리
 
-- `Quote`
-- `ListQuotes`
-- `Buy`
-- `Sell`
-- `Balance`
-- `Portfolio`
-- `History`
-- `Rank`
+`success=true`인 명령 결과는 실제 음원 전송·청취의 보증이 아니다. 로드 실패를 사용자 문구로 반환하거나 재생 시작 뒤 다운로드·디코딩·정체 실패를 후속 통지할 수 있다. 성공률을 집계할 때 결과 유형·실패 이벤트·실제 프레임을 함께 확인한다.
 
-특징:
+[음악 consumer](../../modules/common-core/src/main/java/discordgateway/infra/messaging/rabbit/RabbitMusicCommandListener.java)는 Redis의 processed-command 상태로 commandId 중복 처리를 확인한다. 기본 dedup TTL은 300,000ms다. 처리 중 중복은 실행하지 않고, 완료 중복은 저장 결과를 다시 발행한다. 처리 예외는 실패 결과를 발행하고 requeue 없이 reject해 음악 DLQ로 보낸다.
 
-- `Quote`는 단일 종목 또는 여러 종목을 받을 수 있다.
-- `Buy`는 `quantity`와 optional `leverage`를 가진다.
-- `Sell`도 `quantity` 기반으로 동작한다.
-- result event는 성공/실패와 사용자에게 보여줄 최종 메시지를 함께 가진다.
+[주식 consumer](../../apps/stock-node-app/src/main/java/discordgateway/stocknode/messaging/StockCommandListener.java)는 업무 결과 또는 예외의 실패 결과를 발행한다. 현재 stock 토폴로지에는 음악과 같은 DLQ·processed-command 중복 제어를 선언하지 않는다. 전체 시스템이 exactly-once 거래를 보장한다고 해석하지 않는다.
 
-## RabbitMQ 토폴로지
+음악 DLQ를 다시 처리할 때는 [운영 런북](../operations/OPERATIONS_RUNBOOK.md)의 재처리 절차를 따른다. 중복·재전달·계약 변경 검증은 [테스트 가이드](../operations/CI_TESTING.md)를 본다.
 
-### 음악
-
-- command exchange: `music.command.exchange`
-- command queue: `music.command.queue`
-- result exchange: `music.command.result.exchange`
-
-### 주식
-
-- command exchange: `stock.command.exchange`
-- command queue: `stock.command.queue`
-- result exchange: `stock.command.result.exchange`
-
-## gateway 응답 완료 방식
-
-1. `gateway-app`이 slash command를 받는다.
-2. `deferReply(...)`를 먼저 수행한다.
-3. command id와 interaction token을 Redis pending interaction 저장소에 넣는다.
-4. command envelope를 RabbitMQ로 publish한다.
-5. worker가 처리 후 result event를 publish한다.
-6. `gateway-app`이 result event를 받아 원래 interaction 응답을 수정한다.
-
-핵심 의도:
-
-- Discord 응답을 RPC로 기다리지 않는다.
-- command/result를 분리한 비동기 구조다.
-- pending interaction은 Redis TTL 기반으로 관리한다.
-
-## 공개/비공개 응답 정책
-
-gateway는 `deferReply` 단계에서 공개 여부를 결정한다.
-
-- 음악 명령: 비공개
-- 주식 `buy`, `sell`, `rank`: 공개
-- 나머지 주식 명령: 비공개
+[기준 문서 목록](README.md) · [모듈 구조](MODULE_STRUCTURE.md)

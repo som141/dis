@@ -2,7 +2,14 @@
 
 ## 개요
 
-현재 배포는 GitHub Actions `Deploy Bot` 워크플로우와 서버의 `deploy.sh`를 기준으로 동작한다.
+현재 배포는 [GitHub Actions Deploy Bot](../../.github/workflows/cicd-deploy.yml)과 서버의 [deploy.sh](../../deploy.sh)를 기준으로 동작한다. `main` push와 수동 `workflow_dispatch`는 모두 실제 배포를 포함한다. 로컬 실행은 [로컬 개발 안내](LOCAL_DEVELOPMENT.md), 배포 후 장애 대응은 [운영 런북](OPERATIONS_RUNBOOK.md)을 따른다.
+
+## 사전 조건
+
+- 서버에 Docker Engine·Compose v2와 Bash·gzip 등이 있어야 하며 SSH 사용자가 Docker를 실행할 수 있어야 한다.
+- 워크플로우의 기본 서버 경로는 `/home/ubuntu/dis-bot`이다. `DEPLOY_DIR` 변경 시 워크플로우와 운영 스크립트에 같은 경로를 적용한다.
+- 앱 이미지는 CI에서 빌드해 전달한다. 관측성 이미지는 Compose가 사용하는 레지스트리에 서버가 접근할 수 있어야 한다.
+- Discord·YouTube·Finnhub 등 외부 연결과 인증은 health check와 별도로 실제 기능을 확인한다.
 
 배포 대상:
 
@@ -55,6 +62,7 @@
 - 새 release 디렉터리 생성
 - compose, env, image archive, `ops/` 복사
 - `docker compose config --quiet`로 새 설정 검증
+- 사용하지 않는 DIS 이미지 정리를 시도한 뒤 새 이미지를 적재. 실행 중 컨테이너가 참조하는 이미지는 제거되지 않음
 - `docker load`로 네 image 적재
 - 이전 release가 있으면 `docker compose down --remove-orphans`
 - `current` symlink 교체
@@ -63,18 +71,25 @@
 - `incoming` 정리
 - `RELEASES_TO_KEEP` 개수(기본 2개)를 초과하는 오래된 release 삭제
 
+이전 Compose를 내린 뒤 새 release를 올리는 방식이므로 전환 중 연결·재생·요청에 영향이 있다. `current` 교체 뒤 준비 상태 검사가 실패해도 자동으로 이전 release를 다시 올리는 rollback 절차는 없다. 실패 지점·이전 release의 archive·데이터 migration 호환성을 확인한 뒤 복구한다. 새 버전 시작 실패만으로 volume을 지우지 않는다.
+
 ## GitHub Actions 변수와 시크릿
 
-### 필수 Secrets
+### 접속과 인증에 사용하는 Secrets
 
 - `SSH_PRIVATE_KEY`
 - `SSH_HOST`
 - `SSH_PORT`
 - `SSH_USER`
 - `DISCORD_TOKEN` 또는 `TOKEN`
+
+앱·인프라 계정도 배포 환경에 맞게 설정한다.
+
 - `RABBITMQ_USERNAME`
 - `RABBITMQ_PASSWORD`
 - `POSTGRES_PASSWORD`
+
+워크플로우에는 PostgreSQL 비밀번호 등의 기본값 fallback이 있지만 운영 계정은 명시적으로 설정한다. 기존 volume의 계정은 환경 변수만으로 바뀌지 않는다.
 
 Finnhub 사용 시:
 
@@ -105,12 +120,13 @@ YouTube 관련 선택 Secrets:
 
 ## Finnhub 배포 반영 조건
 
-실제로 Finnhub 모드로 뜨려면 아래 두 조건이 모두 필요하다.
+실제로 Finnhub 시세를 정기 갱신하려면 아래 조건이 필요하다.
 
 1. `FINNHUB_API_KEY` secret 존재
 2. `STOCK_QUOTE_PROVIDER=finnhub` variable 존재
+3. `STOCK_MARKET_DATA_ENABLED=true` (기본값)
 
-이 두 값이 `.env.cicd`에 써져서 `stock-node` 컨테이너 env로 전달된다.
+이 값들이 `.env.cicd`에 써져 `stock-node` 컨테이너 env로 전달된다. 기본 mock provider는 정기 시세 캐시 갱신을 실행하지 않는다. 시세 준비 여부는 [운영 런북](OPERATIONS_RUNBOOK.md)에서 확인한다.
 
 ## 배포 후 확인
 
@@ -161,3 +177,5 @@ docker logs --tail=10000 discord-bot-audio-node-1 2>&1 | grep -oE 'YouTube acces
 - 현재 스크립트는 image archive를 release 디렉터리로 복사한 뒤 `docker load`한다.
 - 디스크가 작은 서버에서는 배포 중간에 용량이 두 번 잡힐 수 있다.
 - 서버에 별도 디스크를 붙여도 `DEPLOY_DIR`과 Docker `data-root`가 루트 디스크를 계속 쓰면 해결되지 않는다.
+
+[개발·운영 문서 목록](README.md) · [운영 스크립트 목록](../../ops/README.md) · [테스트 결과 확인](CI_TESTING.md)
