@@ -113,6 +113,8 @@ Gateway는 명령 수신·응답을, 각 worker는 도메인 처리를 담당한
 
 기술 구성은 Java 21, Spring Boot 3.5.5, JDA 6.3.1, LavaPlayer 2.2.4, youtube-source 1.18.2, Redis 7, RabbitMQ 3.13, PostgreSQL 16이다. 변경 시 [Gradle 설정](modules/common-core/build.gradle)과 [Compose](docker-compose.yml)를 함께 확인한다.
 
+YouTube 1.18.2 의존성은 Maven 공급 장애에 대응해 공식 GitHub release에서 받고 SHA-256을 검사한다. [Gradle 공급 안내](gradle/README.md)에 원본 metadata와 검증·갱신 절차를 기록했다.
+
 ## 테스트와 검증 범위
 
 ```bash

@@ -35,3 +35,6 @@ tasks.register('bootJarAll') {
             ':apps:stock-node-app:bootJar'
     )
 }
+
+// Use checksum-pinned upstream release assets while the Maven endpoint returns HTML.
+apply from: 'gradle/youtube-source-releases.gradle'

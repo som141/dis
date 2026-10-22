@@ -1,0 +1,87 @@
+import java.security.MessageDigest
+
+// Official release assets for the existing 1.18.2 dependency; no Maven POM is fetched.
+// SHA-256 digests: GitHub release asset IDs 490926661 and 490926621.
+// Runtime metadata: upstream commit 158726dc7d570e8ff32512d6ab15736d561040b7,
+// common/build.gradle.kts, v2/build.gradle.kts and settings.gradle.kts.
+def expected = [
+    common: '22f56b8632aec8b081fb7ab6d9adad012cd2a1b7a5f77167d308a6f1b3f27a35',
+    v2: '0f328732150cc2b2ea791b180b32e1eae520944603cccecd4002af9a0c3f39d6'
+]
+allprojects {
+    repositories {
+        exclusiveContent {
+            forRepository {
+                ivy {
+                    name = 'OfficialYoutubeSourceReleases'
+                    url = uri('https://github.com/lavalink-devs/youtube-source/releases/download')
+                    patternLayout {
+                        artifact '[revision]/youtube-[artifact]-[revision](-[classifier]).[ext]'
+                    }
+                    metadataSources { artifact() }
+                }
+            }
+            filter {
+                includeVersion 'dev.lavalink.youtube', 'common', '1.18.2'
+                includeVersion 'dev.lavalink.youtube', 'v2', '1.18.2'
+            }
+        }
+    }
+    dependencies {
+        components {
+            withModule('dev.lavalink.youtube:common') {
+                if (id.version == '1.18.2') {
+                    allVariants {
+                        withDependencies {
+                            add 'org.mozilla:rhino-engine:1.7.15'
+                            add 'com.grack:nanojson:1.7'
+                        }
+                    }
+                }
+            }
+            withModule('dev.lavalink.youtube:v2') {
+                if (id.version == '1.18.2') {
+                    allVariants {
+                        withDependencies {
+                            add 'dev.lavalink.youtube:common:1.18.2'
+                            add 'org.mozilla:rhino-engine:1.7.15'
+                            add 'com.grack:nanojson:1.7'
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+def root = rootProject
+def verify = root.tasks.register('verifyYoutubeSources') {
+    group = 'verification'
+    description = 'Verify the pinned official youtube-source release JARs before compilation and packaging.'
+    doLast {
+        def files = root.configurations.detachedConfiguration(
+            root.dependencies.create('dev.lavalink.youtube:common:1.18.2'),
+            root.dependencies.create('dev.lavalink.youtube:v2:1.18.2'))
+        files.transitive = false
+        files.resolvedConfiguration.resolvedArtifacts.each { artifact ->
+            def digest = MessageDigest.getInstance('SHA-256')
+            artifact.file.withInputStream { stream ->
+                byte[] buffer = new byte[8192]
+                int count
+                while ((count = stream.read(buffer)) != -1) digest.update(buffer, 0, count)
+            }
+            def checksum = digest.digest().encodeHex().toString()
+            if (checksum != expected[artifact.name]) {
+                throw new GradleException("YouTube source checksum mismatch: ${artifact.moduleVersion.id}")
+            }
+            logger.lifecycle("Verified official YouTube source: ${artifact.moduleVersion.id}")
+        }
+    }
+}
+allprojects {
+    // Stock-only builds do not consume youtube-source and remain independent.
+    if (path in [':modules:common-core', ':apps:gateway-app', ':apps:audio-node-app']) {
+        tasks.withType(JavaCompile).configureEach { dependsOn verify }
+        tasks.withType(Test).configureEach { dependsOn verify }
+        tasks.withType(Jar).configureEach { dependsOn verify }
+    }
+}

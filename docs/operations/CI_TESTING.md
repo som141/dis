@@ -19,6 +19,8 @@ bash ./gradlew clean test bootJarAll --no-daemon
 
 PowerShell에서는 `bash ./gradlew` 대신 `.\gradlew.bat`를 사용한다. 일부 모듈 테스트가 실패하면 Gradle 출력의 원인과 보고서를 확인한다. Docker 접속·이미지 pull 실패는 환경 문제이며, 준비된 컨테이너에서 assertion이 실패하는 경우와 구분한다.
 
+`verifyYoutubeSources`는 기존 YouTube 1.18.2 공식 릴리스 JAR의 SHA-256을 컴파일·테스트·패키징 전에 검사한다. Maven 저장소의 HTML 응답 장애를 피하면서 버전과 런타임 의존성을 보존하는 설정이며, 출처·해시·갱신 절차는 [Gradle 공급 안내](../../gradle/README.md)에 있다.
+
 ## 코드별 검사 범위
 
 | 위치 | 주요 검사 | 검증하지 않는 경계 |
