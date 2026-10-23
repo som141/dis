@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Linux container entrypoints must remain executable by /bin/sh after Windows checkout.
+tools/maple-local-prototype/docker/*.sh text eol=lf

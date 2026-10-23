@@ -35,3 +35,55 @@
 클라우드 Chromium은 관리자 정책으로 unpacked 확장 설치를 거절했다. 정책을 변경하지 않았다. 따라서 실제 Chrome 확장 설치 성공이나 실제 넥슨 인증·검색 완료를 주장하지 않는다.
 
 기존 Discord 음악·주식 봇, Linux 운영 서버, 배포 파이프라인은 변경하거나 실행하지 않았다.
+
+## Windows Docker Desktop · 2026-10-23 19:04 KST
+
+### 환경과 출발점
+
+- 새 경로 `C:\Users\s0302\OneDrive\문서\Learn database\dis`에 지정 브랜치를 clone했다. 상위 작업 폴더의 기존 미커밋 파일은 그대로 두었다.
+- 브랜치: `next-plan/maple-local-handoff`. 기준 커밋: `7b9282533c1c4efd145aba7eca41ed1c536a5813`.
+- Windows 10 Education 22H2 / build 19045, Docker Desktop `4.94.0.241994`, Engine `29.8.2`, Compose `v5.5.1`, Linux/amd64, WSL2 kernel `6.6.87.2-microsoft-standard-WSL2`.
+- 호스트 Node `v20.10.0`은 앱 요구 버전보다 낮다. 비밀번호 생성만 호스트에서 수행하고, 빌드·검사는 컨테이너 Node `v24.22.1`을 사용했다. Chromium `155.0.8059.79`, Playwright Core `1.64.1`.
+- 실행 이미지: `sha256:5540a6d0b2eda9b69a56ee98d66d86b9a7cda7747d8e19c13d652186b0cb84ca`.
+
+### 발견·수정한 Windows 시작 오류
+
+- 시스템 Git의 `core.autocrlf=true`로 두 컨테이너 `.sh` 파일이 CRLF로 checkout됐다. 최초 이미지가 `/app/docker/entrypoint.sh: 2: set: Illegal option -`로 재시작하는 것을 재현했다. Node 24 기본 이미지에서 같은 파일을 `/bin/sh`로 실행해 같은 오류를 확인했다.
+- 루트 `.gitattributes`의 기존 `* text=auto`를 유지하면서 `tools/maple-local-prototype/docker/*.sh text eol=lf`를 추가하고 두 작업 파일을 LF로 정규화했다. 스크립트의 Git 내용 변경은 없다. 근거: [Git의 text/eol 속성](https://git-scm.com/docs/gitattributes).
+- 재빌드 후 컨테이너 `healthy`, `RestartCount=0`, 두 스크립트 `sh -n` 통과. `127.0.0.1:17900 → 7900`만 공개하며 앱의 8877·VNC/CDP 포트는 호스트에 공개하지 않았다.
+- `LOCAL_WORKFLOW.md`에 호스트 Node가 낮을 때의 Node 24 컨테이너 검사 명령을 추가했다. 실제로 실행한 명령이며 `node_modules`와 `dist`는 임시 볼륨으로 격리했다.
+
+### 실제 실행 확인과 가상 검사
+
+| 검사 | Windows PC에서 얻은 결과 | 구분 |
+| --- | --- | --- |
+| Compose 빌드·시작 | Linux 컨테이너 healthy, CPU 2 / RAM 3GiB / shm 1GiB | 실제 인프라 |
+| 앱 `/healthz` | HTTP 200, `ok:true`, `mode:server-browser` | 실제 앱 |
+| noVNC | 로컬 원격 화면 열림, 비밀번호 인증 요구 확인 | 실제 UI·인증 전 |
+| `npm ci --ignore-scripts && npm test` | Node 24 컨테이너에서 18개 통과, 설치 audit 0건 | 가상 단위·통합 |
+| `test/docker-browser-check.mjs` | 실제 headed Chromium에서 캐릭터 선택·키 입력란 삭제·장비·검색·110점·0.4점/억·감시/중복 억제 통과 | **외부 응답은 전부 fixture, 30분은 가상 시계** |
+| Compose 설정·Git diff | `docker compose config --quiet`, `git diff --check` 통과 | 설정·정적 확인 |
+
+가상 검사는 별도 임시 브라우저 프로필과 앱 포트 8879에서 수행했다. 정상 앱 8877에는 가상 캐릭터·키·매물·감시를 넣지 않았다. 정상 앱은 캐릭터 0명, 키 미설정, 감시 없음으로 시작했다.
+
+### 외부 접속·참고 자료
+
+- 로컬 Docker의 Node HTTPS 요청으로 `https://signin.nexon.com/sdk/inface.js`는 HTTP 200을 확인했다. 기존 클라우드 프록시 CONNECT 403은 이 요청에서 재현되지 않았다. **로그인 성공 증거는 아니다.**
+- 같은 일반 HTTP 요청의 경매장 최상위 페이지는 HTTP 403이었다. 이를 인증된 브라우저/API의 403으로 해석하지 않는다. 실제 Chromium은 실행 중이며 로그인·탐색 상태에서 사용자 입력을 기다린다. TLS 검증을 끄거나 브라우저/사이트 보호를 우회하지 않았다.
+- `REFERENCES.md`의 [maple-auction-mcp api.ts](https://github.com/oyc0401/maple-auction-mcp/blob/d01119598479225946c3a7defa9be6f2f1b93295/server/src/auction/api.ts)·mapping.ts, [maple-auction browser.ts](https://github.com/lilllee/maple-auction/blob/3ae0bf31b8ff762739e5af3db60484d861d9232f/src/nexon/browser.ts)·watch/loop.ts를 읽었다. 두 저장소의 고정 커밋과 최신 HEAD 비교는 모두 `identical`, 추가 커밋 0개였다. 외부 코드를 새로 가져오지 않았고 기존 MIT 출처 기록을 유지했다.
+- [Docker Windows 공식 문서](https://docs.docker.com/desktop/setup/install/windows-install/), [Playwright persistent context 문서](https://playwright.dev/docs/api/class-browsertype#browser-type-launch-persistent-context), [Nexon 공개 API 문서](https://openapi.nexon.com/ko/game/maplestory/)·[가이드](https://openapi.nexon.com/ko/guide/)·[FAQ](https://openapi.nexon.com/ko/support/faq/)를 확인했다. 공개 [캐릭터 YAML](https://openapi.nexon.com/static/api/maplestory/14_ko_script20261022040014.yaml)은 로컬 HTTPS에서 200이며 해당 파일에서 경매장 경로는 발견되지 않았다. 공개 캐릭터 API 키와 웹 경매장 로그인은 별개로 유지한다.
+
+### 실제 계정 검증 상태
+
+| 단계 | 현재 상태 |
+| --- | --- |
+| 공식 로그인·OTP | 사용자 직접 입력 대기. 성공 미확인 |
+| 본인 캐릭터 목록 → 에반이였솜 | 인증된 응답 미확인. 임의 ID나 fixture로 대체하지 않음 |
+| 공개 API 키·실제 착용 장비 | 사용자 키 입력 대기. 직업·월드·원본 데이터 갱신 시점 대조 미완료 |
+| 실제 매물·잔여 한도 | 실제 검색 POST 0회. 잔여량·가격·옵션·공식 화면 일치 미검증 |
+| 실제 교체 점수·가성비 | 미검증. 독립 모델이며 환산주스탯 템환산과 동일하지 않음 |
+| 실제 30분 감시 | 미시작. 실제 회차 시각·한도 차감·신규 0건/신규 알림 여부를 아직 기록할 수 없음 |
+
+사용자에게 noVNC 비밀번호 파일을 직접 확인하고 공식 탭에서 로그인·OTP, 앱 화면에서 API 키 입력을 완료하도록 안내했다. 비밀번호 파일 내용·키·OTP·쿠키를 읽거나 출력하지 않았다. 비밀번호 파일의 Git 제외도 확인했다.
+
+컨테이너는 사용자 입력을 위해 실행 상태로 유지한다. 입력 완료 후 인증된 캐릭터 응답 확인 → 에반이였솜 선택 → 장비 조회 → 잔여량 확인 후 소수 실제 검색 → 공식 매물/모델 대조 → 한 페이지 조건의 실제 30분 회차 관측 순으로 이어간다. `main` 병합·push·운영 배포는 수행하지 않았다.

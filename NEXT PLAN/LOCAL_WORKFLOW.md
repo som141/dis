@@ -88,6 +88,13 @@ npm ci --ignore-scripts
 npm test
 ```
 
+호스트 Node가 22 미만이거나 없으면 프로토타입 폴더에서 Node 24 컨테이너로 검사한다. 아래 명령은 의존성과 빌드 결과를 임시 볼륨에 두므로 Windows용 `node_modules`와 섞이지 않는다.
+
+```powershell
+$prototypePath = $PWD.Path
+docker run --rm --mount "type=bind,source=$prototypePath,target=/work" --mount type=volume,target=/work/node_modules --mount type=volume,target=/work/dist --workdir /work node:24-bookworm-slim sh -c 'npm ci --ignore-scripts && npm test'
+```
+
 검사 코드와 기대 범위는 [VALIDATION.md](../tools/maple-local-prototype/VALIDATION.md)를 읽는다. 브라우저 fixture는 실제 로그인 검사와 별개다. 가상 시계 테스트를 실제 30분 운영 관측으로 쓰지 않는다.
 
 결과에는 환경·커밋·실제 실행 버전·성공 단계·실패 단계·한도·다음 조치를 남긴다. 키/프로필/로그는 `.gitignore`에서 제외하고, 공유할 로그는 최소 필드만 추려 기록한다.
