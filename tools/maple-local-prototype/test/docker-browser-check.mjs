@@ -53,10 +53,10 @@ try {
   await ui.goto('http://127.0.0.1:8879');
   await ui.waitForFunction(() => document.getElementById('connectTitle').textContent === '서버 브라우저 로그인');
   assert.equal(await ui.locator('#extensionInstructions').isVisible(), false);
-  await ui.click('#connect');
-  await ui.waitForFunction(() => document.getElementById('characters').options.length > 1);
-  await ui.click('#selectCharacter');
   await ui.waitForFunction(() => document.getElementById('characterInfo').textContent.includes('Lv.280'));
+  assert.equal(app.engine.state().character.name, '에반이였솜');
+  assert.equal(app.autoConnection.state().phase, 'ready');
+  assert.equal(posts, 0, 'automatic connection must not consume search quota');
   await ui.locator('summary').click();
   await ui.fill('#apiKey', 'fixture-only-never-real-key'); await ui.click('#saveKey');
   await ui.waitForFunction(() => document.getElementById('keyInfo').textContent.includes('키 적용됨'));

@@ -23,7 +23,7 @@ export function browserProxy(env = process.env) {
 export class BrowserPageTransport {
   constructor() { this.context = null; this.page = null; this.epoch = 0; this.headers = {}; this.accounts = null; this.onChange = () => {}; this.navigation = 'starting'; }
   get connected() { return !!this.page && !this.page.isClosed() && originOf(this.page.url()) === AUCTION_ORIGIN; }
-  status() { return { running:!!this.context, pageReady:this.connected, clientReady:CLIENT_HEADERS.every(k => !!this.headers[k]), navigation:this.navigation }; }
+  status() { return { running:!!this.context, pageReady:this.connected, clientReady:CLIENT_HEADERS.every(k => !!this.headers[k]), navigation:this.navigation, upgradeRequired:this.upgradeRequiredEpoch === this.epoch }; }
   invalidate() { ++this.epoch; this.accounts = null; this.onChange(); }
   scope() {
     const epoch = this.epoch, wire = this;
@@ -94,6 +94,7 @@ export class BrowserPageTransport {
       if (epoch !== this.epoch) return failure('SESSION_CHANGED', '로그인 계정이 변경되어 감시를 중단했습니다. 다시 연결하세요.');
       const reply = await this.fetchInPage(cmd, timeoutMs);
       if (epoch !== this.epoch) return failure('SESSION_CHANGED', '브라우저 연결이 변경되었습니다. 다시 연결하세요.');
+      if (reply.status === 426) this.upgradeRequiredEpoch = this.epoch;
       if ([401,403].includes(reply.status)) { this.invalidate(); return { ...reply, bodyText:undefined, error:'공식 경매장 인증을 확인한 뒤 다시 연결하세요.' }; }
       if (reply.ok && isAccounts) {
         const data = JSON.parse(reply.bodyText);

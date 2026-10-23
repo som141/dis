@@ -28,6 +28,7 @@ UI의 8877 포트는 컨테이너 내부에서만 사용한다. Windows 사용�
 | [Dockerfile](../tools/maple-local-prototype/Dockerfile) · [docker/](../tools/maple-local-prototype/docker/) | Node·Chromium·Xvfb·noVNC 실행, 비밀번호 파일, healthcheck, 프로필 잠금 |
 | [server.mjs](../tools/maple-local-prototype/src/server.mjs) | HTTP API, Host·Origin·CSRF 확인, 메모리 키 입력 |
 | [docker-server.mjs](../tools/maple-local-prototype/src/docker-server.mjs) | 도커 서버와 브라우저 시작 |
+| [auto-connect.mjs](../tools/maple-local-prototype/src/auto-connect.mjs) | 수동 로그인 후 세션 확인·본인 캐릭터 조회·에반이였솜 자동 선택. 조회만 수행하고 검색/감시는 시작하지 않음 |
 | [browser-transport.mjs](../tools/maple-local-prototype/src/browser-transport.mjs) | 공식 탭 안에서 조회·검색, 관찰한 클라이언트 헤더, 계정 변경·401 처리 |
 | [domain.mjs](../tools/maple-local-prototype/src/domain.mjs) | 본인 캐릭터 선택, ±30% 가격, 점수/가성비, 한도, 감시·중복 억제 |
 | [bridge.mjs](../tools/maple-local-prototype/src/bridge.mjs) | 조회·검색 URL 허용 목록과 별도 Windows 확장 연결 |
@@ -42,6 +43,7 @@ UI의 8877 포트는 컨테이너 내부에서만 사용한다. Windows 사용�
 - 메모리: API 키·선택 캐릭터·검색 결과·감시·수신함. 재시작하면 초기화한다.
 - 볼륨: 공식 로그인 프로필과 공개 캐릭터 데이터 캐시. 세션 유효 기간은 제공자 정책에 따른다.
 - 기본 캐릭터: **에반이였솜**, 에반은 마력 축으로 계산한다. 실제 계정 목록에서 조회된 경우에만 선택한다.
+- Docker 모드는 경매장 세션이 준비되면 위 본인 캐릭터를 자동 선택한다. 키 없이 연결·매물 검색이 가능하고, AI는 실행 요건이 아니다. 세션 만료 시 사용자가 재로그인하며 감시는 직접 다시 설정한다.
 
 ## 구현된 검색·계산·감시
 
@@ -57,13 +59,15 @@ UI의 8877 포트는 컨테이너 내부에서만 사용한다. Windows 사용�
 
 | 항목 | 상태 |
 | --- | --- |
-| `npm test` | 18개 통과 |
+| `npm test` | 24개 통과: 기존 18개와 자동 연결·미일치 캐릭터·재시도 간격·경합/연결 변경·426 중단/전파 6개 |
 | 도커 빌드·실행·원격 화면·health | Codex Linux에서 확인 |
 | 실제 headed Chromium에서 캐릭터→계산→검색→감시 | API 응답을 가상 route로 대체하여 통과 |
 | 30분 감시·중복 억제 | 가상 시계로 확인. 실제 30분 운영 성공 기록은 아님 |
 | 컨테이너 교체와 프로필/캐시 볼륨 유지 | 비밀이 아닌 테스트 파일로 확인. 메모리 가상 키 삭제 확인 |
 | 프로필 잠금 오류 | 재현·수정. 배타적 flock 후 오래된 Singleton 링크만 정리 |
-| 실제 로그인·OTP·실제 매물·실제 장비 정확도 | 미검증. 다음 로컬 작업의 핵심 |
+| 실제 본인 캐릭터 조회 | Windows에서 35명 조회 및 에반이였솜 · 스카니아 · Lv.288 선택 성공. 당시 수동 연결 경로 |
+| 로그인 후 자동 연결 | 구현 및 Chromium fixture 성공. 실제 새 자동 연결 경로는 사용자 재로그인 대기 |
+| 실제 매물·실제 장비 정확도·실제 30분 회차 | 미검증. 실제 계정 실증의 남은 항목 |
 | Discord 계정 연결·명령·DM·감시 DB 복원 | 미구현 |
 
 검증 당시 도커는 Node 24.22.1 / Chromium 155였다. 앞으로 빌드되는 OS 패키지와 브라우저 버전은 달라질 수 있으므로 로컬 결과에 실제 버전을 남긴다.

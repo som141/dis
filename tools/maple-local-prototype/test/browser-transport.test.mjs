@@ -63,3 +63,12 @@ test('browser proxy retains configured routing and protects local UI from extern
   assert.equal(proxy.server, 'http://proxy.example:8080'); assert.equal(proxy.username, 'name');
   assert.ok(proxy.bypass.includes('.internal.test')); assert.ok(proxy.bypass.includes('127.0.0.1'));
 });
+
+test('HTTP 426 on account discovery remains visible until the official browser epoch changes', async () => {
+  const { wire, page, replies } = harness();
+  replies.push({ id:'', ok:false, status:426, bodyText:'{}', code:'HTTP_ERROR' });
+  assert.equal((await wire.request(accounts)).status, 426);
+  assert.equal(wire.status().upgradeRequired, true);
+  page.emit('framenavigated', page);
+  assert.equal(wire.status().upgradeRequired, false);
+});

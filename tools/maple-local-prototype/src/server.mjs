@@ -6,6 +6,7 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { BrowserBridge } from './bridge.mjs';
 import { AppError, PrototypeEngine, CATEGORIES } from './domain.mjs';
+import { BrowserAutoConnect } from './auto-connect.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 // Keep this prototype's public-character cache separate from other Maple tools.
@@ -17,9 +18,9 @@ async function readBody(req) {
   try { return JSON.parse(Buffer.concat(parts).toString('utf8') || '{}'); }
   catch { throw new AppError('JSON 입력을 확인하세요.'); }
 }
-export function createApp({ port = 8877, engineFactory = wire => new PrototypeEngine(wire), wireFactory, mode = 'extension' } = {}) {
+export function createApp({ port = 8877, engineFactory = wire => new PrototypeEngine(wire), wireFactory, mode = 'extension', autoConnect = mode === 'server-browser' } = {}) {
   const csrf = randomBytes(32).toString('hex'), pairing = randomBytes(32).toString('hex');
-  let engine, bridge;
+  let engine, bridge, autoConnection;
   const server = http.createServer(async (req, res) => {
     const host = req.headers.host || '', address = server.address();
     const currentPort = typeof address === 'object' && address ? address.port : port;
@@ -33,7 +34,7 @@ export function createApp({ port = 8877, engineFactory = wire => new PrototypeEn
       if (!validHosts.includes(host)) throw new AppError('로컬 주소로 접속하세요.', 403, 'INVALID_HOST');
       const url = new URL(req.url, `http://${host}`);
       if (req.method === 'GET' && url.pathname === '/api/bootstrap') return json(200, { csrf, ...(mode === 'extension' ? { pairing } : {}), mode, port: currentPort, categories: CATEGORIES });
-      if (req.method === 'GET' && url.pathname === '/api/state') return json(200, { ...engine.state(), browser: bridge.status?.() });
+      if (req.method === 'GET' && url.pathname === '/api/state') return json(200, { ...engine.state(), browser: bridge.status?.(), autoConnection:autoConnection?.state() });
       if (req.method === 'GET' && url.pathname === '/healthz') {
         const ready = mode !== 'server-browser' || !!bridge.status?.().running;
         return json(ready ? 200 : 503, { ok: ready, mode });
@@ -74,12 +75,19 @@ export function createApp({ port = 8877, engineFactory = wire => new PrototypeEn
   bridge = wireFactory ? wireFactory() : new BrowserBridge(server, pairing);
   engine = engineFactory(bridge);
   bridge.onChange = () => engine.connectionChanged();
-  const timer = setInterval(() => { void engine.tick().catch(() => {}); }, 1000);
+  if (autoConnect) autoConnection = new BrowserAutoConnect(engine, bridge);
+  let closing = false;
+  const timer = setInterval(() => {
+    if (!closing) {
+      void autoConnection?.tick().catch(() => {});
+      void engine.tick().catch(() => {});
+    }
+  }, 1000);
   timer.unref();
   return {
-    server, bridge, engine,
+    server, bridge, engine, autoConnection,
     async listen() { await new Promise((ok, fail) => { server.once('error', fail); server.listen(port, '127.0.0.1', ok); }); return server.address(); },
-    async close() { clearInterval(timer); await bridge.close(); engine.destroy(); await new Promise(ok => server.close(ok)); },
+    async close() { closing = true; clearInterval(timer); await bridge.close(); engine.destroy(); await new Promise(ok => server.close(ok)); },
   };
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

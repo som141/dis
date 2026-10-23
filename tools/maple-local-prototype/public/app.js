@@ -20,11 +20,18 @@ async function act(path, body, label) {
 function render(s) {
   current = s;
   const docker = bootstrap.mode === 'server-browser';
-  $('connectionBadge').textContent = docker ? (s.connected ? '공식 탭 열림 · 인증 확인 필요' : '공식 탭 확인 필요') : (s.connected ? 'Chrome 연결됨' : '브라우저 연결 대기');
+  const auto = s.autoConnection;
+  const autoMessage = auto?.phase === 'connecting' ? '로그인·본인 캐릭터 자동 확인 중'
+    : auto?.phase === 'choose-character' ? '기본 캐릭터 확인 필요 · 목록에서 직접 선택하세요'
+    : auto?.phase === 'upgrade-required' ? '경매장 버전 확인 필요 · 자동 연결 중지'
+    : auto?.error ? '공식 화면의 로그인·추가 인증을 마치면 자동으로 다시 연결합니다.'
+    : '공식 경매장에서 로그인하면 에반이였솜을 자동으로 연결합니다.';
+  $('connectionBadge').textContent = docker ? (s.connected && s.character ? `${s.character.name} 연결됨` : autoMessage) : (s.connected ? 'Chrome 연결됨' : '브라우저 연결 대기');
   $('keyInfo').textContent = s.keyConfigured ? '키 적용됨 · 서버 종료 시 삭제' : '키 미설정 · 매물 검색만 가능';
   $('characterInfo').textContent = s.character ? `${s.character.name} · ${s.character.world} · Lv.${s.character.level}` : '본인 캐릭터 선택 대기';
   $('connectionInfo').textContent = docker
-    ? (s.browser?.navigation === 'site-unavailable' ? '공식 사이트에 연결하지 못했습니다. 원격 브라우저에서 네트워크 오류를 확인하세요.' : '탭 연결과 로그인 성공은 별개입니다. 연결 확인으로 본인 캐릭터가 조회되는지 확인하세요.')
+    ? (s.browser?.navigation === 'site-unavailable' ? '공식 사이트에 연결하지 못했습니다. 원격 브라우저에서 네트워크 오류를 확인하세요.'
+      : s.connected && s.character ? '본인 캐릭터 연결 완료 · 검색과 감시는 이 프로그램이 처리하며 AI 연결은 필요하지 않습니다.' : autoMessage)
     : (s.connected ? '확장이 연결됐습니다. 연결 확인으로 로그인 계정의 캐릭터를 불러오세요.' : '확장 연결코드와 공식 경매장 로그인 상태를 확인하세요.');
   const signature = JSON.stringify(s.characters);
   if (signature !== characterSignature) {
@@ -87,6 +94,8 @@ try {
   if (bootstrap.mode === 'server-browser') {
     $('extensionInstructions').hidden = true; $('dockerInstructions').hidden = false;
     $('connectTitle').textContent = '서버 브라우저 로그인';
+    $('connect').textContent = '연결 다시 확인 · 내 캐릭터 불러오기';
+    $('dockerInstructions').textContent = '옆의 공식 경매장 탭에서 로그인·OTP를 완료하면 앱이 본인 캐릭터를 확인하고 에반이였솜을 자동 선택합니다. 공식 화면에서 캐릭터 선택을 요구하면 경매장 구매 화면까지 진입해 주세요. 로그인만으로 검색 횟수를 사용하거나 감시를 시작하지 않습니다.';
     $('watchInstructions').textContent = '30분마다 서버에서 새 매물을 확인합니다. Windows의 원격 화면을 닫아도 서버·도커·브라우저가 계속 실행 중이면 감시합니다. 세션 만료 시 재로그인이 필요하며, 컨테이너 재시작 시 감시 설정은 사라집니다.';
     $('runtimeFooter').textContent = '개인 도커 프로토타입 · 로그인 정보는 서버 브라우저 프로필에 유지 · 검색·계산은 서버에서 처리';
   }
