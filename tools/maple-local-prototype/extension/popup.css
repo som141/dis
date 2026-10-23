@@ -1,0 +1,1 @@
+body{width:310px;padding:15px;background:#151b2b;color:#eef2ff;font:14px/1.6 system-ui}label{display:block}input,button{box-sizing:border-box;width:100%;padding:10px;margin:5px 0 10px;border:1px solid #53617f;border-radius:8px}input{background:#242f47;color:white}button{cursor:pointer;background:#b1d9c5;color:#152a25}p{color:#c6cee0}button:disabled{opacity:.6}

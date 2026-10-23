@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "DIS Maple Local Connector",
+  "version": "0.1.0",
+  "description": "본인 PC의 메이플 경매장 세션으로 로컬 프로토타입의 검색·조회 요청만 연결합니다.",
+  "minimum_chrome_version": "120",
+  "permissions": ["storage", "alarms"],
+  "host_permissions": ["https://api.mskr.nexon.com/*"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "action": { "default_popup": "popup.html", "default_title": "메이플 로컬 연결" }
+}

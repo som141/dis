@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>메이플 매물 검색·기간 알림 V3</title><link rel="stylesheet" href="market.css"></head>
+<body><main class="board">
+<header><div><div class="eyebrow">DISCORD + WEB / PRODUCT DESIGN V3</div><h1>조건을 정하고, 매물을 기다리세요.</h1><p class="lead">/아이템 캐릭터:닉네임 · 선택적 넥슨 로그인 · 예산 ±30% · 기간 알림</p></div><div class="edition">INTERACTIVE PROTOTYPE<br>OCTOBER 2026 · V3</div></header>
+<div class="toolbar"><span class="label">시안 도구 · 실제 API·키·DM을 사용하지 않음</span><button class="tool accent" data-tool="item">/아이템 실행 체험</button><button class="tool" data-tool="api">/api 화면</button><button class="tool" data-tool="ready">경매장 연결 예시</button><button class="tool" data-tool="arrival">새 매물 도착 체험</button><button class="tool" data-tool="inbox">알림 수신함</button><button class="tool" data-tool="expire">감시 기간 만료</button><button class="tool" data-tool="reset">처음으로</button></div>
+<div class="layout"><section class="mockup"><div class="channel"><span id="channelName">메이플-봇</span><span class="icons" aria-hidden="true">♧ ⌕ ⋮</span></div><div class="chat"><div class="message"><div class="avatar">S</div><div class="messagebody"><div class="botline"><strong>som-bot</strong><span class="appbadge">APP</span><time>예시 화면</time></div><p class="private" id="visibility">본인에게만 보이는 메시지</p><div class="container" id="panel" aria-live="polite"></div></div></div></div><div class="composer">⊕　# 메이플-봇에 메시지 보내기</div></section>
+<aside class="inspector"><div class="note-title">DESIGN V3</div><div class="step active"><span class="stepno">01</span><div><strong>선택: 넥슨 로그인 연결</strong><p>Discord 확인 → 넥슨 로그인·동의 → UID·암호화 토큰을 연결합니다.</p></div></div><div class="step active"><span class="stepno">02</span><div><strong>다중 선택 + 가격 범위</strong><p>선택 아이템 OR, 스펙·월드·가격은 AND. 기준 예산 30억이면 21~39억입니다.</p></div></div><div class="step active"><span class="stepno">03</span><div><strong>체크박스로 기간 알림</strong><p>JDA 6.7.0 Modal의 Checkbox·RadioGroup으로 설정합니다.</p></div></div><div class="step active"><span class="stepno">04</span><div><strong>서버 감시 → Discord DM</strong><p>초기 매물은 기준선으로 두고, 이후 조건을 만족한 새 매물만 알립니다.</p></div></div><div class="annotation"><strong>연동 확인 상태</strong><p>넥슨 캐릭터 키와 경매장 인증은 별개입니다. 서버용 경매장 조회·주기 감시와 Open ID 승인과 경매장 권한은 별도로 확인해야 합니다.</p><p>이 시안은 외부 API·OAuth·암호화 DB·실제 DM을 연결하지 않습니다. 실제 로그인·토큰 수집을 하지 않는 시안입니다.</p></div></aside></div>
+<footer class="boardfooter"><span>가상 매물·가격·캐릭터 · 실제 서비스 미구현</span><span><a href="../MAPLE_GEAR_FEATURE_SPEC_2026-10-23.md">기능 명세</a><a href="../MAPLE_MARKET_TECH_SPEC_2026-10-23.md">기술 명세</a><a href="../MAPLE_MARKET_TECH_SPEC_2026-10-23.md#2-서비스-아키텍처">현재 아키텍처</a></span></footer></main>
+<div id="overlay" class="overlay" hidden><form class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modalhead"><h2 id="modalTitle"></h2><button type="button" class="x" data-close aria-label="닫기">×</button></div><div class="modalbody"><div id="fields"></div><p id="error" class="modalerror" role="alert"></p></div><div class="modalfoot"><button class="btn" type="button" data-close>취소</button><button class="btn primary" type="submit">제출</button></div></form></div><div class="toast" id="toast" role="status" hidden></div>
+<script>
+'use strict';
+const $=id=>document.getElementById(id),escapeHTML=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const catalogs={gloves:[['arcane','아케인셰이드 나이트글러브'],['absolab','앱솔랩스 나이트글러브'],['pensalir','펜살리르 배틀글러브']],hat:[['hat1','하이네스 워리어헬름'],['hat2','앱솔랩스 나이트헬름']],shoes:[['shoes1','아케인셰이드 나이트슈즈'],['shoes2','앱솔랩스 나이트슈즈']]};
+const slotNames={gloves:'장갑',hat:'모자',shoes:'신발'};
+let state={screen:'home',characterName:'예시히어로',targetOcid:'demo_ocid_hero',connected:false,auction:false,slot:'gloves',selected:[],budget:30,hardCap:false,minCrit:0,mode:'personal',watch:null,notices:[],seen:new Set(),arrived:false};
+let handler=null,opener=null,timer;
+try{state.connected=JSON.parse(localStorage.getItem('mapleMarketDemoConnection')||'{}').connected===true;}catch(_){}
+const esc=escapeHTML,btn=(t,a,primary=false,disabled=false)=>`<button class="btn ${primary?'primary':''}" data-action="${esc(a)}" ${disabled?'disabled':''}>${esc(t)}</button>`,line=()=>'<div class="rule"></div>',money=n=>Number(n).toLocaleString('ko-KR',{maximumFractionDigits:4})+'억',f=(n,p=2)=>Number(n).toFixed(p);
+function range(){const meso=Math.round(state.budget*100000000);return {min:Math.floor((meso*7+9)/10)/100000000,max:Math.floor(meso*(state.hardCap?10:13)/10)/100000000};}
+function score(i){if(!i.supported)return null;const s=7200*(1+(300+i.str)/100)+10000;return 100*(4*s+1500)/162748*(1.35+(80+i.crit)/100)/2.15;}
+function listings(){let a=[{id:'A',item:'arcane',price:21,str:30,crit:0,supported:true},{id:'B',item:'arcane',price:22,str:18,crit:8,supported:true},{id:'C',item:'arcane',price:38,str:9,crit:16,supported:true},{id:'R',item:'absolab',price:28,str:9,crit:16,supported:false}];if(state.arrived)a.push({id:'D',item:'arcane',price:25,str:9,crit:16,supported:true});return a;}
+function matches(i){const r=range();return state.selected.includes(i.item)&&i.price>=r.min&&i.price<=r.max&&i.crit>=state.minCrit;}
+function eligible(i,w){if(!matches(i))return false;if(w.mode==='spec')return true;const s=score(i);return s!==null&&s-100>=w.minGain&&(s-100)/i.price>=w.minEff;}
+function row(i){const s=score(i);return `<div class="listing"><h3>매물 ${esc(i.id)} · ${money(i.price)}</h3><p class="small">${esc((catalogs.gloves.find(x=>x[0]===i.item)||[])[1]||'아이템')}<br>크뎀 ${i.crit}% · STR ${i.str}%</p>${s===null?'<p class="warn">개인 점수 미지원 · 스펙 조건으로 검색된 매물</p>':`<p>${f(s)}점 · <span class="gain">모델 성능 +${f(s-100)}%</span></p><p class="small">1억당 개선 ${f((s-100)/i.price,3)}점</p>`}</div>`;}
+function currentStatus(){return `<p class="small">공개 캐릭터 조회: <span class="connected">서비스 키 사용 예시</span><br>넥슨 계정: <span class="${state.connected?'connected':'pending'}">${state.connected?'Open ID 연결 예시':'미연결 · 기본 검색에 불필요'}</span><br>경매장: <span class="${state.auction?'connected':'pending'}">${state.auction?'예시 제공자 · 실제 연결 아님':'제공자 연결 확인 필요'}</span></p>`;}
+
+function render(){
+ const r=range();let h='';$('channelName').textContent=state.screen==='dm'?'som-bot · 개인 메시지':'메이플-봇';$('visibility').textContent=state.screen==='dm'?'동의한 기간 알림 · 일반 DM 예시':'본인에게만 보이는 메시지';
+ if(state.screen==='api')h=`<h2>넥슨 계정 연결 관리</h2>${currentStatus()}${line()}<p class="small">내 캐릭터 목록·동의가 필요한 정보를 연결하려면 웹에서 넥슨 로그인과 정보 제공에 동의하세요.</p><div class="row"><a class="btn primary linkbtn" href="portal.html" target="_blank" rel="noopener">웹에서 넥슨 계정 연결 ↗</a>${btn('연결 상태 새로고침','refresh')}</div><div class="row">${btn('검색 패널로','home')}</div><p class="tiny" style="margin-top:15px">Discord ID와 넥슨 UID를 매핑하고 토큰을 암호화합니다. 공개 닉네임 조회는 넥슨 연결 없이 가능합니다.</p>`;
+ if(state.screen==='home')h=`<h2>${esc(state.characterName)} 기준 매물 검색</h2><p class="small">입력 캐릭터 · 히어로 · 스카니아 · 가상 snapshot</p>${currentStatus()}${line()}<select class="select" id="slot" aria-label="부위">${Object.entries(slotNames).map(([k,v])=>`<option value="${k}" ${state.slot===k?'selected':''}>부위: ${v}</option>`).join('')}</select><label class="small" style="display:block;margin-top:12px">아이템 여러 개 선택</label><select class="select native-multi" id="items" multiple size="3" aria-label="아이템 여러 개 선택">${catalogs[state.slot].map(([id,name])=>`<option value="${id}" ${state.selected.includes(id)?'selected':''}>${esc(name)}</option>`).join('')}</select><p class="tiny">시안은 Ctrl/⌘로 다중 선택합니다. 실제 Discord는 다중 선택 드롭다운입니다.</p><div class="row">${btn('해당 부위 전체 선택','all')}${btn('선택 해제','clear')}</div><p class="small">선택한 아이템 ${state.selected.length}개 · 예시 카탈로그</p><select class="select" id="mode" aria-label="알림 판정 기준"><option value="personal" ${state.mode==='personal'?'selected':''}>판정: 개인 점수·가성비</option><option value="spec" ${state.mode==='spec'?'selected':''}>판정: 스펙 조건 일치</option></select><p style="margin-top:15px">기준 예산 <strong>${money(state.budget)}</strong></p><p class="modehint">검색 범위 ${money(r.min)} ~ ${money(r.max)} 메소 ${state.hardCap?'· 기준 예산 초과 제외':'· ±30%'}</p><p class="small">추가 조건: 크뎀 ${state.minCrit}% 이상</p><div class="row">${btn('예산 변경','budget')}${btn('추가 조건','filters')}${btn('매물 검색','search',true,!state.auction||!state.selected.length)}</div><div class="row">${btn('감시 목록','watches')}${btn('계정 연결 관리','api')}${btn('다른 캐릭터','character')}</div>`;
+ if(state.screen==='results'){
+  const a=listings().filter(matches).sort((a,b)=>{const sa=score(a),sb=score(b);return (sb===null?-1:(sb-100)/b.price)-(sa===null?-1:(sa-100)/a.price);});
+  h=`<h2>${esc(state.characterName)} · ${esc(slotNames[state.slot])} 검색 결과</h2><p class="small">선택 ${state.selected.length}종 · ${money(r.min)}~${money(r.max)} · 가상 조회 결과</p>${line()}${a.length?a.map(row).join(line()):'<p class="empty">조건에 맞는 예시 매물이 없습니다. 조건을 바꿔 보세요.</p>'}<p class="tiny">현재 장비 100점 기준 · 실제 매물·환산 수치 아님</p><div class="row">${btn('알림 설정','notify',true)}${btn('조건 변경','home')}${btn('감시 목록','watches')}</div>`;
+ }
+ if(state.screen==='confirm'){
+  const w=state.watch;h=`<h2>이 조건으로 감시할까요?</h2><p>선택 아이템 ${state.selected.length}종 · ${money(r.min)}~${money(r.max)}</p><p class="small">기간 ${w.days}일 · 종료 ${new Date(w.expires).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})} KST<br>${w.mode==='personal'?`모델 개선 ≥ ${w.minGain}% · 가성비 ≥ ${w.minEff}점/억`:'입력한 스펙 조건 일치'}<br>확인 주기: 30분 · 제공자 한도·오류 시 지연 가능<br>수신: Discord DM + 개인 수신함</p><p class="warn">화면 체험입니다. 실제 감시·DM은 동작하지 않습니다.</p><div class="row">${btn('감시 시작','start',true)}${btn('취소','results')}</div>`;
+ }
+ if(state.screen==='watches'){
+  const w=state.watch;h=`<h2>내 매물 감시</h2>${w?`<p>${esc(slotNames[state.slot])} · ${money(r.min)}~${money(r.max)}</p><p class="watchstate">상태: ${esc(w.status)}</p><p class="small">${w.days}일 · ${w.mode==='personal'?'개인 점수·가성비':'스펙 조건'}<br>최초 조회는 기존 매물 기준선으로 저장합니다.<br>기본 30분 간격 · 제공자 한도·오류 시 지연 가능</p><div class="row">${btn(w.status==='감시 중'?'일시정지':'재개','pause',false,['만료','종료'].includes(w.status))}${btn('감시 종료','cancel')}${btn('수신함 보기','inbox')}</div>`:'<p class="empty">등록한 감시가 없습니다. 검색 후 알림 설정에서 시작하세요.</p>'}<div class="row">${btn('검색 패널로','home')}</div>`;
+ }
+ if(state.screen==='dm'){
+  const n=state.notices.at(-1);h=n?`<h2>조건에 맞는 장갑을 발견했어요</h2>${row(n)}${line()}<p class="small">검색 범위 ${money(r.min)}~${money(r.max)}<br>처음 확인: ${esc(n.time)} KST<br>입력한 개선량·가성비 조건을 만족했습니다.</p><div class="row">${btn('매물 원본 보기','source')}${btn('감시 일시정지','pause')}${btn('알림 관리','watches')}</div>`:'<h2>아직 알림이 없습니다</h2><p class="small">감시를 시작한 뒤 시안 도구의 새 매물 도착 체험을 눌러 보세요.</p><div class="row">'+btn('감시 목록','watches')+'</div>';
+ }
+ if(state.screen==='inbox')h=`<h2>개인 알림 수신함</h2><p class="small">알림 ${state.notices.length}개 · 실제 DM 전송 없음</p>${line()}${state.notices.length?state.notices.map(n=>`<p>매물 ${n.id} · ${money(n.price)} · ${esc(n.time)} KST</p>`).join(''):'<p class="empty">아직 조건에 맞는 새 매물이 없습니다.</p>'}<div class="row">${btn('최근 알림 보기','dm')}${btn('감시 목록','watches')}${btn('검색 패널로','home')}</div>`;
+ $('panel').innerHTML=h;
+}
+function toast(t){clearTimeout(timer);$('toast').textContent=t;$('toast').hidden=false;timer=setTimeout(()=>$('toast').hidden=true,4000);}
+function close(){const p=opener;$('overlay').hidden=true;handler=null;opener=null;if(p&&p.isConnected)p.focus();}
+function modal(title,html,fn){opener=document.activeElement;$('modalTitle').textContent=title;$('fields').innerHTML=html;$('error').textContent='';handler=fn;$('overlay').hidden=false;setTimeout(()=>$('fields').querySelector('input,select')?.focus(),0);}
+const numberField=(label,name,value,extra='')=>`<label class="field">${esc(label)}<input type="number" name="${name}" value="${value}" ${extra}></label>`;
+function notify(){
+ const personal=state.mode==='personal';
+ modal('기간 알림 설정',`<label class="native-check"><input name="enabled" type="checkbox" checked>기간 알림 사용</label><fieldset class="native-radio"><legend>감시 기간</legend>${[1,3,7].map(d=>`<label><input type="radio" name="days" value="${d}" ${d===3?'checked':''}>${d}일</label>`).join('')}</fieldset>${personal?numberField('최소 모델 성능 상승 (%)','gain',4,'min="0" step="0.1" required')+numberField('최소 가성비 (점/억)','eff',0.18,'min="0" step="0.001" required'):'<p class="small">현재 스펙 조건을 만족하면 알립니다. 개인 점수를 요구하지 않습니다.</p>'}<fieldset class="native-radio"><legend>알림 이벤트</legend><label><input type="checkbox" name="new" checked>새로 발견한 매물</label><label><input type="checkbox" name="drop">가격 하락</label></fieldset>`,data=>{
+  if(!data.get('enabled')){close();toast('알림을 켜지 않아 일회성 검색만 유지합니다.');return;}
+  if(!state.auction)throw new Error('경매장 제공자 연결이 필요합니다. 넥슨 로그인과는 별개입니다.');
+  if(!data.get('new')&&!data.get('drop'))throw new Error('알림 이벤트를 하나 이상 선택하세요.');
+  const days=Number(data.get('days')),minGain=personal?Number(data.get('gain')):0,minEff=personal?Number(data.get('eff')):0;
+  if(![1,3,7].includes(days)||![minGain,minEff].every(n=>Number.isFinite(n)&&n>=0))throw new Error('기간과 기준을 확인해 주세요.');
+  if(personal&&!state.selected.includes('arcane'))throw new Error('선택한 아이템은 개인 점수 예시 모델이 없습니다. 스펙 조건 모드를 사용하세요.');
+  state.watch={targetOcid:state.targetOcid,targetCharacter:state.characterName,requiresGrant:false,days,minGain,minEff,mode:state.mode,newEvent:!!data.get('new'),priceDrop:!!data.get('drop'),status:'확인 대기',expires:Date.now()+days*86400000};state.screen='confirm';close();render();
+ });
+}
+function refresh(){try{state.connected=JSON.parse(localStorage.getItem('mapleMarketDemoConnection')||'{}').connected===true;}catch(_){}if(!state.connected&&state.watch?.requiresGrant)state.watch.status='인증 필요';render();}
+function action(a){
+ if(['home','api','results','watches','inbox','dm'].includes(a)){state.screen=a;render();return;}
+ if(a==='refresh'){refresh();return;}
+ if(a==='character'){chooseCharacter();return;}
+ if(a==='all'){state.selected=catalogs[state.slot].map(i=>i[0]);invalidateWatch();render();return;}
+ if(a==='clear'){state.selected=[];invalidateWatch();render();return;}
+ if(a==='budget')modal('검색 예산 변경',numberField('기준 예산 (억 메소)','budget',state.budget,'min="0.0001" max="10000" step="0.0001" required')+`<label class="native-check"><input type="checkbox" name="hard" ${state.hardCap?'checked':''}>기준 예산을 넘는 매물은 제외</label><p class="small">기본 검색 범위는 기준 예산의 70~130%입니다.</p>`,data=>{const b=Number(data.get('budget'));if(!Number.isFinite(b)||b<=0||b>10000)throw new Error('0보다 크고 10,000억 이하로 입력하세요.');state.budget=b;state.hardCap=!!data.get('hard');invalidateWatch();close();render();});
+ if(a==='filters')modal('추가 스펙 조건',numberField('크리티컬 데미지 합계 최소 (%)','crit',state.minCrit,'min="0" max="24" step="1" required')+'<p class="small">시안은 크뎀 조건만 계산합니다. 실제 필터는 제공자 명세에 맞춰 확장합니다.</p>',data=>{const c=Number(data.get('crit'));if(!Number.isFinite(c)||c<0||c>24)throw new Error('크뎀 조건을 확인해 주세요.');state.minCrit=c;invalidateWatch();close();render();});
+ if(a==='search'){if(!state.auction||!state.selected.length)return;state.screen='results';render();}
+ if(a==='notify')notify();
+ if(a==='start'){if(!state.watch)return;state.seen=new Set(listings().map(i=>i.id));state.watch.status='감시 중';state.screen='watches';render();toast('기존 매물을 기준선으로 잡고 감시를 시작한 예시입니다.');}
+ if(a==='pause'){if(!state.watch)return;if(!['감시 중','일시정지'].includes(state.watch.status)){toast('연결과 조건을 다시 확인하고 감시를 시작해 주세요.');return;}state.watch.status=state.watch.status==='감시 중'?'일시정지':'감시 중';state.screen='watches';render();}
+ if(a==='cancel'){if(state.watch)state.watch.status='종료';state.screen='watches';render();}
+ if(a==='source')toast('가상 매물입니다. 실제 서비스에서는 제공자가 검증한 원본 URL로 이동합니다.');
+}
+function chooseCharacter(){modal('/아이템 실행 체험',`<label class="field">캐릭터<input name="character" type="text" required maxlength="20" value="${esc(state.characterName)}"></label><p class="small">실제 명령은 /아이템 캐릭터:닉네임입니다. 시안에서는 이름만 바뀌고 히어로 가상 스탯을 사용합니다.</p>`,data=>{const name=String(data.get('character')).trim();if(!name||name.length>20)throw new Error('캐릭터 이름을 입력하세요.');if(name!==state.characterName)invalidateWatch();state.characterName=name;state.targetOcid='demo_ocid_'+encodeURIComponent(name);state.screen='home';close();render();});}
+function invalidateWatch(){if(state.watch&&!['종료','만료'].includes(state.watch.status))state.watch.status='조건 변경 · 재확인 필요';}
+function arrival(){
+ state.arrived=true;const w=state.watch,i=listings().find(i=>i.id==='D');
+ if(!w||w.status!=='감시 중'){toast('먼저 검색 결과에서 기간 알림을 설정하고 감시를 시작하세요.');return;}
+ if(Date.now()>=w.expires){w.status='만료';render();return;}
+ if(state.seen.has(i.id)){toast('이미 본 매물입니다. 중복 알림을 보내지 않습니다.');return;}
+ state.seen.add(i.id);
+ if(w.newEvent&&eligible(i,w)){state.notices.push({...i,time:new Date().toLocaleTimeString('ko-KR',{timeZone:'Asia/Seoul'})});state.screen='dm';render();toast('새 매물 알림 화면입니다. 실제 DM은 보내지 않았습니다.');}else toast('새 매물이 조건을 만족하지 않아 알리지 않습니다.');
+}
+$('panel').addEventListener('click',e=>{const b=e.target.closest('[data-action]');if(b&&!b.disabled)action(b.dataset.action);});
+$('panel').addEventListener('change',e=>{if(e.target.id==='slot'){state.slot=e.target.value;state.selected=[];invalidateWatch();render();}if(e.target.id==='items'){state.selected=[...e.target.selectedOptions].map(x=>x.value);invalidateWatch();render();}if(e.target.id==='mode'){state.mode=e.target.value;invalidateWatch();render();}});
+document.querySelector('.toolbar').addEventListener('click',e=>{const b=e.target.closest('[data-tool]');if(!b)return;close();const t=b.dataset.tool;if(t==='api'){state.screen='api';render();}if(t==='item')chooseCharacter();if(t==='ready'){state.auction=true;state.slot='gloves';state.selected=catalogs.gloves.map(i=>i[0]);state.screen='home';render();toast('경매장 제공자 연결 예시입니다. 넥슨 계정 미연결이어도 공개 캐릭터 조회가 가능합니다.');}if(t==='arrival')arrival();if(t==='inbox'){state.screen='inbox';render();}if(t==='expire'){if(state.watch)state.watch.status='만료';state.screen='watches';render();}if(t==='reset'){state={...state,screen:'home',characterName:'예시히어로',targetOcid:'demo_ocid_hero',connected:false,auction:false,selected:[],slot:'gloves',budget:30,hardCap:false,minCrit:0,mode:'personal',watch:null,notices:[],seen:new Set(),arrived:false};render();}});
+$('modal').addEventListener('submit',e=>{e.preventDefault();$('error').textContent='';try{handler?.(new FormData(e.target));}catch(x){$('error').textContent=x.message;}});
+document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',close));$('overlay').addEventListener('click',e=>{if(e.target===$('overlay'))close();});
+document.addEventListener('keydown',e=>{if($('overlay').hidden)return;if(e.key==='Escape'){e.preventDefault();close();}if(e.key==='Tab'){const a=[...$('modal').querySelectorAll('input,button,select')].filter(x=>!x.disabled&&x.getClientRects().length),first=a[0],last=a.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}});
+window.addEventListener('storage',e=>{if(e.key==='mapleMarketDemoConnection')refresh();});render();
+</script></body></html>

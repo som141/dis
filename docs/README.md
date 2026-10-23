@@ -6,7 +6,10 @@
 
 | 하고 싶은 일 | 먼저 읽을 문서 |
 | --- | --- |
+| 메이플 작업을 로컬 Codex에 이어주기 | [NEXT PLAN](<../NEXT PLAN/README.md>) · Windows 실행 계획·현재 상태·GitHub 참고 자료·전달 프롬프트 |
 | 로컬 실행·IntelliJ 설정·환경 변수 확인 | [로컬 개발 안내](operations/LOCAL_DEVELOPMENT.md) |
+| 본인 PC에서 메이플 매물 검색·장비 비교 체험 | [메이플 로컬 프로토타입](../tools/maple-local-prototype/README.md) · Windows/Chrome, 기존 Discord 봇과 독립 실행 |
+| Linux 도커의 브라우저로 메이플 체험 | [메이플 도커 실행](../tools/maple-local-prototype/DOCKER.md) · 원격 수동 로그인, 서버 검색·계산·30분 감시 |
 | 앱과 저장소의 연결 이해 | [현재 아키텍처](reference/CURRENT_ARCHITECTURE.md) |
 | 수정할 모듈과 코드 진입점 찾기 | [모듈 구조](reference/MODULE_STRUCTURE.md), [앱 목록](../apps/README.md) |
 | 명령·결과 메시지와 큐 확인 | [이벤트 계약](reference/EVENT_CONTRACT.md) |
