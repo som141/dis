@@ -6,6 +6,7 @@
 
 | 하고 싶은 일 | 먼저 읽을 문서 |
 | --- | --- |
+| DIS 경험을 이력서·포트폴리오로 읽기 | [작성 원고·PDF·검증 자료](portfolio/dis/README.md) · 제작 계기, 실제 운영 사례, 공개 사례 비교 |
 | 로컬 실행·IntelliJ 설정·환경 변수 확인 | [로컬 개발 안내](operations/LOCAL_DEVELOPMENT.md) |
 | 앱과 저장소의 연결 이해 | [현재 아키텍처](reference/CURRENT_ARCHITECTURE.md) |
 | 수정할 모듈과 코드 진입점 찾기 | [모듈 구조](reference/MODULE_STRUCTURE.md), [앱 목록](../apps/README.md) |
