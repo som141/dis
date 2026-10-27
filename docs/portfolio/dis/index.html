@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="윤영주의 DIS 프로젝트 포트폴리오와 이력서. 실제 사용과 운영 문제 해결을 기록했습니다.">
+<title>윤영주 · DIS 프로젝트 포트폴리오</title><style>
+:root{--ink:#202c35;--muted:#62717b;--accent:#116c6e;--paper:#fff;--ground:#f3f2ed;--line:#dce4e1;--tint:#eff6f3}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--ground);color:var(--ink);font-family:'Noto Sans CJK KR','Malgun Gothic',sans-serif;font-size:15px;line-height:1.85;word-break:keep-all;overflow-wrap:break-word}
+a{color:var(--accent);text-underline-offset:4px}a:hover{text-decoration-thickness:2px}button,a:focus-visible{outline-offset:4px}button{font:inherit;cursor:pointer}
+.topbar{position:sticky;top:0;z-index:5;display:flex;justify-content:space-between;align-items:center;gap:20px;background:#f3f2edf5;border-bottom:1px solid var(--line);padding:15px 6vw;font-size:13px;backdrop-filter:blur(8px)}.brand{font-weight:700;letter-spacing:.05em}.toplinks{display:flex;gap:20px;align-items:center;flex-wrap:wrap}.toplinks a{text-decoration:none}.print-button{background:var(--ink);color:white;border:0;border-radius:5px;padding:8px 15px}
+.layout{max-width:1230px;margin:40px auto;display:grid;grid-template-columns:190px minmax(0,860px);gap:34px;padding:0 26px}.sidebar{position:sticky;top:100px;align-self:start;font-size:12px}.sidebar p{color:var(--muted);margin:0 0 18px}.sidebar a{display:block;color:var(--muted);text-decoration:none;padding:8px 0}.sidebar a:hover{color:var(--accent)}.sidebar .nav-caption{font-size:10px;letter-spacing:.15em;font-weight:700;color:var(--accent)}
+.document-sheet{background:var(--paper);padding:40px 46px;margin:0 0 30px;border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 22px #23382c05;scroll-margin-top:90px}.folio{display:flex;justify-content:space-between;gap:18px;border-bottom:1px solid var(--line);padding-bottom:15px;margin-bottom:23px;font-size:11px;font-weight:700;letter-spacing:.12em;color:var(--accent)}h1{font-size:34px;line-height:1.45;letter-spacing:-.06em;margin:10px 0 18px}h2{font-size:23px;line-height:1.55;letter-spacing:-.035em;margin:28px 0 14px}h3{font-size:16px;line-height:1.7;margin:23px 0 9px;color:var(--accent)}p{margin:11px 0}strong{font-weight:700}li{margin:5px 0}ul,ol{padding-left:23px}.lede{font-size:17px}.document-sheet>h2:first-of-type{margin-top:0}hr{border:0;border-top:1px solid var(--line);margin:24px 0}
+table{width:100%;border-collapse:collapse;margin:20px 0;font-size:12px;line-height:1.75}th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}th{background:var(--tint);font-weight:700}th:first-child,td:first-child{width:26%}blockquote{margin:20px 0;padding:12px 18px;border-left:3px solid var(--accent);background:var(--tint)}code{font-family:ui-monospace,monospace;font-size:.88em;background:var(--tint);padding:1px 4px;border-radius:3px}.flow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;list-style:none;padding:0;margin:25px 0}.flow li{border:1px solid var(--line);border-radius:5px;padding:14px 9px;background:var(--tint);margin:0}.flow span{display:block;font-size:11px;color:var(--accent);font-weight:700}.flow strong{display:block;margin:3px 0;font-size:13px}.flow small{display:block;font-size:10px;line-height:1.6;color:var(--muted)}.ending{margin:35px 0 55px;text-align:center;font-size:12px;color:var(--muted)}.review-link{border-top:1px solid var(--line);padding-top:18px;margin-top:25px;font-size:12px;color:var(--muted)}
+.resume-layout{max-width:840px;margin:35px auto;padding:0 20px}.resume-sheet{padding:35px 42px}.resume-sheet h1{font-size:30px;margin-top:0}.resume-sheet h2{font-size:18px;border-bottom:1px solid var(--line);padding-bottom:5px;margin:22px 0 10px}.resume-sheet p,.resume-sheet li{font-size:13px;line-height:1.8}.resume-sheet ul{margin:10px 0}.resume-sheet table{font-size:11px}
+@media(max-width:850px){.layout{display:block;max-width:800px;margin:20px auto;padding:0 14px}.sidebar{position:static;display:flex;gap:14px;overflow:auto;white-space:nowrap;margin-bottom:16px}.sidebar p,.sidebar .nav-caption{display:none}.sidebar a{padding:8px 0}.document-sheet{padding:28px 25px}h1{font-size:27px}h2{font-size:21px}.topbar{padding:12px 18px;gap:12px}.toplinks{gap:12px;font-size:11px}.brand{font-size:11px}.resume-layout{padding:0 12px}.resume-sheet{padding:28px 24px}}
+@media(max-width:480px){body{font-size:14px}.document-sheet{padding:24px 19px}.flow{grid-template-columns:repeat(2,minmax(0,1fr))}table{font-size:11px}th,td{padding:8px}.toplinks .pdf-link{display:none}.folio{font-size:9px}h1{font-size:24px}}
+@page{size:A4;margin:15mm 15mm 17mm}
+@media print{html{scroll-behavior:auto}body{background:white;font-size:10pt;line-height:1.68;color:#202c35;-webkit-print-color-adjust:exact;print-color-adjust:exact}.topbar,.sidebar,.ending{display:none}.layout,.resume-layout{display:block;max-width:none;margin:0;padding:0}.document-sheet{border:0;box-shadow:none;border-radius:0;margin:0;padding:0;break-after:page;scroll-margin:0}.document-sheet:last-child{break-after:auto}.folio{font-size:8pt;padding-bottom:8px;margin-bottom:16px}h1{font-size:23pt;line-height:1.4;margin:5px 0 14px}h2{font-size:16pt;line-height:1.5;margin:21px 0 10px;break-after:avoid}h3{font-size:11pt;margin:15px 0 6px;break-after:avoid}p{margin:8px 0;orphans:3;widows:3}table{font-size:8.6pt;line-height:1.65;margin:13px 0}tr{break-inside:avoid}th,td{padding:7px 9px}a{color:inherit;text-decoration:none}li{break-inside:avoid}.flow{grid-template-columns:repeat(4,minmax(0,1fr));margin:20px 0}.flow li{padding:10px 8px}.flow strong{font-size:9pt}.flow small{font-size:7.8pt}.flow span{font-size:8pt}.review-link{font-size:8pt;margin-top:18px;padding-top:12px}.resume-sheet{break-after:auto}.resume-sheet h1{font-size:23pt}.resume-sheet h2{font-size:12pt;margin:13px 0 6px;padding-bottom:4px;break-after:avoid}.resume-sheet p,.resume-sheet li{font-size:9.3pt;line-height:1.58}.resume-sheet p{margin:5px 0}.resume-sheet ul{margin:5px 0;padding-left:18px}.resume-sheet li{margin:2px 0}.resume-sheet table{font-size:8.3pt;margin:8px 0}.resume-sheet th,.resume-sheet td{padding:5px 8px}.resume-sheet .folio{display:none}}
+</style></head><body><header class="topbar"><span class="brand">윤영주 / PROJECT PORTFOLIO</span>
+<nav class="toplinks" aria-label="문서 선택"><a href="index.html">DIS 포트폴리오</a><a href="resume.html">이력서</a>
+<a class="pdf-link" href="DIS_PORTFOLIO.pdf">PDF</a><button class="print-button" type="button" id="print">인쇄 / 저장</button></nav></header><div class="layout"><aside class="sidebar"><p class="nav-caption">CONTENTS</p><p>사용 장면에서 시작해<br>확인한 결과까지.</p>
+<a href="#overview">01 프로젝트 소개</a><a href="#structure">02 구조와 챌린지</a><a href="#music">03 음악이 나오지 않을 때</a>
+<a href="#response">04 답변이 돌아오는 순서</a><a href="#delivery">05 빌드·배포 문제</a><a href="#learning">06 결과와 배운 점</a></aside><main><section class="document-sheet" id="overview"><div class="folio"><span>DIS / 01 · PROJECT</span><span>윤영주 · 2026.10</span></div><h1>DIS · 만들어 사용하는 봇에서, 문제를 고쳐 가는 서비스로</h1>
+<p><strong>Discord에서 음악을 듣고 주식 모의투자를 할 수 있는 Java 봇</strong><br />
+윤영주 · 개발 및 운영 · 저장소 기록 2025.06~<br />
+<a href="https://github.com/som141/dis">프로젝트 GitHub</a></p>
+<p>현재 지인 약 30명과 사용하고 있습니다.</p>
+<h2>1. 어떤 프로젝트인가요?</h2>
+<p>DIS는 Discord 채팅에서 음악을 검색하고 음성 채널로 들을 수 있는 봇입니다. 곡을 대기열에 넣거나 일시정지·건너뛰기 같은 조작을 할 수 있습니다. 이후 가상 자금으로 주식을 사고팔고, 계좌와 수익률 순위를 확인하는 모의투자 기능을 추가했습니다.</p>
+<p>직접 만들게 된 계기는 2024년 Discord 봇들이 동작하지 않던 경험이었습니다. 사용하던 기능을 이용할 수 없게 되자, 필요한 음악 기능을 직접 만들어 사용해 보기로 했습니다. Java와 JDA, LavaPlayer로 기본 기능을 구현한 뒤 GCP에 올렸고, 현재는 지인 약 30명과 함께 사용하고 있습니다.</p>
+<p>같은 해 공개 음악 라이브러리에서도 로그인 요구와 재생 실패가 보고됐습니다. 당시 상황을 확인한 <a href="https://github.com/som141/dis/blob/portfolio/dis-case-study/docs/portfolio/dis/ORIGIN_CONTEXT.md">관련 자료</a>도 함께 정리했습니다. 2024년의 경험이 제작 계기가 되었고, 저장소에서 확인되는 첫 개발 기록은 2025년 6월입니다.</p>
+<p>기능이 늘어나고 배포를 반복하면서, 코드를 실행하는 것과 사용자가 정상적으로 이용하는 것은 다르다는 점을 경험했습니다. 재생 안내는 나오는데 음악이 들리지 않거나, 기능 코드와 별개로 빌드가 막히는 상황이 있었습니다. 이 프로젝트에서는 그런 문제를 확인하고 고쳐 나가는 과정에 집중했습니다.</p>
+<h2>2. 사용자는 어떻게 이용하나요?</h2>
+<table>
+<thead>
+<tr>
+<th>하고 싶은 일</th>
+<th>사용 흐름</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>음악 듣기</td>
+<td>음성 채널 입장 → <code>/play</code>로 곡 검색 → 재생·대기열 확인</td>
+</tr>
+<tr>
+<td>재생 조작</td>
+<td><code>/pause</code>, <code>/resume</code>, <code>/skip</code>, <code>/stop</code>으로 제어</td>
+</tr>
+<tr>
+<td>모의투자</td>
+<td>시세 확인 → 가상 자금으로 매수·매도 → 계좌·거래 내역·순위 조회</td>
+</tr>
+<tr>
+<td>사용법 확인</td>
+<td><code>/man</code>으로 본인에게만 보이는 명령 안내 확인</td>
+</tr>
+</tbody>
+</table>
+<p>음악 재생 안내나 계좌 조회처럼 개인에게 필요한 결과는 요청한 사람에게 보여 줍니다. 모의투자의 매매·순위처럼 함께 볼 성격의 결과는 채널에 공개합니다.</p>
+</section><section class="document-sheet" id="structure"><div class="folio"><span>DIS / 02 · OVERVIEW</span><span>윤영주 · 2026.10</span></div><h2>3. 기능을 늘리며 역할도 나눴습니다</h2>
+<p>현재는 명령을 받는 부분, 음악을 처리하는 부분, 주식 모의투자를 처리하는 부분을 나누어 실행합니다. 처음부터 이 구조였던 것은 아니며, 기능을 추가하고 응답 흐름을 정리하는 과정에서 바뀌었습니다.</p>
+<ol class="flow" aria-label="명령에서 사용자 답변까지의 흐름">
+<li><span>01</span><strong>명령 입력</strong><small>Discord 사용자</small></li>
+<li><span>02</span><strong>답변 준비</strong><small>돌려줄 위치를 먼저 기록</small></li>
+<li><span>03</span><strong>작업 처리</strong><small>음악 또는 모의투자</small></li>
+<li><span>04</span><strong>결과 안내</strong><small>원래 요청에 답변</small></li></ol><p>작업을 주고받는 데 RabbitMQ를 사용하고, 응답을 기다리는 정보와 일부 상태는 Redis에, 모의투자 계좌와 거래 기록은 PostgreSQL에 저장합니다. 각 부분이 나누어져 있어도 <strong>요청한 사람이 결과를 받을 때까지 하나의 흐름으로 이어져야 한다</strong>는 점을 중요하게 생각했습니다.</p>
+<h2>핵심 챌린지 세 가지</h2>
+<h3>1. “재생됐다고 나오는데 왜 소리가 안 날까?”</h3>
+<p>봇은 음성 채널에 들어오고 재생 안내도 보냈지만 실제로는 음악이 나오지 않았습니다. 연결 여부와 곡 검색 성공만 보지 않고, 음원 데이터를 가져오는 단계의 로그와 인증 상태를 확인했습니다. 외부 음원 요청 방식의 호환성을 보완해 재생을 복구했고, 요청을 받은 상태와 실제 재생 실패를 구분해 안내하도록 개선했습니다.</p>
+<h3>2. “작업이 끝났는데 답변할 사용자를 놓치면 안 된다.”</h3>
+<p>명령을 받는 부분과 음악을 처리하는 부분을 나누면서, 처리 결과를 원래 요청에 돌려주는 순서도 정리했습니다. 답변할 위치를 먼저 저장하고 작업을 보내도록 바꿨으며, 작업이 빨리 끝나도 이 순서가 지켜지는지 테스트했습니다.</p>
+<h3>3. “기능 코드를 바꾸지 않았는데 빌드가 막혔다.”</h3>
+<p>외부 라이브러리 저장소가 필요한 설명 파일 대신 웹페이지를 반환해 빌드가 실패한 문제에 대응했습니다. 원인을 확인한 뒤 같은 버전의 공식 배포 파일을 받도록 바꾸고 검증값을 확인했습니다. 변경 이후 자동 빌드와 서버 배포 성공을 확인하며, 서비스 운영에는 기능 코드뿐 아니라 전달·실행 과정도 포함된다는 점을 배웠습니다.</p>
+</section><section class="document-sheet" id="music"><div class="folio"><span>DIS / 03 · MUSIC</span><span>윤영주 · 2026.10</span></div><h2>4. 어려움 하나 · 재생 안내는 나오는데 음악이 들리지 않았습니다</h2>
+<h3>사용 중 확인한 상황</h3>
+<p>다른 명령은 동작하고 봇도 음성 채널에 들어왔습니다. <code>/play</code>를 입력하면 재생을 시작했다는 안내가 나왔지만 소리가 들리지 않았습니다. <code>/resume</code>을 사용해도 해결되지 않았고, 다시 요청해도 같은 상황이 반복됐습니다.</p>
+<p>처음에는 버전이나 의존성 문제를 의심했습니다. 하지만 그 추측만으로 라이브러리를 바꾸기보다, 실제로 어디까지 성공했는지 나눠 확인했습니다.</p>
+<h3>확인한 내용</h3>
+<p>서버의 음악 처리 로그를 보니 곡 검색은 성공했지만 음원을 가져오는 과정에서 실패하고 있었습니다. 외부 제공자가 로그인을 요구하거나 음원 요청을 거절하는 응답이 남았고, 결국 곡이 불러오기 실패로 끝났습니다.</p>
+<p>인증 정보가 환경에 들어 있다는 사실만으로는 충분하지 않았습니다. 인증 갱신이 실제로 성공했다는 로그까지 확인했고, 그 뒤에도 남는 음원 요청 문제를 따로 살폈습니다. 연결, 검색, 인증, 실제 음원 수신을 하나의 성공으로 묶지 않는 것이 중요했습니다.</p>
+<h3>바꾼 부분</h3>
+<p>음원 처리 라이브러리의 공개 수정 사항과 요청 방식을 비교해 호환성을 보완했습니다. 또한 봇이 곡을 받았다는 이유만으로 실제 재생까지 성공했다고 안내하지 않도록, 처음에는 <strong>재생 요청을 접수했다</strong>고 알리게 바꿨습니다.</p>
+<p>음원 다운로드나 재생 중 나중에 오류가 나면, 원래 요청의 안내도 실패 상태로 바꾸도록 했습니다. 실패 뒤에 늦게 도착한 접수 결과가 실패 안내를 다시 덮어쓰지 않도록 처리한 점도 함께 확인했습니다.</p>
+<h3>결과와 배운 점</h3>
+<p>변경 적용 후 실제 음성 채널에서 음악이 정상적으로 나오는 것을 확인했습니다. 동시에 재생이 실패했을 때는 사용자가 성공 안내만 보고 기다리지 않도록 응답 흐름을 개선했습니다.</p>
+<p>이 경험 이후에는 컨테이너가 정상이라는 표시나 테스트 통과만으로 음악이 동작한다고 판단하지 않습니다. 실제 <code>/play</code>를 사용하고 소리가 들리는지까지 별도로 확인합니다. 외부 음원 서비스가 바뀌면 다시 점검해야 하는 범위도 남아 있습니다.</p>
+</section><section class="document-sheet" id="response"><div class="folio"><span>DIS / 04 · RESPONSE</span><span>윤영주 · 2026.10</span></div><h2>5. 어려움 둘 · 기능을 나눈 뒤에도 답변이 원래 요청으로 돌아가야 했습니다</h2>
+<h3>구조를 점검하며 확인한 응답 순서</h3>
+<p>명령을 받는 곳과 음악을 처리하는 곳이 달라지면, 작업이 끝났다는 것만으로 사용자에게 답할 수 있는 것은 아닙니다. 어떤 요청의 결과인지, 어느 답변을 수정해야 하는지 알아야 합니다.</p>
+<p>개선 과정에서 작업을 먼저 보내고 답변할 정보를 나중에 저장하던 순서를 살폈습니다. 결과가 매우 빨리 돌아오면, 아직 답변 위치가 기록되지 않은 상황과 겹칠 수 있기 때문입니다.</p>
+<h3>바꾼 부분</h3>
+<p>처리 순서를 <strong>응답 준비 → 답변 정보 저장 → 작업 전달</strong>로 바꿨습니다. 작업 결과가 도착하면 저장해 둔 정보를 찾아 원래 요청의 답변을 수정합니다. 개인에게만 보여야 하는 안내도 같은 응답에 이어지도록 했습니다.</p>
+<p>이 순서는 주석으로만 남기지 않고 테스트로 확인했습니다. 답변 정보 저장이 작업 전달보다 먼저 일어나는지 검사해, 이후 기능을 고치더라도 순서가 바뀌지 않게 했습니다.</p>
+<h3>결과와 배운 점</h3>
+<p>역할을 나눌 때는 요청을 전달하는 경로뿐 아니라 <strong>결과가 사용자에게 돌아오는 경로</strong>까지 함께 설계해야 한다는 점을 배웠습니다. 빠른 처리도 순서가 잘못되면 정상적인 사용자 경험으로 이어지지 않습니다.</p>
+<p>답변에 필요한 정보에는 유효 시간이 있으므로, 모든 작업 결과를 언제까지나 복구할 수 있는 구조는 아닙니다. 오래 대기한 곡에서 발생한 오류는 로그로 확인해야 하는 경우가 남아 있습니다.</p>
+</section><section class="document-sheet" id="delivery"><div class="folio"><span>DIS / 05 · DELIVERY</span><span>윤영주 · 2026.10</span></div><h2>6. 어려움 셋 · 기능 코드는 그대로인데 빌드가 막혔습니다</h2>
+<h3>배포 과정에서 확인한 상황</h3>
+<p>음악 라이브러리를 내려받는 과정에서, 외부 저장소가 필요한 설명 파일 대신 웹페이지를 반환하는 문제가 확인됐습니다. 빌드 도구는 라이브러리 설명으로 읽어야 할 내용을 해석하지 못했고, 새 버전을 서버에 전달하는 과정도 막혔습니다.</p>
+<p>이때는 기능 코드가 잘못됐다고 가정하기보다 실제로 내려온 파일과 공식 배포 경로를 확인했습니다. 버전을 무조건 올리면 음악 동작까지 함께 바뀔 수 있어, 우선 사용 중인 버전을 유지하는 방향을 택했습니다.</p>
+<h3>바꾼 부분</h3>
+<p>같은 버전의 공식 GitHub 배포 파일을 사용하도록 바꾸고, 공식 검증값과 일치하는지 빌드 전에 확인하게 했습니다. 공급받는 경로는 바꾸되, 출처와 파일 확인 절차를 함께 남겼습니다.</p>
+<p>이전 운영 과정에서는 별도로 배포 스크립트도 정리했습니다. 반복 배포에서 남는 업로드 파일과 사용하지 않는 이미지를 정리하고, 설정을 검사한 뒤 새 컨테이너의 기동 상태를 기다리도록 했습니다.</p>
+<h3>결과와 배운 점</h3>
+<p>변경 이후 자동 빌드와 서버 배포가 성공한 기록을 확인했습니다. 이 경험을 통해 운영에는 기능 구현뿐 아니라 <strong>필요한 파일을 받아 빌드하고, 서버에서 시작한 결과를 확인하는 과정</strong>도 포함된다는 점을 배웠습니다.</p>
+<p>현재 배포는 이전 버전을 내리고 새 버전을 올리는 방식입니다. 전환 중 사용에 영향이 있을 수 있어, 배포 뒤에는 기동 확인과 실제 Discord 사용을 구분해 점검합니다.</p>
+</section><section class="document-sheet" id="learning"><div class="folio"><span>DIS / 06 · LEARNING</span><span>윤영주 · 2026.10</span></div><h2>7. 지금까지 만든 것과 앞으로 확인할 것</h2>
+<table>
+<thead>
+<tr>
+<th>구분</th>
+<th>현재 범위</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>구현한 기능</td>
+<td>음악 검색·재생·대기열·제어, 모의투자 계좌·매매·순위, 개인 사용법 안내</td>
+</tr>
+<tr>
+<td>직접 사용하며 확인한 문제</td>
+<td>재생 안내와 실제 무음의 차이, 변경 후 실제 음악 재생</td>
+</tr>
+<tr>
+<td>코드·테스트로 확인한 개선</td>
+<td>답변 저장 순서, 재생 실패 통지, 늦은 접수 결과가 실패를 덮지 않는 처리</td>
+</tr>
+<tr>
+<td>배포 기록으로 확인한 결과</td>
+<td>라이브러리 공급 방식 수정 이후 자동 빌드·서버 배포 성공</td>
+</tr>
+<tr>
+<td>앞으로 기록을 보강할 부분</td>
+<td>실제 이용 지표와 장기간 운영 기록, 배포 뒤 사용자 기능 확인 결과</td>
+</tr>
+</tbody>
+</table>
+<p>여기서는 확인할 수 있는 기능과 운영 사례를 중심으로 설명했습니다. 사용자 수의 의미, 테스트와 실제 사용의 차이, 성과로 기재하지 않은 항목은 <a href="https://github.com/som141/dis/blob/portfolio/dis-case-study/docs/portfolio/dis/EVIDENCE.md">검증 문서</a>에서 확인할 수 있습니다.</p>
+<p>다음에는 기능이 실행되는 것뿐 아니라, 배포 뒤 실제 명령과 음악 재생을 확인한 기록을 더 꾸준히 남기고 싶습니다. 그래야 문제가 다시 생겼을 때 이전 상태와 비교하고, 개선 결과도 더 정확히 설명할 수 있기 때문입니다.</p>
+<h2>8. 이 프로젝트에서 가져간 경험</h2>
+<p>DIS에서 가장 크게 배운 것은 새로운 기술을 많이 붙이는 것보다 <strong>사용자가 겪은 상황에서 출발해, 확인할 수 있는 증거를 따라 문제를 좁혀 가는 일</strong>입니다.</p>
+<p>음악이 나오지 않을 때는 연결됐다는 표시 대신 실제 음원 요청을 봤고, 기능을 나눌 때는 작업 전달뿐 아니라 답변이 돌아오는 순서를 봤습니다. 배포가 막혔을 때는 기능 코드 밖의 파일 공급과 실행 절차까지 확인했습니다. 앞으로도 직접 사용해 보고, 실패를 확인하고, 바꾼 결과를 설명할 수 있는 서비스를 만들고 싶습니다.</p>
+<hr />
+<p><a href="https://github.com/som141/dis/blob/portfolio/dis-case-study/docs/portfolio/dis/RESUME.md">이력서용 요약</a> · <a href="https://github.com/som141/dis/blob/portfolio/dis-case-study/docs/portfolio/dis/CHALLENGES.md">챌린지 3개</a> · <a href="https://github.com/som141/dis/blob/portfolio/dis-case-study/docs/portfolio/dis/EVIDENCE.md">주장별 근거</a> · <a href="https://github.com/som141/dis/blob/portfolio/dis-case-study/docs/portfolio/dis/REFERENCE_ANALYSIS.md">참고 사례 분석</a></p>
+</section></main></div><footer class="ending">윤영주 · DIS · 작성 기준 2026.10.27</footer>
+<script>document.getElementById('print').addEventListener('click',()=>window.print());</script></body></html>

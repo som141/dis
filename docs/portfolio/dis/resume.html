@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="윤영주의 DIS 프로젝트 포트폴리오와 이력서. 실제 사용과 운영 문제 해결을 기록했습니다.">
+<title>윤영주 · 이력서</title><style>
+:root{--ink:#202c35;--muted:#62717b;--accent:#116c6e;--paper:#fff;--ground:#f3f2ed;--line:#dce4e1;--tint:#eff6f3}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--ground);color:var(--ink);font-family:'Noto Sans CJK KR','Malgun Gothic',sans-serif;font-size:15px;line-height:1.85;word-break:keep-all;overflow-wrap:break-word}
+a{color:var(--accent);text-underline-offset:4px}a:hover{text-decoration-thickness:2px}button,a:focus-visible{outline-offset:4px}button{font:inherit;cursor:pointer}
+.topbar{position:sticky;top:0;z-index:5;display:flex;justify-content:space-between;align-items:center;gap:20px;background:#f3f2edf5;border-bottom:1px solid var(--line);padding:15px 6vw;font-size:13px;backdrop-filter:blur(8px)}.brand{font-weight:700;letter-spacing:.05em}.toplinks{display:flex;gap:20px;align-items:center;flex-wrap:wrap}.toplinks a{text-decoration:none}.print-button{background:var(--ink);color:white;border:0;border-radius:5px;padding:8px 15px}
+.layout{max-width:1230px;margin:40px auto;display:grid;grid-template-columns:190px minmax(0,860px);gap:34px;padding:0 26px}.sidebar{position:sticky;top:100px;align-self:start;font-size:12px}.sidebar p{color:var(--muted);margin:0 0 18px}.sidebar a{display:block;color:var(--muted);text-decoration:none;padding:8px 0}.sidebar a:hover{color:var(--accent)}.sidebar .nav-caption{font-size:10px;letter-spacing:.15em;font-weight:700;color:var(--accent)}
+.document-sheet{background:var(--paper);padding:40px 46px;margin:0 0 30px;border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 22px #23382c05;scroll-margin-top:90px}.folio{display:flex;justify-content:space-between;gap:18px;border-bottom:1px solid var(--line);padding-bottom:15px;margin-bottom:23px;font-size:11px;font-weight:700;letter-spacing:.12em;color:var(--accent)}h1{font-size:34px;line-height:1.45;letter-spacing:-.06em;margin:10px 0 18px}h2{font-size:23px;line-height:1.55;letter-spacing:-.035em;margin:28px 0 14px}h3{font-size:16px;line-height:1.7;margin:23px 0 9px;color:var(--accent)}p{margin:11px 0}strong{font-weight:700}li{margin:5px 0}ul,ol{padding-left:23px}.lede{font-size:17px}.document-sheet>h2:first-of-type{margin-top:0}hr{border:0;border-top:1px solid var(--line);margin:24px 0}
+table{width:100%;border-collapse:collapse;margin:20px 0;font-size:12px;line-height:1.75}th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}th{background:var(--tint);font-weight:700}th:first-child,td:first-child{width:26%}blockquote{margin:20px 0;padding:12px 18px;border-left:3px solid var(--accent);background:var(--tint)}code{font-family:ui-monospace,monospace;font-size:.88em;background:var(--tint);padding:1px 4px;border-radius:3px}.flow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;list-style:none;padding:0;margin:25px 0}.flow li{border:1px solid var(--line);border-radius:5px;padding:14px 9px;background:var(--tint);margin:0}.flow span{display:block;font-size:11px;color:var(--accent);font-weight:700}.flow strong{display:block;margin:3px 0;font-size:13px}.flow small{display:block;font-size:10px;line-height:1.6;color:var(--muted)}.ending{margin:35px 0 55px;text-align:center;font-size:12px;color:var(--muted)}.review-link{border-top:1px solid var(--line);padding-top:18px;margin-top:25px;font-size:12px;color:var(--muted)}
+.resume-layout{max-width:840px;margin:35px auto;padding:0 20px}.resume-sheet{padding:35px 42px}.resume-sheet h1{font-size:30px;margin-top:0}.resume-sheet h2{font-size:18px;border-bottom:1px solid var(--line);padding-bottom:5px;margin:22px 0 10px}.resume-sheet p,.resume-sheet li{font-size:13px;line-height:1.8}.resume-sheet ul{margin:10px 0}.resume-sheet table{font-size:11px}
+@media(max-width:850px){.layout{display:block;max-width:800px;margin:20px auto;padding:0 14px}.sidebar{position:static;display:flex;gap:14px;overflow:auto;white-space:nowrap;margin-bottom:16px}.sidebar p,.sidebar .nav-caption{display:none}.sidebar a{padding:8px 0}.document-sheet{padding:28px 25px}h1{font-size:27px}h2{font-size:21px}.topbar{padding:12px 18px;gap:12px}.toplinks{gap:12px;font-size:11px}.brand{font-size:11px}.resume-layout{padding:0 12px}.resume-sheet{padding:28px 24px}}
+@media(max-width:480px){body{font-size:14px}.document-sheet{padding:24px 19px}.flow{grid-template-columns:repeat(2,minmax(0,1fr))}table{font-size:11px}th,td{padding:8px}.toplinks .pdf-link{display:none}.folio{font-size:9px}h1{font-size:24px}}
+@page{size:A4;margin:15mm 15mm 17mm}
+@media print{html{scroll-behavior:auto}body{background:white;font-size:10pt;line-height:1.68;color:#202c35;-webkit-print-color-adjust:exact;print-color-adjust:exact}.topbar,.sidebar,.ending{display:none}.layout,.resume-layout{display:block;max-width:none;margin:0;padding:0}.document-sheet{border:0;box-shadow:none;border-radius:0;margin:0;padding:0;break-after:page;scroll-margin:0}.document-sheet:last-child{break-after:auto}.folio{font-size:8pt;padding-bottom:8px;margin-bottom:16px}h1{font-size:23pt;line-height:1.4;margin:5px 0 14px}h2{font-size:16pt;line-height:1.5;margin:21px 0 10px;break-after:avoid}h3{font-size:11pt;margin:15px 0 6px;break-after:avoid}p{margin:8px 0;orphans:3;widows:3}table{font-size:8.6pt;line-height:1.65;margin:13px 0}tr{break-inside:avoid}th,td{padding:7px 9px}a{color:inherit;text-decoration:none}li{break-inside:avoid}.flow{grid-template-columns:repeat(4,minmax(0,1fr));margin:20px 0}.flow li{padding:10px 8px}.flow strong{font-size:9pt}.flow small{font-size:7.8pt}.flow span{font-size:8pt}.review-link{font-size:8pt;margin-top:18px;padding-top:12px}.resume-sheet{break-after:auto}.resume-sheet h1{font-size:23pt}.resume-sheet h2{font-size:12pt;margin:13px 0 6px;padding-bottom:4px;break-after:avoid}.resume-sheet p,.resume-sheet li{font-size:9.3pt;line-height:1.58}.resume-sheet p{margin:5px 0}.resume-sheet ul{margin:5px 0;padding-left:18px}.resume-sheet li{margin:2px 0}.resume-sheet table{font-size:8.3pt;margin:8px 0}.resume-sheet th,.resume-sheet td{padding:5px 8px}.resume-sheet .folio{display:none}}
+</style></head><body><header class="topbar"><span class="brand">윤영주 / RESUME</span>
+<nav class="toplinks" aria-label="문서 선택"><a href="index.html">DIS 포트폴리오</a><a href="resume.html">이력서</a>
+<a class="pdf-link" href="YOON_YOUNGJU_RESUME.pdf">PDF</a><button class="print-button" type="button" id="print">인쇄 / 저장</button></nav></header><main class="resume-layout"><article class="document-sheet resume-sheet"><h1>윤영주</h1>
+<p>Java를 중심으로, 직접 사용하는 Discord 봇을 만들고 운영 중 생긴 문제를 개선하고 있습니다.</p>
+<p><a href="https://github.com/som141">GitHub</a> · <a href="https://github.com/som141/dis">DIS 프로젝트</a> · <a href="https://github.com/som141/dis/blob/portfolio/dis-case-study/docs/portfolio/dis/PORTFOLIO.md">DIS 상세 포트폴리오</a></p>
+<h2>대표 프로젝트 · DIS</h2>
+<p><strong>음악 재생과 주식 모의투자를 제공하는 Discord 봇</strong><br />
+개발 기록 2025.06~ · 개인 프로젝트 · 개발 및 운영<br />
+<a href="https://github.com/som141/dis">저장소</a></p>
+<p>2024년 Discord 봇들이 동작하지 않던 경험을 계기로 음악 봇을 개발하고 GCP에 올렸습니다. 현재 지인 약 30명과 사용하며, 음악 재생 외에 가상 자금으로 주식을 사고팔고 계좌·순위를 조회하는 기능을 제공합니다.</p>
+<ul>
+<li><strong>음악이 나오지 않는 문제 해결:</strong> 재생 안내는 표시되지만 소리가 들리지 않는 상황에서 서버 로그와 외부 음원 요청을 확인했습니다. 인증 상태와 음원 요청 방식의 호환성을 점검해 재생을 복구하고, 나중에 발생한 재생 실패도 원래 요청에 안내하도록 개선했습니다.</li>
+<li><strong>요청과 답변 연결 개선:</strong> 명령 수신과 실제 작업을 나누면서, 답변할 위치를 저장한 뒤 작업을 보내도록 순서를 정리했습니다. 결과가 빨리 돌아오는 경우에도 이 순서가 지켜지는지 테스트로 확인했습니다.</li>
+<li><strong>빌드·배포 문제 대응:</strong> 외부 라이브러리 저장소가 올바른 설명 파일 대신 웹페이지를 반환하는 문제에 대응했습니다. 같은 버전의 공식 배포 파일을 사용하고 검증값을 확인하도록 바꿨으며, 변경 후 자동 빌드와 서버 배포 성공을 확인했습니다.</li>
+</ul>
+<p>사용 기술: Java, Spring Boot, JDA, LavaPlayer, RabbitMQ, Redis, PostgreSQL, Docker Compose, GitHub Actions.</p>
+<h2>수업 프로젝트 · 전자결재 시스템</h2>
+<p><a href="https://github.com/som141/advancedProgramingAs">저장소</a></p>
+<ul>
+<li>직원 관리, 결재 요청, 결재 처리, 결과 알림을 네 개의 Spring Boot 앱으로 나누어 구성한 수업 프로젝트입니다.</li>
+<li>기능 사이의 요청·결과 전달에 REST, gRPC, WebSocket을 사용하고 MySQL·MongoDB에 데이터를 저장했습니다.</li>
+</ul>
+<h2>수업 프로젝트 · 날씨 앱과 홈 화면 위젯</h2>
+<p><a href="https://github.com/som141/weather_">저장소</a></p>
+<ul>
+<li>Kotlin으로 현재 위치의 날씨와 미세먼지를 확인하는 Android 앱을 개발했습니다.</li>
+<li>기상청·미세먼지 API를 연결하고, 앱을 열지 않고도 정보를 볼 수 있도록 홈 화면 위젯을 구현했습니다.</li>
+</ul>
+<h2>기술을 사용한 맥락</h2>
+<table>
+<thead>
+<tr>
+<th>기술</th>
+<th>사용 경험</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Java · Spring Boot</td>
+<td>DIS와 전자결재 시스템의 서버 기능 개발</td>
+</tr>
+<tr>
+<td>SQL · 관계형 DB</td>
+<td>DIS 모의투자 계좌·거래 기록, ERP 직원 정보 저장</td>
+</tr>
+<tr>
+<td>Docker Compose · Linux · GitHub Actions</td>
+<td>DIS 실행 환경 구성, 클라우드 배포와 상태 점검</td>
+</tr>
+<tr>
+<td>Kotlin · Android</td>
+<td>외부 날씨 API를 사용하는 앱과 위젯 개발</td>
+</tr>
+</tbody>
+</table>
+<h2>학력</h2>
+<p><strong>단국대학교 · 소프트웨어 전공</strong><br />
+2023.03 입학</p>
+</article></main><footer class="ending">공개 GitHub 이력서와 프로젝트 기록을 바탕으로 작성한 개정 초안 · 2026.10.27</footer>
+<script>document.getElementById('print').addEventListener('click',()=>window.print());</script></body></html>
