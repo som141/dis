@@ -12,11 +12,12 @@ next-plan/maple-local-handoff 브랜치에서 메이플 개인용 프로토타�
 
 다음 문서를 순서대로 읽어:
 1. NEXT PLAN/README.md
-2. NEXT PLAN/CURRENT_STATE.md
-3. NEXT PLAN/LOCAL_WORKFLOW.md
-4. NEXT PLAN/REFERENCES.md
-5. NEXT PLAN/NEXT_PLAN.md
-6. tools/maple-local-prototype/DOCKER.md 와 VALIDATION.md
+2. NEXT PLAN/PROJECT_RECORD.md
+3. NEXT PLAN/CURRENT_STATE.md
+4. NEXT PLAN/NEXT_PLAN.md
+5. NEXT PLAN/LOCAL_WORKFLOW.md
+6. NEXT PLAN/REFERENCES.md
+7. tools/maple-local-prototype/DOCKER.md 와 VALIDATION.md
 
 우선 목표는 Windows Docker Desktop에서 프로토타입을 실제 실행하고,
 내가 원격 Chromium의 공식 페이지에서 로그인·OTP를 완료하면
@@ -46,7 +47,8 @@ signin.nexon.com 접속이 클라우드 프록시 CONNECT 403으로 막혀 실�
 환산주스탯 템환산과 현재 독립 교체 모델을 구분해.
 실제 30분 후 새 매물이 없으면 조회 성공·신규 0건으로 보고해.
 
-결과는 VALIDATION.md에 커밋·환경·실제 성공 단계·실패 단계·수정/근거를 기록하고 알려줘.
+결과는 VALIDATION.md에 커밋·환경·실제 성공 단계·실패 단계·수정/근거를 기록하고,
+통과한 단계가 있으면 NEXT PLAN/NEXT_PLAN.md의 진행 상태도 함께 갱신해줘.
 기존 Discord 봇과 운영 서버는 별개야.
 작업 브랜치에서 진행하고, main push/병합/운영 배포는 이번 작업 범위에 포함하지 마.
 ```
