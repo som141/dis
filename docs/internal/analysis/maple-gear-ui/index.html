@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>메이플 장비 비교실 · Discord 인터랙션 시안</title>
+<style>
+:root{--paper:#f4f2ed;--ink:#172024;--muted:#727570;--orange:#f76732;--chat:#313338;--panel:#2b2d31;--line:#44474e;--text:#e6e8ec;--sub:#aeb3bd;--brand:#5865f2;--green:#7ed4a6;--warn:#f2bd72}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:14px;line-height:1.55}button,input,select{font:inherit}button,select{cursor:pointer}button:disabled{opacity:.4;cursor:not-allowed}button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid #a9b0ff;outline-offset:3px}button{border:0}a{color:inherit}.board{max-width:1510px;margin:auto;padding:38px 48px 24px}.eyebrow{font-size:11px;font-weight:750;letter-spacing:2.3px;color:#7b7b75}.eyebrow:before{content:"";display:inline-block;width:28px;height:4px;background:var(--orange);margin-right:12px;vertical-align:middle}header{display:flex;justify-content:space-between;gap:30px;align-items:center;margin-bottom:27px}h1{font-size:43px;letter-spacing:-2px;line-height:1.2;margin:12px 0}.lead{margin:0;color:#73766f;font-size:15px}.edition{text-align:right;font-size:11px;letter-spacing:1.6px;color:#81837d}.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:20px 0}.toolbar .label{font-size:11px;color:#797c76;margin-right:9px}.tool{padding:9px 13px;border-radius:6px;background:#e5e4de;font-size:12px;font-weight:650;color:#4c524d}.tool:hover{background:#dcdcd3}.tool.accent{background:#192424;color:#faf9f6}.layout{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:30px;align-items:start}.mockup{background:var(--chat);border:1px solid #44464d;border-radius:12px;color:var(--text);box-shadow:0 12px 35px #19212113;overflow:hidden;min-height:680px;transition:max-width .2s}.mockup.mobile{max-width:410px}.channel{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:17px 21px;border-bottom:1px solid #222428;color:#f3f4f7;font-weight:650}.channel span:first-child:before{content:"#";color:#969ca8;margin-right:13px;font-size:23px;font-weight:400}.channel .icons{color:#9399a5;font-size:15px;letter-spacing:12px}.chat{padding:25px 25px 28px;min-height:570px}.message{display:flex;gap:13px;align-items:flex-start}.avatar{width:37px;height:37px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border-radius:50%;font-weight:850;color:white;background:linear-gradient(145deg,#6977ff,#4856d9);box-shadow:inset 0 0 0 2px #ffffff15}.messagebody{width:100%;max-width:670px;min-width:0}.botline{display:flex;align-items:center;gap:7px;margin:0 0 5px;font-size:14px}.appbadge{font-size:9px;line-height:15px;padding:0 4px;border-radius:3px;background:#5865f2;color:white}.botline time{color:#959ba6;font-size:10px;font-weight:400}.private{font-size:11px;color:#b8bec8;margin:0 0 15px}.private:before{content:"◈ ";color:#a8aef5}.container{border:1px solid #40434c;border-left:4px solid var(--brand);border-radius:8px;background:var(--panel);padding:20px;overflow-wrap:anywhere}h2{font-size:20px;line-height:1.35;margin:0 0 9px;color:#f6f7f9;letter-spacing:-.5px}h3{font-size:15px;margin:0 0 6px;color:#f2f3f6}p{margin:7px 0}.small{font-size:12px;color:var(--sub)}.tiny{font-size:11px;color:var(--sub)}.rule{height:1px;background:var(--line);margin:17px 0}.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.btn{padding:9px 13px;border-radius:4px;background:#4a4e58;color:#f4f5f8;font-size:12px;font-weight:650;min-height:35px}.btn:hover{filter:brightness(1.12)}.btn.primary{background:var(--brand)}.btn.danger{background:#a63942}.btn.green{background:#287b51}.select{display:block;width:100%;color:var(--text);background:#222428;border:1px solid #474b55;border-radius:4px;padding:10px 12px;margin-top:11px;min-height:40px;font-size:13px}.select option{background:#232428}.stat{display:flex;justify-content:space-between;gap:12px;margin:7px 0;font-size:13px}.stat .k{color:var(--sub)}.gain{color:var(--green);font-weight:650}.warn{color:var(--warn);font-size:12px}.listing{padding:4px 0}.listing .title{display:flex;align-items:center;gap:8px;margin-bottom:5px;font-weight:700}.listing .letter{font-size:13px;background:#484c57;padding:1px 7px;border-radius:3px}.listing .rec{color:#f8ac63}.listing .metrics{font-size:15px;color:#f1f2f6}.composer{margin:0 21px 20px;border-radius:7px;background:#383b42;padding:13px 16px;color:#989fab;font-size:12px}.composer span{font-size:19px;margin-right:9px}.inspector{padding-top:3px}.note-title{font-size:12px;letter-spacing:1.5px;color:#7f8279;border-bottom:1px solid #dadbd2;padding-bottom:14px;margin-bottom:20px}.step{display:flex;gap:12px;align-items:flex-start;margin-bottom:20px;opacity:.53}.step.active{opacity:1}.stepno{width:26px;height:26px;border-radius:50%;border:1px solid #c9ccc0;color:#787d6f;display:grid;place-items:center;flex-shrink:0;font-size:11px;font-weight:700}.step.active .stepno{background:var(--orange);color:white;border-color:var(--orange)}.step strong{display:block;font-size:13px;margin:0 0 4px}.step p{font-size:12px;color:#777c71;margin:0}.annotation{border-top:1px solid #dadbd2;padding-top:16px;margin-top:24px;font-size:12px;color:#757b6f}.annotation strong{color:#3e4940}.annotation code{font-size:11px;color:#6865a8}.boardfooter{margin-top:24px;display:flex;justify-content:space-between;gap:12px;border-top:1px solid #d8d9cf;padding-top:15px;font-size:11px;color:#82857a}.boardfooter a{margin-left:12px}.overlay{position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;padding:18px;background:#0009}.overlay[hidden]{display:none}.modal{width:460px;max-width:100%;max-height:92vh;overflow:auto;background:#313338;color:var(--text);border:1px solid #494d56;border-radius:9px;box-shadow:0 25px 90px #0007}.modalhead{padding:22px 24px 13px;display:flex;align-items:center;justify-content:space-between;gap:8px}.modalhead h2{font-size:19px;margin:0}.x{font-size:23px;color:#b4bbc6;background:none;padding:0 3px}.modalbody{padding:0 24px 23px}.field{display:block;margin-top:17px;font-size:12px;font-weight:700}.field input,.field select{width:100%;margin-top:7px;color:#edeff2;background:#232428;border:1px solid #484c57;border-radius:4px;padding:10px 11px;font-size:13px;min-height:42px}.field input[type=file]{padding:20px 10px;border:1px dashed #697080}.modalfoot{padding:15px 24px;background:#2b2d31;display:flex;justify-content:flex-end;gap:9px}.modalerror{color:#ff9ba1;font-size:12px;margin-top:13px}.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);max-width:90vw;background:#1d2923;color:#c3f3d4;box-shadow:0 6px 25px #0003;border:1px solid #466e56;border-radius:7px;padding:12px 20px;font-size:13px;z-index:20}.toast[hidden]{display:none}.empty{padding:17px 0 8px;color:#adb4c1;font-size:13px}.loading{font-size:14px;padding:18px 0}.loading:before{content:"";display:inline-block;width:13px;height:13px;border:2px solid #666d95;border-top-color:#a7afff;border-radius:50%;animation:spin .75s linear infinite;margin-right:10px;vertical-align:middle}@keyframes spin{to{transform:rotate(360deg)}}@media(max-width:1050px){.board{padding:26px}.layout{grid-template-columns:minmax(0,1fr) 220px;gap:20px}h1{font-size:34px}.chat{padding:20px 16px}.container{padding:16px}.channel .icons{display:none}}@media(max-width:780px){.board{padding:20px 14px}.layout{grid-template-columns:1fr}.inspector{display:none}.edition{display:none}h1{font-size:31px}.message{gap:8px}.avatar{width:29px;height:29px;font-size:12px}.chat{padding:20px 10px}.container{padding:14px}.botline time{display:none}.mockup{min-height:600px}.boardfooter{display:block}.boardfooter a{display:inline-block;margin:9px 10px 0 0}.toolbar .label{width:100%}.btn{padding:9px 10px}.mockup.mobile{max-width:none}}
+</style>
+</head>
+<body>
+<main class="board">
+<header><div><div class="eyebrow">DISCORD BOT / INTERACTION DESIGN</div><h1>메이플 장비 비교실</h1><p class="lead">슬래시 한 번으로 시작하고, 버튼으로 끝내는 나만의 장비 비교.</p></div><div class="edition">INTERACTIVE PROTOTYPE<br>OCTOBER 2026 · V0.1</div></header>
+<div class="toolbar" aria-label="시안 조작 도구"><span class="label">시안 조작 도구 · 실제 봇 UI 밖</span><button class="tool accent" data-tool="samples">예시 매물 3개 채우기</button><button class="tool" data-tool="review">옵션 확인 화면</button><button class="tool" data-tool="mobile">모바일 폭</button><button class="tool" data-tool="expire">세션 만료 체험</button><button class="tool" data-tool="reset">처음으로</button></div>
+<div class="layout">
+<section id="mockup" class="mockup" aria-label="Discord 채팅 화면 시안">
+<div class="channel"><span>메이플-봇</span><span class="icons" aria-hidden="true">♧ ⌕ ⋮</span></div>
+<div class="chat"><div class="message"><div class="avatar" aria-hidden="true">S</div><div class="messagebody"><div class="botline"><strong>som-bot</strong><span class="appbadge">APP</span><time>오늘 오후 2:14</time></div><p class="private">본인에게만 보이는 메시지</p><div id="panel" class="container" aria-live="polite"></div></div></div></div>
+<div class="composer"><span aria-hidden="true">⊕</span> # 메이플-봇에 메시지 보내기</div>
+</section>
+<aside class="inspector"><div class="note-title">HOW IT WORKS</div><div id="steps"></div><div class="annotation" id="annotation"></div><div class="annotation"><strong>실제 구현 범위</strong><p>가운데 카드·버튼·선택 메뉴·팝업은 JDA 6.3.1 기본 컴포넌트로 구성합니다.</p><p>이 시안의 캐릭터·매물·OCR은 예시입니다. 외부 전송 없이 계산하며, 저장은 이 브라우저에서만 이뤄집니다.</p><p>첫 계산 모델: 히어로·장갑·같은 기본 조건의 윗잠재 비교.</p></div></aside>
+</div>
+<footer class="boardfooter"><span>클릭 가능한 설계 시안 · 실제 경매장 가격·환산 수치 아님</span><span><a href="../MAPLE_GEAR_FEATURE_SPEC_2026-10-23.md">기능 명세</a><a href="design-board.png">전체 디자인 보드</a></span></footer>
+</main>
+<div class="overlay" id="overlay" hidden><form class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modalhead"><h2 id="modalTitle"></h2><button class="x" type="button" data-close aria-label="팝업 닫기">×</button></div><div class="modalbody"><div id="modalFields"></div><div id="modalError" class="modalerror" role="alert"></div></div><div class="modalfoot"><button class="btn" type="button" data-close>취소</button><button class="btn primary" type="submit" id="modalSubmit">저장</button></div></form></div>
+<div id="toast" class="toast" role="status" hidden></div>
+<script>
+'use strict';
+// Offline design prototype only: no Discord, Nexon or AI requests are made.
+const $=id=>document.getElementById(id);
+const esc=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const initial=()=>({screen:'home',character:'예시히어로',world:'스카니아',budget:30,criterion:'eff',items:[],draft:null,detailId:null,pair:[],expired:false,revision:0,reportTime:null});
+let state=initial(),saved=[],modalHandler=null,modalOpener=null,toastTimer;
+try{const data=JSON.parse(localStorage.getItem('maple-gear-prototype-reports')||'[]');if(Array.isArray(data))saved=data.filter(r=>r&&r.id&&r.state&&Array.isArray(r.state.items)).slice(0,20);}catch(_){saved=[];}
+const fixtureItems=()=>[
+ {id:'A',name:'매물 A',price:9,str:30,crit:0,baseSame:true,confirmed:true,source:'예시 매물',potential:'STR 12% / STR 9% / STR 9%'},
+ {id:'B',name:'매물 B',price:14,str:18,crit:8,baseSame:true,confirmed:true,source:'예시 매물',potential:'크뎀 8% / STR 9% / STR 9%'},
+ {id:'C',name:'매물 C',price:29,str:9,crit:16,baseSame:true,confirmed:true,source:'예시 매물',potential:'크뎀 8% / 크뎀 8% / STR 9%'}
+];
+const money=n=>Number(n).toLocaleString('ko-KR',{maximumFractionDigits:4})+'억';
+const fmt=(n,d=2)=>Number(n).toFixed(d);
+function evaluate(item){
+ const strength=7200*(1+(300+item.str)/100)+10000;
+ const score=100*((4*strength+1500)/162748)*((1.35+(80+item.crit)/100)/2.15);
+ return {...item,strength,score,gain:score-100,eff:(score-100)/item.price};
+}
+function exclusionReason(item){
+ if(!item.baseSame)return '계산 미지원';
+ if(!item.confirmed)return '확인 전';
+ if(item.price>state.budget)return '예산 초과';
+ const result=evaluate(item);
+ if(result.gain<=0)return '현재보다 개선되지 않음';
+ const better=state.items.find(other=>other.id!==item.id&&other.confirmed&&other.baseSame&&other.price<=state.budget&&other.price<=item.price&&evaluate(other).score>=result.score-1e-9&&(other.price<item.price||evaluate(other).score>result.score+1e-9||(other.price===item.price&&other.id.localeCompare(item.id)<0)));
+ return better?`${better.name}보다 비용·성능이 불리함`:'';
+}
+function ranked(){return state.items.filter(i=>!exclusionReason(i)).map(evaluate).sort((a,b)=>(state.criterion==='eff'?b.eff-a.eff:b.score-a.score)||a.price-b.price||a.id.localeCompare(b.id));}
+function button(label,action,style='',disabled=false){return `<button class="btn ${style}" data-action="${esc(action)}" ${disabled?'disabled':''}>${esc(label)}</button>`;}
+function rule(){return '<div class="rule"></div>';}
+function meta(){return `<p class="small">${esc(state.character)} · 히어로 · ${esc(state.world)}</p><p class="tiny">${state.reportTime?'저장 당시 결과 · '+esc(state.reportTime):'데이터 기준: 화면 체험용 가상 snapshot'}</p>`;}
+function stats(rows){return rows.map(([k,v])=>`<div class="stat"><span class="k">${esc(k)}</span><span>${esc(v)}</span></div>`).join('');}
+function summary(item,label){return `<div class="listing"><div class="title"><span class="letter">${esc(item.id)}</span><span class="rec">${esc(label)}</span></div><div class="metrics">${money(item.price)} · ${fmt(item.score)}점 · <span class="gain">+${fmt(item.gain)}%</span></div><p class="small">크뎀 ${item.crit}% · STR ${item.str}% · 1억당 +${fmt(item.eff,3)}점</p></div>`;}
+function loadSamples(){state.items=fixtureItems();state.expired=false;state.reportTime=null;state.screen='home';state.revision++;render();toast('가상 매물 A·B·C를 채웠습니다. 비교하기를 눌러 보세요.');}
+function render(){
+ let html='';
+ if(state.expired){html=`<h2>비교 세션이 만료됐어요</h2><p class="small">10분 동안 조작이 없으면 개인 세션이 종료됩니다. 저장한 결과는 다시 불러올 수 있어요.</p><div class="row">${button('/메이플 다시 열기','restart','primary')}</div>`;}
+ else if(state.screen==='home'){
+  html=`<h2>장비 비교 시작</h2>${meta()}${rule()}<p>현재 장갑 <strong>STR 21%</strong></p><p class="small">아케인셰이드 나이트글러브</p><select class="select" aria-label="교체 부위" disabled><option>교체 부위: 장갑</option></select><p class="tiny">다른 부위는 계산 검증 후 추가됩니다.</p><select class="select" id="criterion" aria-label="추천 기준"><option value="eff" ${state.criterion==='eff'?'selected':''}>추천 기준: 가성비</option><option value="score" ${state.criterion==='score'?'selected':''}>추천 기준: 최대 성능</option></select><p style="margin-top:16px">예산 <strong>${money(state.budget)} 메소</strong></p><p class="small">확인한 매물 ${state.items.length}/10 · 보스 기준</p><div class="row">${button('조건 변경','conditions')}${button('매물 추가','add','primary',state.items.length>=10)}${button('비교하기','calculate','',!state.items.length)}</div><div class="row">${button('저장한 비교','saved')}${button('캐릭터 변경','character')}</div>${rule()}<p class="tiny">가져온 매물 안에서 비교합니다. 매입 가격 기준이며 기존 장비 판매 수익은 포함하지 않습니다.</p>`;
+ }else if(state.screen==='add'){
+  html=`<h2>매물은 어떻게 추가할까요?</h2><p class="small">가격과 아이템 옵션이 보이는 스크린샷을 넣거나, 직접 입력할 수 있어요.</p>${rule()}<h3>스크린샷으로 추가</h3><p class="small">읽은 가격·옵션을 확인한 뒤 비교에 포함합니다.</p><div class="row">${button('스크린샷 추가','upload','primary')}</div>${rule()}<h3>직접 입력</h3><p class="small">이름·가격·윗잠재 3줄을 입력합니다.</p><div class="row">${button('직접 입력','manual')}${button('돌아가기','home')}</div>`;
+ }else if(state.screen==='review'){
+  const d=state.draft;
+  html=`<h2>${esc(d.name)} 확인</h2><p>아케인셰이드 나이트글러브</p>${rule()}${stats([['가격',money(d.price)+' 메소'],['윗잠재',d.potential],['합산',`크뎀 ${d.crit}% · STR ${d.str}%`],['기본 조건',d.baseSame?'현재 장갑과 동일':'현재 장갑과 다름'],['출처',d.source]])}<p class="warn">가격과 옵션을 확인해 주세요.</p>${!d.baseSame?'<p class="warn">이 매물은 첫 계산 모델의 지원 범위를 벗어나 추천에 포함할 수 없습니다. 입력 내용은 보관할 수 있어요.</p>':''}<div class="row">${button('수정','editdraft')}${button(d.baseSame?'확인하고 추가':'미지원으로 보관','confirm','primary')}${button('취소','home')}</div><p class="tiny" style="margin-top:16px">스타포스·작·추옵·에디 등 공통 조건의 일치를 확인해야 합니다.</p>`;
+ }else if(state.screen==='loading'){
+  html=`<h2>${esc(state.loadingTitle||'장갑을 비교하고 있어요')}</h2><p class="loading">${esc(state.loadingText||'같은 조건으로 후보를 계산하고 있습니다.')}</p><p class="tiny">캐릭터와 확인한 옵션을 기준으로 계산합니다.</p>`;
+ }else if(state.screen==='results'){
+  const list=ranked();
+  html=`<h2>장갑 비교 결과</h2>${meta()}<p class="small">가져온 매물 ${state.items.length}개 · 예산 ${money(state.budget)}</p>${rule()}`;
+  if(!list.length)html+='<p class="empty">현재 예산과 지원 조건 안에서 개선되는 매물이 없습니다. 예산을 바꾸거나 다른 매물을 추가해 주세요.</p>';
+  else{
+   const bestEff=[...list].sort((a,b)=>b.eff-a.eff||a.price-b.price)[0],bestScore=[...list].sort((a,b)=>b.score-a.score||a.price-b.price)[0],cheapest=[...list].sort((a,b)=>a.price-b.price||b.score-a.score)[0];
+   html+=list.slice(0,3).map(item=>summary(item,item.id===bestEff.id?'가성비 추천':item.id===bestScore.id?'최대 성능':item.id===cheapest.id?'최소 지출':'비교 후보')).join(rule());
+   html+=`<select class="select" id="detailSelect" aria-label="자세히 볼 매물 선택"><option value="">자세히 볼 매물 선택</option>${list.map(i=>`<option value="${esc(i.id)}">${esc(i.name)} · ${money(i.price)} · ${fmt(i.score)}점</option>`).join('')}</select>`;
+  }
+  const excluded=state.items.filter(i=>exclusionReason(i));
+  if(excluded.length)html+=`<p class="warn">${excluded.map(i=>`${esc(i.name)}: ${esc(exclusionReason(i))}`).join(' · ')}</p>`;
+  html+=`<div class="row">${button('두 개 비교','compare','',list.length<2)}${button('조건 변경','conditions')}${button('결과 저장','save','primary',!list.length)}</div><div class="row">${button('돌아가기','home')}${button('매물 추가','add','',state.items.length>=10)}</div>${rule()}<p class="tiny">자체 모델 · 현재 장비 100점 기준 · 실전 DPS 및 환산 사이트 템환산과 다른 지표</p>`;
+ }else if(state.screen==='detail'){
+  const item=evaluate(state.items.find(i=>i.id===state.detailId));
+  html=`<h2>${esc(item.name)} · 추천 근거</h2><p>아케인셰이드 나이트글러브</p>${rule()}${stats([['가격',money(item.price)+' 메소'],['교체점수',fmt(item.score)+'점'],['모델 성능 상승','+'+fmt(item.gain)+'%'],['1억당 개선',fmt(item.eff,3)+'점'],['STR',`40,312 → ${item.strength.toLocaleString('ko-KR')}`],['추가 크리티컬 데미지',`80% → ${80+item.crit}%`]])}${rule()}<h3>왜 이런 결과인가요?</h3><p class="small">${item.crit>0?'STR 옵션을 일부 포기하지만 크리티컬 데미지 증가가 이를 상회합니다.':'크리티컬 데미지는 유지되고 STR 증가가 성능을 높입니다.'} 현재 캐릭터의 능력치로 교체 전후를 비교한 결과입니다.</p><p class="tiny">공통 조건 유지 · 모델 hero-gloves-demo-v1<br>출처: ${esc(item.source)} · 예시 데이터</p><div class="row">${button('결과로 돌아가기','results')}${button('매물 제거','removeitem','danger')}</div>`;
+ }else if(state.screen==='pair'){
+  const pair=state.pair.map(id=>evaluate(state.items.find(i=>i.id===id))).sort((a,b)=>a.price-b.price);
+  const [a,b]=pair,delta=(b.score/a.score-1)*100;
+  html=`<h2>두 매물 직접 비교</h2><p class="small">${esc(a.name)} → ${esc(b.name)}</p>${rule()}${summary(a,'기준 후보')}${rule()}${summary(b,'교체 후보')}${rule()}${stats([['추가 지출',money(b.price-a.price)+' 메소'],['현재 장비 기준 점수 차이',(b.score-a.score>=0?'+':'')+fmt(b.score-a.score)+'점'],[`${a.name} 착용 대비`,(delta>=0?'+':'')+fmt(delta)+'%']])}<p class="small">추가 지출에 비해 개선 폭이 적다면 다른 부위에 예산을 남기는 선택도 가능합니다.</p><div class="row">${button('다시 두 개 선택','compare')}${button('결과로 돌아가기','results','primary')}</div>`;
+ }else if(state.screen==='saved'){
+  html=`<h2>저장한 비교</h2><p class="small">이 화면 시안에서는 현재 브라우저에만 저장됩니다.</p>${rule()}`;
+  html+=saved.length?saved.map(r=>`<div class="listing"><h3>${esc(r.state.character)} · 장갑 · ${money(r.state.budget)}</h3><p class="tiny">저장 당시 결과 · ${esc(r.time)}</p><div class="row">${button('불러오기','load:'+r.id,'primary')}${button('삭제','delete:'+r.id)}</div></div>`).join(rule()):'<p class="empty">저장한 비교가 없습니다.</p>';
+  html+=`<div class="row">${button('돌아가기','home')}</div>`;
+ }
+ $('panel').innerHTML=html;
+ renderInspector();
+}
+function renderInspector(){
+ const screen=state.screen;
+ const active=state.expired?0:['home','saved'].includes(screen)?0:screen==='add'?1:screen==='review'?2:3;
+ const steps=[['개인 패널','캐릭터·부위·예산을 정해요.'],['매물 입력 팝업','스크린샷 또는 직접 입력을 선택해요.'],['읽은 값 확인','확인한 후보만 계산에 넣어요.'],['추천과 직접 비교','가성비와 최대 성능을 따로 보여줘요.']];
+ $('steps').innerHTML=steps.map((s,i)=>`<div class="step ${i===active?'active':''}"><span class="stepno">0${i+1}</span><div><strong>${s[0]}</strong><p>${s[1]}</p></div></div>`).join('');
+ const mapping={home:['Container + StringSelectMenu','버튼을 누르면 팝업이 열리고, 선택 메뉴를 바꾸면 같은 메시지가 갱신됩니다.'],add:['Button → Modal','입력 방식 선택은 메시지에서, 텍스트와 파일 입력은 팝업에서 받습니다.'],review:['TextDisplay + Button','이미지를 읽은 결과를 먼저 보여주고 사용자가 확인합니다. 수정도 새 버튼 클릭으로 팝업을 엽니다.'],results:['Container + Select + ActionRow','상위 3개를 요약하고 상세는 선택 메뉴로 엽니다. 조건 변경 시 예산 필터를 다시 적용합니다.'],detail:['TextDisplay + Separator','계산 엔진의 결과와 근거를 설명합니다. AI가 점수를 임의로 생성하지 않습니다.'],pair:['Modal StringSelect (2개)','두 후보를 선택해 추가 비용과 후보 간 성능 차이를 비교합니다.'],saved:['개인 저장 결과','실서비스는 사용자별 DB, 이 시안은 localStorage로 동작을 재현합니다.'],loading:['deferEdit → 비동기 결과','실서비스는 먼저 3초 안에 ACK하고, worker 결과가 오면 최신 화면을 편집합니다.']};
+ const info=mapping[screen]||mapping.home;
+ $('annotation').innerHTML=`<strong>${esc(info[0])}</strong><p>${esc(info[1])}</p>`;
+}
+function toast(text){clearTimeout(toastTimer);$('toast').textContent=text;$('toast').hidden=false;toastTimer=setTimeout(()=>$('toast').hidden=true,4000);}
+function closeModal(){const opener=modalOpener;$('overlay').hidden=true;modalHandler=null;modalOpener=null;if(opener&&opener.isConnected)opener.focus();}
+function openModal(title,fields,submit,handler){modalOpener=document.activeElement;$('modalTitle').textContent=title;$('modalFields').innerHTML=fields;$('modalSubmit').textContent='제출';$('modalError').textContent='';$('overlay').hidden=false;modalHandler=handler;setTimeout(()=>{const f=$('modalFields').querySelector('input,select');if(f)f.focus();},0);}
+function textField(label,name,value,type='text',extra=''){return `<label class="field">${esc(label)}<input name="${esc(name)}" type="${type}" value="${esc(value)}" required ${extra}></label>`;}
+function validatePrice(value){const n=Number(value);if(!Number.isFinite(n)||n<=0||n>10000||!/^\d+(?:\.\d{1,4})?$/.test(String(value)))throw new Error('가격은 0보다 크고 10,000억 이하, 소수점 네 자리까지 입력해 주세요.');return n;}
+function parsePotential(value){
+ const lines=value.split(/[/,\n]+/).map(s=>s.trim()).filter(Boolean);
+ if(lines.length!==3)throw new Error('윗잠재를 /로 구분해 정확히 3줄 입력해 주세요.');
+ let str=0,crit=0;
+ for(const line of lines){let m;if((m=line.match(/^STR\s*(\d+(?:\.\d+)?)\s*%$/i))){const v=Number(m[1]);if(![6,9,12].includes(v))throw new Error('시안의 STR 잠재 한 줄은 6%, 9%, 12%를 지원합니다.');str+=v;}else if(/^크뎀\s*8\s*%$/.test(line)){crit+=8;}else throw new Error('시안은 STR 6/9/12% 또는 크뎀 8% 잠재만 지원합니다.');}
+ return {str,crit,potential:lines.join(' / ')};
+}
+function editCandidate(draft){
+ const d=draft||{name:'장갑 후보 B',price:14,potential:'크뎀 8% / STR 9% / STR 9%',baseSame:true,source:'직접 입력'};
+ const fields=textField('매물 이름','name',d.name)+textField('가격 (억 메소)','price',d.price,'number','min="0.0001" max="10000" step="0.0001"')+textField('윗잠재 3줄 (/로 구분)','potential',d.potential)+`<label class="field">스타포스·작·추옵·에디·기본 능력치<select name="baseSame"><option value="yes" ${d.baseSame?'selected':''}>현재 장갑과 동일함을 확인했어요</option><option value="no" ${!d.baseSame?'selected':''}>다르거나 아직 확인하지 못했어요</option></select></label>`+textField('출처/메모','source',d.source);
+ openModal(draft?'매물 옵션 수정':'매물 직접 입력',fields,'확인 화면으로',data=>{
+  const price=validatePrice(data.get('price')),potential=parsePotential(data.get('potential'));
+  const name=String(data.get('name')).trim();if(!name||name.length>40)throw new Error('매물 이름은 1~40자로 입력해 주세요.');
+  state.draft={...d,name,price,...potential,baseSame:data.get('baseSame')==='yes',source:String(data.get('source')).slice(0,100)};
+  state.screen='review';closeModal();render();
+ });
+}
+function conditions(){openModal('비교 조건 변경',textField('예산 (억 메소)','budget',state.budget,'number','min="0.0001" max="10000" step="0.0001"')+'<p class="small">예산은 총 매입가입니다. 기존 장비 판매 수익은 포함하지 않습니다.</p>','적용',data=>{state.budget=validatePrice(data.get('budget'));state.reportTime=null;state.revision++;closeModal();render();});}
+function compare(){const list=ranked();openModal('비교할 매물 두 개 선택',`<label class="field">매물 선택 (두 개)<select name="pair" multiple size="${Math.min(list.length,5)}" aria-label="비교할 매물 두 개">${list.map((i,n)=>`<option value="${esc(i.id)}" ${n<2?'selected':''}>${esc(i.name)} · ${money(i.price)}</option>`).join('')}</select></label><p class="small">이 시안에서는 Ctrl/⌘ 키로 두 후보를 선택할 수 있어요. 실제 Discord는 다중 선택 드롭다운을 사용합니다.</p>`,'비교하기',data=>{const ids=data.getAll('pair');if(ids.length!==2)throw new Error('매물을 정확히 두 개 선택해 주세요.');state.pair=ids;state.screen='pair';closeModal();render();});}
+function upload(){openModal('매물 스크린샷 추가',textField('매물 이름','name','장갑 후보 B')+'<label class="field">스크린샷<input name="images" type="file" accept="image/png,image/jpeg,image/webp" multiple></label><p class="tiny">화면 체험: 이미지가 없어도 예시 B로 진행합니다. 파일은 전송·분석하지 않습니다.</p>','분석하기',data=>{
+ const files=data.getAll('images').filter(f=>f.size);
+ if(files.length>3)throw new Error('이미지는 최대 3개까지 선택해 주세요.');
+ if(files.some(f=>f.size>8*1024*1024||!['image/png','image/jpeg','image/webp'].includes(f.type)))throw new Error('PNG/JPEG/WebP, 파일당 8MiB 이하 이미지를 선택해 주세요.');
+ state.draft={...fixtureItems()[1],id:undefined,name:String(data.get('name')).trim()||'장갑 후보 B',confirmed:false,source:'스크린샷 읽기 예시 · 실제 OCR 아님'};
+ closeModal();state.screen='loading';state.loadingTitle='매물 옵션을 읽고 있어요';state.loadingText='읽은 값은 다음 화면에서 확인할 수 있어요.';render();
+ const revision=++state.revision;setTimeout(()=>{if(state.revision!==revision||state.expired)return;state.screen='review';render();},500);
+ });}
+function persist(){try{localStorage.setItem('maple-gear-prototype-reports',JSON.stringify(saved));}catch(_){toast('브라우저 저장이 제한되어 이 탭에서만 보관합니다.');}}
+function action(name){
+ if(state.expired&&name!=='restart'){toast('세션을 다시 열어 주세요.');return;}
+ if(['home','results','saved','add'].includes(name)){state.revision++;state.screen=name;render();return;}
+ if(name==='restart'){state.expired=false;state.screen='home';render();return;}
+ if(name==='conditions')conditions();
+ if(name==='manual')editCandidate(null);
+ if(name==='editdraft')editCandidate(state.draft);
+ if(name==='upload')upload();
+ if(name==='character')openModal('캐릭터 불러오기',textField('캐릭터 닉네임','character',state.character)+'<p class="small">시안에서는 닉네임만 바뀌고 히어로 예시 snapshot을 사용합니다.</p>','불러오기',data=>{const n=String(data.get('character')).trim();if(!n||n.length>20)throw new Error('닉네임을 1~20자로 입력해 주세요.');state.character=n;state.reportTime=null;state.revision++;closeModal();state.screen='home';render();});
+ if(name==='confirm'){
+  if(state.items.length>=10){toast('후보는 최대 10개까지 추가할 수 있어요.');return;}
+  if(!state.draft)return;
+  const id=Array.from({length:26},(_,i)=>String.fromCharCode(65+i)).find(id=>!state.items.some(i=>i.id===id));
+  state.items.push({...state.draft,id,confirmed:true});state.draft=null;state.screen='home';state.reportTime=null;state.revision++;render();toast('확인한 매물을 비교 목록에 추가했습니다.');
+ }
+ if(name==='calculate'){
+  state.screen='loading';state.loadingTitle='장갑을 비교하고 있어요';state.loadingText='같은 조건으로 점수와 예산 효율을 계산합니다.';render();
+  const rev=++state.revision;setTimeout(()=>{if(rev!==state.revision||state.expired)return;state.screen='results';render();},350);
+ }
+ if(name==='compare')compare();
+ if(name==='removeitem'){state.items=state.items.filter(i=>i.id!==state.detailId);state.screen='results';state.reportTime=null;state.revision++;render();}
+ if(name==='save'){
+  const time=new Date().toLocaleString('ko-KR'),id=String(Date.now());saved.unshift({id,time,state:JSON.parse(JSON.stringify({...state,screen:'results',draft:null,detailId:null,pair:[],reportTime:time}))});saved=saved.slice(0,20);persist();toast('비교 결과를 이 브라우저에 저장했습니다. 홈의 저장한 비교에서 열 수 있어요.');
+ }
+ if(name.startsWith('load:')){const r=saved.find(r=>r.id===name.slice(5));if(r){const rev=state.revision+1;state={...JSON.parse(JSON.stringify(r.state)),revision:rev,expired:false,screen:'results',reportTime:r.time};render();}}
+ if(name.startsWith('delete:')){saved=saved.filter(r=>r.id!==name.slice(7));persist();render();}
+}
+$('panel').addEventListener('click',event=>{const b=event.target.closest('[data-action]');if(b&&!b.disabled)action(b.dataset.action);});
+$('panel').addEventListener('change',event=>{if(event.target.id==='criterion'){state.criterion=event.target.value;state.reportTime=null;render();}if(event.target.id==='detailSelect'&&event.target.value){state.detailId=event.target.value;state.screen='detail';render();}});
+document.querySelector('.toolbar').addEventListener('click',event=>{const b=event.target.closest('[data-tool]');if(!b)return;closeModal();const t=b.dataset.tool;if(t==='samples')loadSamples();if(t==='review'){state.expired=false;state.draft={...fixtureItems()[1],name:'매물 B',confirmed:false,source:'스크린샷 읽기 예시'};state.screen='review';state.revision++;render();}if(t==='mobile'){$('mockup').classList.toggle('mobile');b.textContent=$('mockup').classList.contains('mobile')?'데스크톱 폭':'모바일 폭';}if(t==='expire'){state.expired=true;state.revision++;render();}if(t==='reset'){const rev=state.revision+1;state=initial();state.revision=rev;render();}});
+$('modal').addEventListener('submit',event=>{event.preventDefault();$('modalError').textContent='';try{if(modalHandler)modalHandler(new FormData(event.target));}catch(error){$('modalError').textContent=error.message;}});
+document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',closeModal));
+$('overlay').addEventListener('click',event=>{if(event.target===$('overlay'))closeModal();});
+document.addEventListener('keydown',event=>{if($('overlay').hidden)return;if(event.key==='Escape'){event.preventDefault();closeModal();}if(event.key==='Tab'){const focus=[...$('modal').querySelectorAll('button:not([disabled]),input,select')].filter(el=>el.getClientRects().length);const first=focus[0],last=focus[focus.length-1];if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}}});
+render();
+</script>
+</body>
+</html>

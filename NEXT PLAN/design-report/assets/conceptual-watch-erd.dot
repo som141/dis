@@ -1,0 +1,22 @@
+digraph G {
+  graph [bgcolor="transparent", rankdir=TB, pad="0.2", nodesep="0.44", ranksep="0.72", fontname="Noto Sans CJK KR", splines=polyline];
+  node [shape=plain, fontname="Noto Sans CJK KR"];
+  edge [fontname="Noto Sans CJK KR", fontsize=8.5, color="#64748B", fontcolor="#475569", arrowsize=0.6, labeldistance=1.8];
+
+  user [label=< <TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" COLOR="#6366F1"><TR><TD BGCOLOR="#EEF2FF"><B>사용자</B></TD></TR><TR><TD ALIGN="LEFT"><U>Discord 사용자 ID</U></TD></TR></TABLE> >];
+  link [label=< <TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" COLOR="#8B5CF6"><TR><TD BGCOLOR="#F5F3FF"><B>계정 연결</B></TD></TR><TR><TD ALIGN="LEFT"><U>연결 ID</U></TD></TR><TR><TD ALIGN="LEFT">provider UID · scope · 상태</TD></TR></TABLE> >];
+  profile [label=< <TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" COLOR="#F59E0B"><TR><TD BGCOLOR="#FFF7ED"><B>검색 조건 버전</B></TD></TR><TR><TD ALIGN="LEFT"><U>조건 ID + revision</U></TD></TR></TABLE> >];
+  watch [label=< <TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" COLOR="#EF4444"><TR><TD BGCOLOR="#FEF2F2"><B>감시 버전</B></TD></TR><TR><TD ALIGN="LEFT"><U>감시 ID + revision</U></TD></TR><TR><TD ALIGN="LEFT">판정식 · 상태 · 종료/다음 실행</TD></TR></TABLE> >];
+  poll [label=< <TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" COLOR="#06B6D4"><TR><TD BGCOLOR="#ECFEFF"><B>감시 실행</B></TD></TR><TR><TD ALIGN="LEFT"><U>poll run ID</U></TD></TR><TR><TD ALIGN="LEFT">coverage · 완료 여부 · 오류</TD></TR></TABLE> >];
+  seen [label=< <TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" COLOR="#22C55E"><TR><TD BGCOLOR="#F0FDF4"><B>감시 매물 관측</B></TD></TR><TR><TD ALIGN="LEFT"><U>감시 버전 + 매물 키</U></TD></TR><TR><TD ALIGN="LEFT">기준선 · 최초/마지막 · 가격</TD></TR></TABLE> >];
+  notification [label=< <TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" COLOR="#F43F5E"><TR><TD BGCOLOR="#FFF1F2"><B>알림</B></TD></TR><TR><TD ALIGN="LEFT"><U>event key</U></TD></TR><TR><TD ALIGN="LEFT">사건 종류 · 발송 상태 · 시각</TD></TR></TABLE> >];
+
+  user -> link [label="선택 연결", taillabel="1", headlabel="0..N"];
+  user -> watch [label="소유한다", taillabel="1", headlabel="0..N"];
+  profile -> watch [label="감시화된다", taillabel="1", headlabel="0..N"];
+  link -> watch [label="필요 시 권한 제공", taillabel="0..N", headlabel="0..N"];
+  watch -> poll [label="반복 실행", taillabel="1", headlabel="0..N"];
+  watch -> seen [label="기억한다", taillabel="1", headlabel="0..N"];
+  seen -> notification [label="조건 만족 시 생성", taillabel="1", headlabel="0..N"];
+  user -> notification [label="수신한다", taillabel="1", headlabel="0..N"];
+}

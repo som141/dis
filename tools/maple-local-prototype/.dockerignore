@@ -1,0 +1,10 @@
+node_modules
+dist
+.data
+.docker-secrets
+*.zip
+*.log
+.env*
+test
+extension
+vendor/**/test

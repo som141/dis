@@ -1,0 +1,28 @@
+digraph G {
+  graph [bgcolor="transparent", rankdir=TB, pad="0.25", nodesep="0.42", ranksep="0.62", fontname="Noto Sans CJK KR", splines=ortho];
+  node [shape=rect, style="rounded,filled", fontname="Noto Sans CJK KR", fontsize=11.5, color="#CBD5E1", penwidth=1.2, margin="0.15,0.1", fillcolor="#F8FAFC"];
+  edge [fontname="Noto Sans CJK KR", fontsize=9, color="#64748B", fontcolor="#475569", arrowsize=0.65];
+
+  user [label="Discord 사용자\n검색과 감시의 소유자", fillcolor="#EEF2FF", color="#6366F1"];
+  link [label="계정 연결\n선택 기능 · 권한과 만료 보유", fillcolor="#F5F3FF", color="#8B5CF6"];
+  character [label="대상 캐릭터\n닉네임 · OCID · 현재 장비", fillcolor="#EFF6FF", color="#3B82F6"];
+  profile [label="검색 조건\n부위 · 아이템 · 예산 · 옵션", fillcolor="#FFF7ED", color="#F59E0B"];
+  snapshot [label="비교 기준\n캐릭터·카탈로그·조건 버전", fillcolor="#ECFEFF", color="#06B6D4"];
+  listing [label="관측 매물\n가격 · 옵션 · 판매 상태", fillcolor="#F0FDF4", color="#22C55E"];
+  evaluation [label="평가 결과\n지원 여부 · 개선율 · 가성비", fillcolor="#ECFDF5", color="#10B981"];
+  watch [label="감시\n30분 주기 · 기간 · 상태", fillcolor="#FEF2F2", color="#EF4444"];
+  notification [label="알림\n신규·가격 하락 · 발송 상태", fillcolor="#FFF1F2", color="#F43F5E"];
+
+  user -> link [label="0..1 관리"];
+  user -> character [label="조회"];
+  user -> profile [label="1..N 소유"];
+  profile -> snapshot [label="실행 시 고정"];
+  character -> snapshot [label="기준 제공"];
+  profile -> listing [label="검색"];
+  snapshot -> evaluation [label="비교 기준"];
+  listing -> evaluation [label="후보"];
+  profile -> watch [label="0..N 감시화"];
+  watch -> listing [label="반복 관측"];
+  evaluation -> notification [label="조건 만족"];
+  watch -> notification [label="소유·기간·revision"];
+}

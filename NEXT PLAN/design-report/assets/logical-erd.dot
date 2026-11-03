@@ -1,0 +1,78 @@
+digraph G {
+  graph [bgcolor="transparent", rankdir=TB, pad="0.2", nodesep="0.36", ranksep="0.55", fontname="Noto Sans CJK KR", splines=polyline];
+  node [shape=plain, fontname="Noto Sans CJK KR"];
+  edge [fontname="Noto Sans CJK KR", fontsize=8.5, color="#64748B", fontcolor="#475569", arrowsize=0.6];
+
+  users [label=<
+    <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#6366F1">
+      <TR><TD BGCOLOR="#EEF2FF"><B>MAPLE_USERS</B></TD></TR>
+      <TR><TD ALIGN="LEFT">PK discord_user_id</TD></TR>
+      <TR><TD ALIGN="LEFT">created_at · status</TD></TR>
+    </TABLE>>];
+  links [label=<
+    <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#8B5CF6">
+      <TR><TD BGCOLOR="#F5F3FF"><B>ACCOUNT_LINKS / GRANTS</B></TD></TR>
+      <TR><TD ALIGN="LEFT">PK link_id / grant_id</TD></TR>
+      <TR><TD ALIGN="LEFT">FK owner_id · nexon_uid</TD></TR>
+      <TR><TD ALIGN="LEFT">scope · status · expires_at</TD></TR>
+      <TR><TD ALIGN="LEFT">encrypted_token_bundle</TD></TR>
+    </TABLE>>];
+  chars [label=<
+    <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#3B82F6">
+      <TR><TD BGCOLOR="#EFF6FF"><B>CHARACTER_SNAPSHOTS</B></TD></TR>
+      <TR><TD ALIGN="LEFT">PK snapshot_id</TD></TR>
+      <TR><TD ALIGN="LEFT">owner_id · target_ocid</TD></TR>
+      <TR><TD ALIGN="LEFT">job · world · equipment</TD></TR>
+      <TR><TD ALIGN="LEFT">captured_at · source_data_at</TD></TR>
+    </TABLE>>];
+  profiles [label=<
+    <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#F59E0B">
+      <TR><TD BGCOLOR="#FFF7ED"><B>SEARCH_PROFILES</B></TD></TR>
+      <TR><TD ALIGN="LEFT">PK profile_id · revision</TD></TR>
+      <TR><TD ALIGN="LEFT">FK owner_id · snapshot_id</TD></TR>
+      <TR><TD ALIGN="LEFT">slot · selected_item_ids</TD></TR>
+      <TR><TD ALIGN="LEFT">budget/min/max · filters</TD></TR>
+    </TABLE>>];
+  runs [label=<
+    <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#06B6D4">
+      <TR><TD BGCOLOR="#ECFEFF"><B>SEARCH / POLL RUNS</B></TD></TR>
+      <TR><TD ALIGN="LEFT">PK run_id</TD></TR>
+      <TR><TD ALIGN="LEFT">profile/watch revision</TD></TR>
+      <TR><TD ALIGN="LEFT">coverage · complete</TD></TR>
+      <TR><TD ALIGN="LEFT">started/completed_at</TD></TR>
+    </TABLE>>];
+  watches [label=<
+    <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#EF4444">
+      <TR><TD BGCOLOR="#FEF2F2"><B>WATCHES</B></TD></TR>
+      <TR><TD ALIGN="LEFT">PK watch_id · revision</TD></TR>
+      <TR><TD ALIGN="LEFT">FK owner_id · profile snapshot</TD></TR>
+      <TR><TD ALIGN="LEFT">predicate · status</TD></TR>
+      <TR><TD ALIGN="LEFT">expires_at · next_poll_at</TD></TR>
+    </TABLE>>];
+  seen [label=<
+    <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#22C55E">
+      <TR><TD BGCOLOR="#F0FDF4"><B>WATCH_SEEN</B></TD></TR>
+      <TR><TD ALIGN="LEFT">UQ watch/revision/listing_key</TD></TR>
+      <TR><TD ALIGN="LEFT">baseline · first/last_seen</TD></TR>
+      <TR><TD ALIGN="LEFT">last_price · notified_price</TD></TR>
+    </TABLE>>];
+  notifications [label=<
+    <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="5" COLOR="#F43F5E">
+      <TR><TD BGCOLOR="#FFF1F2"><B>NOTIFICATIONS / OUTBOX</B></TD></TR>
+      <TR><TD ALIGN="LEFT">PK notification_id</TD></TR>
+      <TR><TD ALIGN="LEFT">UQ event_key</TD></TR>
+      <TR><TD ALIGN="LEFT">owner · watch · revision</TD></TR>
+      <TR><TD ALIGN="LEFT">status · observed/sent_at</TD></TR>
+    </TABLE>>];
+
+  users -> links [label="1 : 0..N"];
+  users -> chars [label="1 : N"];
+  users -> profiles [label="1 : N"];
+  chars -> profiles [label="1 : N"];
+  profiles -> runs [label="1 : N"];
+  profiles -> watches [label="1 : 0..N"];
+  watches -> runs [label="1 : N"];
+  watches -> seen [label="1 : N"];
+  watches -> notifications [label="1 : N"];
+  notifications -> notifications [label="outbox 1 : N", color="#F43F5E"];
+}
