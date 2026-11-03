@@ -1,0 +1,24 @@
+digraph G {
+  graph [bgcolor="transparent", rankdir=TB, pad="0.2", nodesep="0.42", ranksep="0.7", fontname="Noto Sans CJK KR", splines=polyline];
+  node [shape=plain, fontname="Noto Sans CJK KR"];
+  edge [fontname="Noto Sans CJK KR", fontsize=8.5, color="#64748B", fontcolor="#475569", arrowsize=0.6, labeldistance=1.8];
+
+  user [label=< <TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" COLOR="#6366F1"><TR><TD BGCOLOR="#EEF2FF"><B>사용자</B></TD></TR><TR><TD ALIGN="LEFT"><U>Discord 사용자 ID</U></TD></TR><TR><TD ALIGN="LEFT">상태 · 생성 시각</TD></TR></TABLE> >];
+  character [label=< <TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" COLOR="#3B82F6"><TR><TD BGCOLOR="#EFF6FF"><B>캐릭터 스냅샷</B></TD></TR><TR><TD ALIGN="LEFT"><U>스냅샷 ID</U></TD></TR><TR><TD ALIGN="LEFT">OCID · 닉네임 · 직업 · 월드</TD></TR><TR><TD ALIGN="LEFT">장비 · 기준 시각 · 모델 버전</TD></TR></TABLE> >];
+  profile [label=< <TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" COLOR="#F59E0B"><TR><TD BGCOLOR="#FFF7ED"><B>검색 조건 버전</B></TD></TR><TR><TD ALIGN="LEFT"><U>검색 조건 ID + revision</U></TD></TR><TR><TD ALIGN="LEFT">부위 · 예산 · 가격 범위</TD></TR><TR><TD ALIGN="LEFT">필터 · 카탈로그 버전</TD></TR></TABLE> >];
+  item [label=< <TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" COLOR="#14B8A6"><TR><TD BGCOLOR="#F0FDFA"><B>카탈로그 아이템</B></TD></TR><TR><TD ALIGN="LEFT"><U>provider + version + item ID</U></TD></TR><TR><TD ALIGN="LEFT">이름 · 부위 · 직업 · 변형</TD></TR></TABLE> >];
+  selected [label=< <TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" COLOR="#A855F7"><TR><TD BGCOLOR="#FAF5FF"><B>선택 아이템</B></TD></TR><TR><TD ALIGN="LEFT"><U>조건 버전 + 아이템 ID</U></TD></TR><TR><TD ALIGN="LEFT">선택 순서 · 전체선택 출처</TD></TR></TABLE> >];
+  run [label=< <TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" COLOR="#06B6D4"><TR><TD BGCOLOR="#ECFEFF"><B>검색 실행</B></TD></TR><TR><TD ALIGN="LEFT"><U>실행 ID</U></TD></TR><TR><TD ALIGN="LEFT">상태 · coverage · 시작/완료</TD></TR></TABLE> >];
+  listing [label=< <TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" COLOR="#22C55E"><TR><TD BGCOLOR="#F0FDF4"><B>매물 관측</B></TD></TR><TR><TD ALIGN="LEFT"><U>실행 + provider + world + 매물 ID</U></TD></TR><TR><TD ALIGN="LEFT">가격 · 옵션 · 상태 · 관측 시각</TD></TR></TABLE> >];
+  eval [label=< <TABLE BORDER="1" CELLBORDER="0" CELLPADDING="4" COLOR="#10B981"><TR><TD BGCOLOR="#ECFDF5"><B>평가</B></TD></TR><TR><TD ALIGN="LEFT"><U>매물 관측 + 스냅샷</U></TD></TR><TR><TD ALIGN="LEFT">지원 상태 · 점수 · 개선율 · 가성비</TD></TR></TABLE> >];
+
+  user -> character [label="요청한다", taillabel="1", headlabel="0..N"];
+  user -> profile [label="소유한다", taillabel="1", headlabel="0..N"];
+  character -> profile [label="기준이 된다", taillabel="1", headlabel="0..N"];
+  profile -> selected [label="포함한다", taillabel="1", headlabel="1..N"];
+  item -> selected [label="선택된다", taillabel="1", headlabel="0..N"];
+  profile -> run [label="실행된다", taillabel="1", headlabel="0..N"];
+  run -> listing [label="관측한다", taillabel="1", headlabel="0..N"];
+  listing -> eval [label="평가된다", taillabel="1", headlabel="0..1"];
+  character -> eval [label="비교 기준", taillabel="1", headlabel="0..N"];
+}

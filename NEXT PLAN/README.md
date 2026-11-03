@@ -14,6 +14,8 @@
 | 4 | [LOCAL_WORKFLOW.md](LOCAL_WORKFLOW.md) | GitHub에서 받기, Windows Docker 실행, 로그인·검색·감시 실증 절차 |
 | 5 | [REFERENCES.md](REFERENCES.md) | 넥슨 공식 문서, 참고한 GitHub 코드, 기존 조사 문서 |
 | 6 | [LOCAL_PROMPT.md](LOCAL_PROMPT.md) | Windows 로컬 Codex에 그대로 전달할 작업 프롬프트 |
+| 7 | [MAPLE_AUCTION_SERVICE_DESIGN.pdf](MAPLE_AUCTION_SERVICE_DESIGN.pdf) | 요구사항 수집·개념설계·화면 설계·논리 설계를 한 문서로 묶은 발표·제출용 PDF |
+| 8 | [design-report/MAPLE_AUCTION_SERVICE_DESIGN.md](design-report/MAPLE_AUCTION_SERVICE_DESIGN.md) | PDF 원문과 검증 근거를 수정할 때 사용하는 설계 문서 |
 
 실행 코드와 세부 검증 기록은 다음 위치에 있다.
 
@@ -55,6 +57,7 @@
 - 기능의 목적, 보안 원칙, 사용자 흐름, 목표 구조가 바뀌면 `PROJECT_RECORD.md`에 결정 이유를 남긴다.
 - 외부 인터페이스나 참고 구현이 바뀌면 `REFERENCES.md`에 확인 날짜, 출처, 고정 커밋을 갱신한다.
 - 실제 API 응답, 가상 fixture, 공개 코드에서 관찰한 내용을 구분한다. 비밀 값과 원본 인증 응답은 기록하지 않는다.
+- 발표용 PDF를 다시 만들 때는 원문, 다이어그램 원본(`.dot`), 스타일을 함께 갱신하고 요구사항 ID와 사용자 트랜잭션 ID가 PDF에도 남았는지 확인한다.
 
 ## GitHub와 운영 배포
 
