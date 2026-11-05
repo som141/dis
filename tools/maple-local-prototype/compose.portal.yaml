@@ -1,0 +1,38 @@
+name: maple-portal
+services:
+  maple-portal:
+    hostname: maple-portal
+    image: dis-maple-portal:local
+    build:
+      context: .
+      target: portal
+    ports:
+      - "127.0.0.1:${MAPLE_PORTAL_HOST_PORT:-18877}:8878"
+    environment:
+      MAPLE_PORTAL_ORIGIN: "http://127.0.0.1:${MAPLE_PORTAL_HOST_PORT:-18877}"
+      MAPLE_PORTAL_DATA: /home/node/portal-data
+      MAPLE_SERVICE_KEY_FILE: /run/secrets/nexon_service_key
+      MAPLE_PORTAL_USERS: "2"
+    secrets:
+      - nexon_service_key
+    volumes:
+      - portal-data:/home/node/portal-data
+      - portal-cache:/home/node/maple-data
+    shm_size: 1gb
+    mem_limit: 3g
+    cpus: 2
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "2m"
+        max-file: "2"
+secrets:
+  nexon_service_key:
+    file: ./.docker-secrets/nexon-service-key
+volumes:
+  portal-data:
+  portal-cache:

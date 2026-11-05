@@ -1,3 +1,4 @@
+import {buildItemDetails,optionBrief} from './details.js';
 import type {
   AuctionItem,
   AuctionOptionEntry,
@@ -32,6 +33,12 @@ function omitEmpty<T extends Record<string, unknown>>(obj: T): T {
 }
 
 export interface ItemSummary {
+  itemDetails?: ReturnType<typeof buildItemDetails>;
+  icon?: string;
+  potentialGrade?: number;
+  additionalGrade?: number;
+  potentialBrief?: string;
+  additionalBrief?: string;
   id: string;
   name: string;
   price: number; // 개당 가격 (메소)
@@ -72,8 +79,9 @@ export interface SearchSummary {
 // description "잠재능력 : 레전드리" → 마지막 " : " 뒤 등급명만 사용.
 function potentialLine(p?: AuctionPotential): string | null {
   if (!p || p.grade === 0 || !p.entries?.length) return null;
-  const grade = p.description.split(' : ').pop() ?? p.description;
-  return `${grade}: ${p.entries.map((e) => e.text).join(' / ')}`;
+  const grade = typeof p.description === 'string' ? p.description.split(' : ').pop()?.trim() : null;
+  const lines = optionEntryLine(p);
+  return grade && lines ? grade + ': ' + lines : lines;
 }
 
 // 옵션 줄 배열: "마력 +33 / INT +40 / ..." (내역 없으면 null). 추가옵션·익셉셔널 강화 공용.
@@ -104,11 +112,16 @@ function tradeLine(desc?: string[] | null): string | null {
 export function summarizeItem(item: AuctionItem): ItemSummary {
   const tt = item.toolTip ?? {};
   const ui = tt.upgradeInfo ?? {};
+  const itemDetails=buildItemDetails(item);
   // 코디 라벨(레드라벨 등)과 펫 등급(루나 스윗 등)은 같은 자리(label)에 요약 — 동시에 붙는 아이템은 없다
   const label =
     (item.royalSpecialType ? ROYAL_LABEL_BY_VALUE[item.royalSpecialType] : null) ??
     (item.petGrade ? PET_GRADE_BY_VALUE[item.petGrade] : null);
   return omitEmpty({
+    itemDetails,
+    icon:itemDetails.icon,
+    potentialGrade:ui.potential?.grade,additionalGrade:ui.additionalPotential?.grade,
+    potentialBrief:optionBrief(ui.potential),additionalBrief:optionBrief(ui.additionalPotential),
     id: item._id,
     name: item.itemName,
     price: Number(item.pricePerItem),

@@ -5,9 +5,10 @@ const SESSION_PROBE = { url:'https://api.mskr.nexon.com/v1/market/web/daily-limi
 // Only read-only session/owned-character checks run here. A successful login
 // never creates a search, starts a watch, exports cookies, or fills credentials.
 export class BrowserAutoConnect {
-  constructor(engine, wire, { now = Date.now, retryMs = 5000, maxRetryMs = 60000 } = {}) {
+  constructor(engine, wire, { now = Date.now, retryMs = 5000, maxRetryMs = 60000, chooseCharacter } = {}) {
     this.engine = engine; this.wire = wire; this.now = now;
     this.retryMs = retryMs; this.maxRetryMs = maxRetryMs;
+    this.chooseCharacter = chooseCharacter;
     this.epoch = wire.epoch; this.running = false; this.failures = 0;
     this.phase = 'waiting-login'; this.error = null; this.nextAttemptAt = 0; this.lastConnectedAt = null;
   }
@@ -40,7 +41,7 @@ export class BrowserAutoConnect {
         }
         this.engine.guard(epoch);
         await this.engine.connect();
-        const matches = this.engine.characters.filter(c => c.name === DEFAULT_CHARACTER);
+        const matches = this.chooseCharacter ? this.chooseCharacter(this.engine.characters) : this.engine.characters.filter(c => c.name === DEFAULT_CHARACTER);
         if (matches.length !== 1) {
           this.phase = 'choose-character';
           this.error = matches.length ? 'AMBIGUOUS_CHARACTER' : 'DEFAULT_CHARACTER_MISSING'; return;

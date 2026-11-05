@@ -95,8 +95,55 @@ services:
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
       APP_NODE_NAME: gateway-1
       HEALTH_PORT: 8080
+      MAPLE_DISCORD_ENABLED: ${MAPLE_DISCORD_ENABLED:-false}
+      MAPLE_PUBLIC_BASE_URL: ${MAPLE_PUBLIC_BASE_URL:-}
+      MAPLE_DISCORD_CLIENT_ID: ${MAPLE_DISCORD_CLIENT_ID:-}
+      MAPLE_DISCORD_CLIENT_SECRET: ${MAPLE_DISCORD_CLIENT_SECRET:-}
+      MAPLE_DISCORD_REDIRECT_URI: ${MAPLE_DISCORD_REDIRECT_URI:-}
+      MAPLE_LINK_SIGNING_KEY: ${MAPLE_LINK_SIGNING_KEY:-}
+      MAPLE_PORTAL_INTERNAL_URL: http://maple-portal:8878
+      MAPLE_DISCORD_INTERNAL_KEY: ${MAPLE_DISCORD_INTERNAL_KEY:-}
     ports:
       - "8081:8080"
+    restart: unless-stopped
+
+  maple-portal:
+    profiles: ["maple"]
+    build:
+      context: ./tools/maple-local-prototype
+      target: portal
+    image: ${MAPLE_PORTAL_IMAGE_NAME:-dis-maple-portal}:${MAPLE_PORTAL_IMAGE_TAG:-local}
+    environment:
+      MAPLE_PORTAL_BIND: 0.0.0.0
+      MAPLE_PORTAL_PORT: 8878
+      MAPLE_PORTAL_ORIGIN: ${MAPLE_PUBLIC_BASE_URL:-http://127.0.0.1:18877}
+      MAPLE_PORTAL_DATA: /home/node/portal-data
+      MAPLE_SERVICE_KEY_FILE: /run/secrets/maple_nexon_service_key
+      MAPLE_PORTAL_USERS: ${MAPLE_PORTAL_USERS:-2}
+      MAPLE_DISCORD_MODE: "true"
+      MAPLE_DISCORD_INTERNAL_KEY: ${MAPLE_DISCORD_INTERNAL_KEY:-}
+    secrets:
+      - maple_nexon_service_key
+    volumes:
+      - maple-portal-data:/home/node/portal-data
+      - maple-portal-cache:/home/node/maple-data
+    shm_size: 1gb
+    mem_limit: 3g
+    cpus: 2
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  maple-edge:
+    profiles: ["maple"]
+    image: nginx:1.27-alpine
+    ports:
+      - "${MAPLE_EDGE_BIND:-127.0.0.1}:${MAPLE_EDGE_PORT:-18877}:80"
+    volumes:
+      - ./ops/maple-edge/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - gateway
+      - maple-portal
     restart: unless-stopped
 
   audio-node:
@@ -285,6 +332,10 @@ services:
         condition: service_started
     restart: unless-stopped
 
+secrets:
+  maple_nexon_service_key:
+    file: ./tools/maple-local-prototype/.docker-secrets/nexon-service-key
+
 volumes:
   redis-data:
   rabbitmq-data:
@@ -294,3 +345,5 @@ volumes:
   loki-data:
   grafana-data:
   alloy-data:
+  maple-portal-data:
+  maple-portal-cache:

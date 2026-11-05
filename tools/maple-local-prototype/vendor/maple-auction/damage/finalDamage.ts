@@ -5,6 +5,9 @@ export interface CharacterDamageContext {
   job: string;
   level: number;
   stats: CharacterStats;
+  bossDefenseRate?: number;
+  observedFinalStats?: Record<string, number>;
+  statusDamageUptime?: number;
 }
 
 interface AggregatedStats {
@@ -102,6 +105,7 @@ function emptyAggregatedStats(): AggregatedStats {
 
 function number(block: StatBlock, key: keyof StatBlock): number {
   const value = block[key];
+  if(value!==undefined&&(typeof value!=='number'||!Number.isFinite(value)))throw new Error('유효하지 않은 스탯 수치입니다.');
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
@@ -132,6 +136,7 @@ function addBlock(
   target.hp += number(block, 'HP');
   target.hpNoPercent += number(block, 'HP미적용');
   target.hpPercent += number(block, 'HP퍼');
+  if((block.방무??[]).some(n=>!Number.isFinite(n)||n<0||n>100)||(block.최종뎀??[]).some(n=>!Number.isFinite(n)||n<=-100))throw new Error('방무 또는 최종 데미지 수치가 유효하지 않습니다.');
   target.ignoreDefense.push(...(block.방무 ?? []));
   target.finalDamage.push(...(block.최종뎀 ?? []));
 }
@@ -217,10 +222,10 @@ function statFactor(job: string, stats: AggregatedStats): number {
   );
 }
 
-function damageOf(
+export function getDamageBreakdown(
   context: CharacterDamageContext,
   stats: CharacterStats
-): number {
+) {
   const aggregated = aggregateStats(stats, context.level);
   const jobStat = JOB_STAT[context.job];
   if (!jobStat) throw new Error(`지원하지 않는 직업: ${context.job}`);
@@ -233,32 +238,32 @@ function damageOf(
   );
   const damageFactor =
     1 +
-    (aggregated.damage + aggregated.bossDamage + aggregated.statusDamage) / 100;
+    (aggregated.damage + aggregated.bossDamage + aggregated.statusDamage*(context.statusDamageUptime??0)) / 100;
   const criticalDamage =
     aggregated.criticalDamage +
-    (aggregated.criticalRate * (stats.크리티컬리인포스 ?? 0)) / 100;
-  const criticalFactor = 1 + criticalDamage / 100;
+    (100 * (stats.크리티컬리인포스 ?? 0)) / 100;
+  const criticalFactor = 1 + criticalDamage / 100; // User assumption: effective critical chance is fixed at 100%.
   const ignoreDefenseRemain = aggregated.ignoreDefense.reduce(
     (remain, value) => remain * (1 - value / 100),
     1
   );
   const defenseFactor = Math.max(
     0,
-    1 - BOSS_DEFENSE_RATE * ignoreDefenseRemain
+    1 - ((context.bossDefenseRate ?? 380) / 100) * ignoreDefenseRemain
   );
   const finalDamageFactor = aggregated.finalDamage.reduce(
     (factor, value) => factor * (1 + value / 100),
     1
   );
 
-  return (
-    statFactor(context.job, aggregated) *
-    attack *
-    damageFactor *
-    criticalFactor *
-    defenseFactor *
-    finalDamageFactor
-  );
+  if(!Number.isFinite(context.bossDefenseRate??380)||(context.bossDefenseRate??380)<0||(context.bossDefenseRate??380)>1000)throw new Error('대상 방어율은 0~1000% 범위여야 합니다.');
+  const stat = statFactor(context.job, aggregated);
+  const coefficient = stat * attack * damageFactor * criticalFactor * defenseFactor * finalDamageFactor;
+  const finalStats: Record<string,number> = {STR:finalStat(aggregated,'STR'),DEX:finalStat(aggregated,'DEX'),INT:finalStat(aggregated,'INT'),LUK:finalStat(aggregated,'LUK'),
+    '공격력':Math.floor(aggregated.attack*(1+aggregated.attackPercent/100)), '마력':Math.floor(aggregated.magic*(1+aggregated.magicPercent/100)),
+    '크리티컬 확률':100, '크리티컬 데미지':aggregated.criticalDamage-35,
+    '데미지':aggregated.damage,'보스 몬스터 데미지':aggregated.bossDamage,'방어율 무시':100*(1-ignoreDefenseRemain),'최종 데미지':100*(finalDamageFactor-1)};
+  return {components:aggregated,coefficient,factors:{stat,attack,damage:damageFactor,critical:criticalFactor,defense:defenseFactor,finalDamage:finalDamageFactor},finalStats};
 }
 
 function roundRate(value: number): number {
@@ -269,15 +274,60 @@ export function getFinalDamageChangeRate(
   character: CharacterDamageContext,
   changedStats: CharacterStats
 ): number {
-  const before = damageOf(character, character.stats);
+  if(['xenon','deven'].includes(JOB_STAT[character.job]))throw new Error('제논·데몬어벤져의 특수 스탯 환산은 현재 지원하지 않습니다.');
+  const before = (character.observedFinalStats?getAnchoredDamageBreakdown(character,character.stats):getDamageBreakdown(character, character.stats)).coefficient;
   if (!Number.isFinite(before) || before <= 0) {
     throw new Error('변경 전 데미지가 0 이하라 증감률을 계산할 수 없습니다.');
   }
 
-  const after = damageOf(character, changedStats);
+  const after = (character.observedFinalStats?getAnchoredDamageBreakdown(character,changedStats):getDamageBreakdown(character, changedStats)).coefficient;
   if (!Number.isFinite(after) || after < 0) {
     throw new Error('변경 후 데미지를 계산할 수 없습니다.');
   }
 
   return roundRate((after / before - 1) * 100);
+}
+
+export function auditDamageBaseline(context: CharacterDamageContext) {
+  const model=getDamageBreakdown(context,context.stats);
+  if(!context.observedFinalStats)return {verified:false,issues:['API 기준 스탯 없음'],checks:[]};
+  const relevant=JOB_STAT[context.job]==='INT'?['INT','LUK','마력']:JOB_STAT[context.job]==='STR'?['STR','DEX','공격력']:JOB_STAT[context.job]==='DEX'?['DEX','STR','공격력']:['LUK','DEX','공격력'];
+  const keys=[...relevant,'크리티컬 확률','크리티컬 데미지','데미지','보스 몬스터 데미지','방어율 무시','최종 데미지'];
+  const checks=keys.map(key=>{const observed=context.observedFinalStats![key],modeled=model.finalStats[key],tolerance=['STR','DEX','INT','LUK','마력','공격력'].includes(key)?1:0.02;return {key,observed,modeled,ok:Number.isFinite(observed)&&Number.isFinite(modeled)&&Math.abs(observed-modeled)<=tolerance};});
+  return {verified:checks.every(x=>x.ok),issues:checks.filter(x=>!x.ok).map(x=>x.key),checks};
+}
+
+// API aggregate values anchor the baseline; only the equipment/set delta is applied.
+// Percent-free symbol/union stats remain outside percentage multiplication.
+export function getAnchoredDamageBreakdown(context: CharacterDamageContext, changed: CharacterStats) {
+  if(['xenon','deven'].includes(JOB_STAT[context.job]))throw new Error('제논·데몬어벤져의 특수 스탯 환산은 현재 지원하지 않습니다.');
+  const current=getDamageBreakdown(context,context.stats),after=getDamageBreakdown(context,changed);
+  const observed=context.observedFinalStats;
+  if(!observed)throw new Error('캐릭터 API 기준 스탯이 없습니다.');
+  const a=current.components,b=after.components;
+  const read=(key:string)=>{if(!Number.isFinite(observed[key]))throw new Error('캐릭터 기준 스탯 누락: '+key);return observed[key];};
+  const boundedFloor=(value:number)=>Math.floor(value+1e-7);
+  const result={} as Record<MainStat,number>;
+  for(const stat of MAIN_STATS){
+    const factor=1+(a.percent[stat]+a.allStatPercent)/100,newFactor=1+(b.percent[stat]+b.allStatPercent)/100;
+    if(factor<=0||newFactor<=0)throw new Error('스탯 배율을 계산할 수 없습니다.');
+    const base=(read(stat)-a.flatNoPercent[stat])/factor;
+    result[stat]=boundedFloor((base+(b.flat[stat]+b.allStat-a.flat[stat]-a.allStat))*newFactor)+b.flatNoPercent[stat];
+  }
+  const jobStat=JOB_STAT[context.job] as MainStat;if(!MAIN_STATS.includes(jobStat))throw new Error('지원하지 않는 직업입니다.');
+  const magic=jobStat==='INT',attackKey=magic?'마력':'공격력',pct=magic?a.magicPercent:a.attackPercent,newPct=magic?b.magicPercent:b.attackPercent;
+  if(pct<=-100||newPct<=-100)throw new Error('공격력 배율을 계산할 수 없습니다.');
+  const attack=boundedFloor((read(attackKey)/(1+pct/100)+((magic?b.magic:b.attack)-(magic?a.magic:a.attack)))*(1+newPct/100));
+  const critRate=100; // Same fixed assumption before and after replacement.
+  const critDamage=read('크리티컬 데미지')+b.criticalDamage-a.criticalDamage;
+  const critical=1+critRate/100*(35+critDamage)/100;
+  const damage=1+(read('데미지')+b.damage-a.damage+read('보스 몬스터 데미지')+b.bossDamage-a.bossDamage+((Number.isFinite(observed['상태이상 추가 데미지'])?observed['상태이상 추가 데미지']:a.statusDamage)+b.statusDamage-a.statusDamage)*(context.statusDamageUptime??0))/100;
+  const remain=(rows:number[])=>rows.reduce((v,n)=>v*(1-n/100),1);
+  const beforeRemain=remain(a.ignoreDefense),afterRemain=remain(b.ignoreDefense);
+  if(beforeRemain===0&&afterRemain!==0)throw new Error('방무 100% 효과 제거 후의 방어율을 복원할 수 없습니다.');
+  const iedRemain=beforeRemain===0?0:(1-read('방어율 무시')/100)*afterRemain/beforeRemain;
+  const defense=Math.max(0,1-(context.bossDefenseRate??380)/100*iedRemain);
+  const finalDamage=(1+read('최종 데미지')/100)*after.factors.finalDamage/current.factors.finalDamage;
+  const stat=4*result[jobStat]+result[SUB_STAT[jobStat]]+(DOUBLE_SUB_STAT_JOBS.has(context.job)?result.STR:0);
+  return {coefficient:stat*attack*damage*critical*defense*finalDamage,factors:{stat,attack,damage,critical,defense,finalDamage},finalStats:{...result,[attackKey]:attack,'크리티컬 확률':critRate,'크리티컬 데미지':critDamage,'방어율 무시':100*(1-iedRemain)}};
 }

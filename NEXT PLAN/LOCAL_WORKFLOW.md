@@ -1,5 +1,7 @@
 # Windows 로컬 실행과 실증 순서
 
+로그인 이후 자동 실행 포털은 [PORTAL.md](../tools/maple-local-prototype/PORTAL.md)를 먼저 따른다. 포트 18877에서 실행하며 일반 사용자 키/VNC 설정을 요구하지 않는다. 아래는 기존 개인 도구를 직접 실증할 때의 별도 절차다.
+
 ## 1. GitHub에서 받기
 
 PowerShell에서 작업할 폴더로 이동한 뒤 저장소 전체를 받는다.

@@ -21,6 +21,7 @@ jobs:
       AUDIO_NODE_IMAGE_NAME: discord-audio-node
       STOCK_NODE_IMAGE_NAME: discord-stock-node
       YOUTUBE_CIPHER_IMAGE_NAME: discord-youtube-cipher
+      MAPLE_PORTAL_IMAGE_NAME: dis-maple-portal
       COMPOSE_PROJECT_NAME: discord-bot
       DEPLOY_DIR: /home/ubuntu/dis-bot
 
@@ -50,12 +51,29 @@ jobs:
             **/build/test-results/test/**
           if-no-files-found: ignore
 
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: tools/maple-local-prototype/package-lock.json
+
+      - name: Test Maple portal
+        working-directory: tools/maple-local-prototype
+        run: |
+          npm ci --ignore-scripts
+          npm test
+
       - name: Build Docker images
         run: |
           docker build -f apps/gateway-app/Dockerfile -t "${GATEWAY_IMAGE_NAME}:${{ github.sha }}" .
           docker build -f apps/audio-node-app/Dockerfile -t "${AUDIO_NODE_IMAGE_NAME}:${{ github.sha }}" .
           docker build -f apps/stock-node-app/Dockerfile -t "${STOCK_NODE_IMAGE_NAME}:${{ github.sha }}" .
           docker build -f ops/youtube-cipher/Dockerfile -t "${YOUTUBE_CIPHER_IMAGE_NAME}:${{ github.sha }}" .
+
+      - name: Build Maple portal image
+        if: ${{ vars.MAPLE_DISCORD_ENABLED == 'true' }}
+        run: docker build -f tools/maple-local-prototype/Dockerfile --target portal -t "${MAPLE_PORTAL_IMAGE_NAME}:${{ github.sha }}" tools/maple-local-prototype
 
       - name: Save Docker images to tar.gz
         run: |
@@ -64,6 +82,10 @@ jobs:
           docker save "${AUDIO_NODE_IMAGE_NAME}:${{ github.sha }}" | gzip > "out/${AUDIO_NODE_IMAGE_NAME}-${{ github.sha }}.tar.gz"
           docker save "${STOCK_NODE_IMAGE_NAME}:${{ github.sha }}" | gzip > "out/${STOCK_NODE_IMAGE_NAME}-${{ github.sha }}.tar.gz"
           docker save "${YOUTUBE_CIPHER_IMAGE_NAME}:${{ github.sha }}" | gzip > "out/${YOUTUBE_CIPHER_IMAGE_NAME}-${{ github.sha }}.tar.gz"
+
+      - name: Save Maple portal image
+        if: ${{ vars.MAPLE_DISCORD_ENABLED == 'true' }}
+        run: docker save "${MAPLE_PORTAL_IMAGE_NAME}:${{ github.sha }}" | gzip > "out/${MAPLE_PORTAL_IMAGE_NAME}-${{ github.sha }}.tar.gz"
 
       - name: Create env file
         env:
@@ -108,8 +130,23 @@ jobs:
           STOCK_TOP_RANK_LIMIT: ${{ vars.STOCK_TOP_RANK_LIMIT || '10' }}
           FINNHUB_BASE_URL: ${{ vars.FINNHUB_BASE_URL || 'https://finnhub.io/api/v1' }}
           FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+          MAPLE_DISCORD_ENABLED: ${{ vars.MAPLE_DISCORD_ENABLED || 'false' }}
+          MAPLE_PUBLIC_BASE_URL: ${{ vars.MAPLE_PUBLIC_BASE_URL }}
+          MAPLE_DISCORD_REDIRECT_URI: ${{ vars.MAPLE_DISCORD_REDIRECT_URI }}
+          MAPLE_DISCORD_CLIENT_ID: ${{ vars.MAPLE_DISCORD_CLIENT_ID }}
+          MAPLE_DISCORD_CLIENT_SECRET: ${{ secrets.MAPLE_DISCORD_CLIENT_SECRET }}
+          MAPLE_LINK_SIGNING_KEY: ${{ secrets.MAPLE_LINK_SIGNING_KEY }}
+          MAPLE_DISCORD_INTERNAL_KEY: ${{ secrets.MAPLE_DISCORD_INTERNAL_KEY }}
+          MAPLE_PORTAL_USERS: ${{ vars.MAPLE_PORTAL_USERS || '2' }}
+          MAPLE_EDGE_BIND: ${{ vars.MAPLE_EDGE_BIND || '127.0.0.1' }}
+          MAPLE_EDGE_PORT: ${{ vars.MAPLE_EDGE_PORT || '18877' }}
         run: |
           mkdir -p out
+          if [[ "${MAPLE_DISCORD_ENABLED}" == "true" ]]; then
+            for required in MAPLE_PUBLIC_BASE_URL MAPLE_DISCORD_REDIRECT_URI MAPLE_DISCORD_CLIENT_ID MAPLE_DISCORD_CLIENT_SECRET MAPLE_LINK_SIGNING_KEY MAPLE_DISCORD_INTERNAL_KEY; do
+              if [[ -z "${!required}" ]]; then echo "missing required Maple setting: ${required}"; exit 1; fi
+            done
+          fi
           {
             printf "GATEWAY_IMAGE_NAME=%s\n" "${GATEWAY_IMAGE_NAME}"
             printf "GATEWAY_IMAGE_TAG=%s\n" "${{ github.sha }}"
@@ -162,7 +199,28 @@ jobs:
             printf "STOCK_TOP_RANK_LIMIT=%s\n" "${STOCK_TOP_RANK_LIMIT}"
             printf "FINNHUB_BASE_URL=%s\n" "${FINNHUB_BASE_URL}"
             printf "FINNHUB_API_KEY=%s\n" "${FINNHUB_API_KEY}"
+            printf "MAPLE_DISCORD_ENABLED=%s\n" "${MAPLE_DISCORD_ENABLED}"
+            printf "MAPLE_PORTAL_IMAGE_NAME=%s\n" "${MAPLE_PORTAL_IMAGE_NAME}"
+            printf "MAPLE_PORTAL_IMAGE_TAG=%s\n" "${{ github.sha }}"
+            printf "MAPLE_PUBLIC_BASE_URL=%s\n" "${MAPLE_PUBLIC_BASE_URL}"
+            printf "MAPLE_DISCORD_REDIRECT_URI=%s\n" "${MAPLE_DISCORD_REDIRECT_URI}"
+            printf "MAPLE_DISCORD_CLIENT_ID=%s\n" "${MAPLE_DISCORD_CLIENT_ID}"
+            printf "MAPLE_DISCORD_CLIENT_SECRET=%s\n" "${MAPLE_DISCORD_CLIENT_SECRET}"
+            printf "MAPLE_LINK_SIGNING_KEY=%s\n" "${MAPLE_LINK_SIGNING_KEY}"
+            printf "MAPLE_DISCORD_INTERNAL_KEY=%s\n" "${MAPLE_DISCORD_INTERNAL_KEY}"
+            printf "MAPLE_PORTAL_USERS=%s\n" "${MAPLE_PORTAL_USERS}"
+            printf "MAPLE_EDGE_BIND=%s\n" "${MAPLE_EDGE_BIND}"
+            printf "MAPLE_EDGE_PORT=%s\n" "${MAPLE_EDGE_PORT}"
           } > out/.env.cicd
+
+      - name: Prepare Maple service key
+        if: ${{ vars.MAPLE_DISCORD_ENABLED == 'true' }}
+        env:
+          MAPLE_NEXON_SERVICE_KEY: ${{ secrets.MAPLE_NEXON_SERVICE_KEY }}
+        run: |
+          if [[ -z "${MAPLE_NEXON_SERVICE_KEY}" ]]; then echo "missing required Maple service key"; exit 1; fi
+          printf '%s' "${MAPLE_NEXON_SERVICE_KEY}" > out/maple-nexon-service-key
+          chmod 600 out/maple-nexon-service-key
 
       - name: Prepare SSH
         env:
@@ -182,7 +240,7 @@ jobs:
           SSH_PORT: ${{ secrets.SSH_PORT }}
         run: |
           ssh -p "${SSH_PORT}" -i ~/.ssh/id_ed25519 "${SSH_USER}@${SSH_HOST}" \
-            "rm -rf '${DEPLOY_DIR}/incoming' && mkdir -p '${DEPLOY_DIR}/incoming' '${DEPLOY_DIR}/releases' && find '${DEPLOY_DIR}/releases' -mindepth 1 -maxdepth 1 -type d | sort | head -n -2 | xargs -r rm -rf"
+            "rm -rf '${DEPLOY_DIR}/incoming' && mkdir -p '${DEPLOY_DIR}/incoming' '${DEPLOY_DIR}/releases' && chmod 700 '${DEPLOY_DIR}/incoming' && find '${DEPLOY_DIR}/releases' -mindepth 1 -maxdepth 1 -type d | sort | head -n -2 | xargs -r rm -rf"
 
       - name: Upload files
         env:
@@ -230,6 +288,25 @@ jobs:
           scp -r -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \
             "ops/observability" \
             "${SSH_USER}@${SSH_HOST}:${DEPLOY_DIR}/incoming/ops/"
+
+      - name: Upload Maple files
+        if: ${{ vars.MAPLE_DISCORD_ENABLED == 'true' }}
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+        run: |
+          ssh -p "${SSH_PORT}" -i ~/.ssh/id_ed25519 "${SSH_USER}@${SSH_HOST}" \
+            "mkdir -p '${DEPLOY_DIR}/incoming/ops/maple-edge'"
+          scp -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \
+            "out/${MAPLE_PORTAL_IMAGE_NAME}-${{ github.sha }}.tar.gz" \
+            "${SSH_USER}@${SSH_HOST}:${DEPLOY_DIR}/incoming/"
+          scp -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \
+            "out/maple-nexon-service-key" \
+            "${SSH_USER}@${SSH_HOST}:${DEPLOY_DIR}/incoming/"
+          scp -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \
+            "ops/maple-edge/nginx.conf" \
+            "${SSH_USER}@${SSH_HOST}:${DEPLOY_DIR}/incoming/ops/maple-edge/nginx.conf"
 
       - name: Remote deploy
         env:

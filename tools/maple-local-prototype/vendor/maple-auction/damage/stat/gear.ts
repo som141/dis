@@ -17,8 +17,9 @@ const POTENTIAL_KEYS = [
 ] as const;
 
 function numberValue(value: unknown): number {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : 0;
+  const number = Number(value??0);
+  if(!Number.isFinite(number))throw new Error('장비 스탯 수치가 유효하지 않습니다.');
+  return number;
 }
 
 function add(block: StatBlock, key: keyof StatBlock, value: number): void {

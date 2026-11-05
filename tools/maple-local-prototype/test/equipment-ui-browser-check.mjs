@@ -1,0 +1,30 @@
+import {chromium} from 'playwright-core';
+import {createPortal} from '../src/portal-server.mjs';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import assert from 'node:assert/strict';
+const dir=await mkdtemp(join(tmpdir(),'maple-ui-'));
+const app=await createPortal({port:0,dataDir:dir,timerMs:0});
+let browser;const errors=[];
+try{
+  const {port}=await app.listen();browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
+  const page=await browser.newPage({viewport:{width:1360,height:1050}});page.on('pageerror',e=>errors.push(e.message));
+  await page.goto(`http://127.0.0.1:${port}`,{waitUntil:'domcontentloaded'});await page.locator('.equipment-tile').first().waitFor();
+  await page.getByRole('textbox',{name:'도감 이름 검색'}).fill('에테르넬');
+  await page.getByRole('button',{name:/에테르넬 메이지햇/}).click();
+  assert.equal(await page.locator('[data-field=keyword]').inputValue(),'에테르넬 메이지햇');
+  await page.locator('.row-filters').evaluate(e=>e.open=true);
+  await page.locator('[data-field=potentialGrade]').selectOption('4');
+  const main=page.locator('.potential-panels section').first();await main.getByRole('button',{name:'＋ 최소치 조건 추가'}).click();await main.locator('select').first().selectOption('criticalDamagePercent');await main.locator('input').first().fill('15');
+  await main.getByRole('button',{name:'＋ 최소치 조건 추가'}).click();await main.locator('select').nth(1).selectOption('intPercent');await main.locator('input').nth(1).fill('10');
+  assert.equal(await main.locator('input').count(),2);
+  await page.locator('[data-field=budgetMode]').selectOption('custom');
+  await page.locator('[data-field=budgetMin]').fill('120');await page.locator('[data-field=budgetMax]').fill('200');
+  assert.ok((await page.locator('.row-price-note').textContent()).includes('120'));
+  await page.screenshot({path:'/review/catalog.png',fullPage:true});
+  assert.equal(await page.locator('[data-workspace=sol], #solPanel').count(),0);assert.ok(await page.locator('#settings').isVisible());
+  await page.setViewportSize({width:390,height:844});
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
+  assert.deepEqual(errors,[]);console.log('Desktop/mobile catalog, multiple potential minimums, custom budget and equipment-only workspace passed. No account or auction search used.');
+}finally{await browser?.close();await app.close();await rm(dir,{recursive:true,force:true});}

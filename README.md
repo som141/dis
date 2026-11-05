@@ -6,6 +6,8 @@ DIS는 음성 채널에서 음악을 재생하고, 채팅에서 주식 모의투
 
 메이플 개인용 프로토타입을 로컬 Codex에서 이어서 실행하려면 [NEXT PLAN](<NEXT PLAN/README.md>)의 현재 상태·실행 순서·GitHub 참고 자료·전달 프롬프트를 읽는다.
 
+DIS 봇과 메이플 경매장을 연결하는 선택 기능은 [Spring Gateway 기반 통합 계획](docs/internal/analysis/MAPLE_DISCORD_INTEGRATION_PLAN.md)과 [운영 가이드](docs/operations/MAPLE_DISCORD_SETUP.md)에 정리했다.
+
 ## 주요 명령어
 
 | 기능 | 사용 예 | 응답 공개 범위 |
@@ -21,6 +23,7 @@ DIS는 음성 채널에서 음악을 재생하고, 채팅에서 주식 모의투
 | 계좌 조회 | `/stock balance`, `/stock portfolio`, `/stock history` | 본인에게만 표시 |
 | 수익률 순위 | `/stock rank period:day` | 채널에 공개 |
 | 이미지 | `/pizza` | 채널에 공개 |
+| 메이플 경매장 연결·상태·중지 | `/maple connect`, `/maple status`, `/maple stop job:작업ID` | 본인에게만 표시 |
 
 음악을 재생하려면 먼저 사용자가 음성 채널에 들어가야 한다. `/stop`은 재생과 대기열을 함께 비운다. 명령 옵션의 최신 기준은 봇의 `/man`과 [명령 카탈로그](apps/gateway-app/src/main/java/discordgateway/gateway/presentation/discord/DiscordCommandCatalog.java)다.
 

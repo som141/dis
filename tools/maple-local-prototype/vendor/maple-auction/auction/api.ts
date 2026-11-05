@@ -136,7 +136,7 @@ export class MapleAuctionApi {
     return this.transport.close?.() ?? Promise.resolve();
   }
 
-  // 모든 요청의 단일 관문. 401(세션 죽음)이면 1회 자가복구를 시도한다:
+  // 읽기 요청만 401 시 1회 재연결을 시도한다. 검색 등 쓰기 요청은 자동 재전송하지 않는다.
   // 읽기 전용 /accounts를 fanout으로 전 확장에 뿌려 로그인된 확장을 브로커의
   // preferred로 재고정한 뒤, 원 요청을 재시도한다. 세션이 다른 크롬 프로필로
   // 옮겨간 경우(살아있는 preferred가 죽은 세션만 두드리는 갇힘)를 여기서 푼다.
@@ -145,7 +145,7 @@ export class MapleAuctionApi {
   // 원래 에러를 그대로 반환한다 — errorText가 사용자 안내(NO_SESSION_MSG)로 바꾼다.
   private async send(cmd: AuctionCommandInput): Promise<AuctionReply> {
     const reply = await this.transport.request(cmd);
-    if (reply.ok || reply.status !== 401 || cmd.fanout) return reply;
+    if (reply.ok || reply.status !== 401 || cmd.fanout || cmd.method!=='GET') return reply;
     const probe = await this.transport.request({ type: 'fetch', url: `${AUTH_BASE}/accounts`, method: 'GET', fanout: true });
     if (!probe.ok) return reply;
     return this.transport.request(cmd);

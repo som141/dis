@@ -15,3 +15,14 @@ stock:
     command-result-exchange: ${STOCK_COMMAND_RESULT_EXCHANGE:stock.command.result.exchange}
     command-result-routing-key-prefix: ${STOCK_COMMAND_RESULT_ROUTING_KEY_PREFIX:stock.command.result.}
     command-result-queue-prefix: ${STOCK_COMMAND_RESULT_QUEUE_PREFIX:stock.command.result.}
+
+maple:
+  discord:
+    enabled: ${MAPLE_DISCORD_ENABLED:false}
+    public-base-url: ${MAPLE_PUBLIC_BASE_URL:}
+    discord-client-id: ${MAPLE_DISCORD_CLIENT_ID:}
+    discord-client-secret: ${MAPLE_DISCORD_CLIENT_SECRET:}
+    redirect-uri: ${MAPLE_DISCORD_REDIRECT_URI:}
+    signing-key: ${MAPLE_LINK_SIGNING_KEY:}
+    portal-internal-url: ${MAPLE_PORTAL_INTERNAL_URL:}
+    internal-key: ${MAPLE_DISCORD_INTERNAL_KEY:}

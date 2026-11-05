@@ -16,6 +16,8 @@ import discordgateway.gateway.interaction.RedisPendingInteractionRepository;
 import discordgateway.gateway.messaging.RabbitMusicCommandResultListener;
 import discordgateway.gateway.messaging.RabbitStockCommandBus;
 import discordgateway.gateway.messaging.RabbitStockCommandResultListener;
+import discordgateway.gateway.maple.MapleDiscordProperties;
+import discordgateway.gateway.maple.MapleDiscordService;
 import discordgateway.gateway.presentation.discord.DiscordBotListener;
 import discordgateway.gateway.presentation.discord.DiscordCommandRegistrationListener;
 import discordgateway.infra.audio.PlaybackGateway;
@@ -36,7 +38,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties(StockMessagingProperties.class)
+@EnableConfigurationProperties({StockMessagingProperties.class,MapleDiscordProperties.class})
 public class GatewayComponentConfiguration {
 
     @Bean
@@ -177,13 +179,15 @@ public class GatewayComponentConfiguration {
             MusicApplicationService musicApplicationService,
             StockApplicationService stockApplicationService,
             PlayAutocompleteService playAutocompleteService,
-            PendingInteractionRepository pendingInteractionRepository
+            PendingInteractionRepository pendingInteractionRepository,
+            MapleDiscordService mapleDiscordService
     ) {
         return new DiscordBotListener(
                 musicApplicationService,
                 stockApplicationService,
                 playAutocompleteService,
-                pendingInteractionRepository
+                pendingInteractionRepository,
+                mapleDiscordService
         );
     }
 

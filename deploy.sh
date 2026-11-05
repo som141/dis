@@ -26,6 +26,8 @@ GATEWAY_IMAGE_ARCHIVE="${INCOMING_DIR}/discord-gateway-${SHA}.tar.gz"
 AUDIONODE_IMAGE_ARCHIVE="${INCOMING_DIR}/discord-audio-node-${SHA}.tar.gz"
 STOCKNODE_IMAGE_ARCHIVE="${INCOMING_DIR}/discord-stock-node-${SHA}.tar.gz"
 YOUTUBE_CIPHER_IMAGE_ARCHIVE="${INCOMING_DIR}/discord-youtube-cipher-${SHA}.tar.gz"
+MAPLE_PORTAL_IMAGE_ARCHIVE="${INCOMING_DIR}/dis-maple-portal-${SHA}.tar.gz"
+MAPLE_SERVICE_KEY_FILE="${INCOMING_DIR}/maple-nexon-service-key"
 ENV_FILE="${INCOMING_DIR}/.env.cicd"
 COMPOSE_FILE="${INCOMING_DIR}/docker-compose.yml"
 OPS_DIR="${INCOMING_DIR}/ops"
@@ -45,6 +47,13 @@ require_file "${STOCKNODE_IMAGE_ARCHIVE}"
 require_file "${YOUTUBE_CIPHER_IMAGE_ARCHIVE}"
 require_file "${ENV_FILE}"
 require_file "${COMPOSE_FILE}"
+
+MAPLE_ENABLED="$(grep -E '^MAPLE_DISCORD_ENABLED=' "${ENV_FILE}" | tail -n 1 | cut -d '=' -f 2- || true)"
+if [[ "${MAPLE_ENABLED,,}" == "true" ]]; then
+  require_file "${MAPLE_PORTAL_IMAGE_ARCHIVE}"
+  require_file "${MAPLE_SERVICE_KEY_FILE}"
+  require_file "${OPS_DIR}/maple-edge/nginx.conf"
+fi
 
 validate_observability_files() {
   local release_dir="$1"
@@ -109,6 +118,11 @@ compose_in_dir() {
   if [[ "${observability_enabled,,}" == "true" ]]; then
     compose_cmd+=(--profile observability)
   fi
+  local maple_enabled
+  maple_enabled="$(env_value_from_file "${dir}/.env" "MAPLE_DISCORD_ENABLED")"
+  if [[ "${maple_enabled,,}" == "true" ]]; then
+    compose_cmd+=(--profile maple)
+  fi
   compose_cmd+=("$@")
   "${compose_cmd[@]}"
   popd >/dev/null
@@ -135,10 +149,17 @@ mkdir -p "${RELEASE_DIR}"
 echo "preparing release directory: ${RELEASE_DIR}"
 cp "${COMPOSE_FILE}" "${RELEASE_DIR}/docker-compose.yml"
 cp "${ENV_FILE}" "${RELEASE_DIR}/.env"
+chmod 600 "${RELEASE_DIR}/.env"
 cp "${GATEWAY_IMAGE_ARCHIVE}" "${RELEASE_DIR}/discord-gateway.tar.gz"
 cp "${AUDIONODE_IMAGE_ARCHIVE}" "${RELEASE_DIR}/discord-audio-node.tar.gz"
 cp "${STOCKNODE_IMAGE_ARCHIVE}" "${RELEASE_DIR}/discord-stock-node.tar.gz"
 cp "${YOUTUBE_CIPHER_IMAGE_ARCHIVE}" "${RELEASE_DIR}/discord-youtube-cipher.tar.gz"
+if [[ "${MAPLE_ENABLED,,}" == "true" ]]; then
+  cp "${MAPLE_PORTAL_IMAGE_ARCHIVE}" "${RELEASE_DIR}/dis-maple-portal.tar.gz"
+  mkdir -p "${RELEASE_DIR}/tools/maple-local-prototype/.docker-secrets"
+  cp "${MAPLE_SERVICE_KEY_FILE}" "${RELEASE_DIR}/tools/maple-local-prototype/.docker-secrets/nexon-service-key"
+  chmod 600 "${RELEASE_DIR}/tools/maple-local-prototype/.docker-secrets/nexon-service-key"
+fi
 if [[ -d "${OPS_DIR}" ]]; then
   rm -rf "${RELEASE_DIR}/ops"
   cp -R "${OPS_DIR}" "${RELEASE_DIR}/ops"
@@ -168,6 +189,11 @@ gzip -dc "${RELEASE_DIR}/discord-stock-node.tar.gz" | docker load
 echo "loading youtube-cipher image archive"
 gzip -dc "${RELEASE_DIR}/discord-youtube-cipher.tar.gz" | docker load
 
+if [[ "${MAPLE_ENABLED,,}" == "true" ]]; then
+  echo "loading Maple portal image archive"
+  gzip -dc "${RELEASE_DIR}/dis-maple-portal.tar.gz" | docker load
+fi
+
 echo "removing legacy fixed-name containers if present"
 remove_legacy_fixed_name_containers
 
@@ -193,6 +219,7 @@ compose_in_dir "${RELEASE_DIR}" "${COMPOSE_PROJECT_NAME}" "${CURRENT_OBSERVABILI
 
 echo "cleaning incoming artifacts"
 rm -f "${GATEWAY_IMAGE_ARCHIVE}" "${AUDIONODE_IMAGE_ARCHIVE}" "${STOCKNODE_IMAGE_ARCHIVE}" "${YOUTUBE_CIPHER_IMAGE_ARCHIVE}" "${ENV_FILE}" "${COMPOSE_FILE}"
+rm -f "${MAPLE_PORTAL_IMAGE_ARCHIVE}" "${MAPLE_SERVICE_KEY_FILE}"
 rm -rf "${OPS_DIR}"
 find "${RELEASES_DIR}" -mindepth 1 -maxdepth 1 -type d | sort | head -n "-${RELEASES_TO_KEEP}" | xargs -r rm -rf
 

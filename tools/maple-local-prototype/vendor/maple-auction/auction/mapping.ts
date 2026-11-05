@@ -7,7 +7,8 @@ export const SORTS = [
   'PRICE_DESC', // 가격 높은 순
   'ATTACK_POWER_DESC', // 전투력 증가량 높은 순
   'END_DATE_ASC', // 판매 종료 빠른 순
-  'REGISTER_DATE_DESC', // 최신 등록 순
+  'REGISTER_DATE_DESC',
+  'TRADE_DATE_DESC', // Official sold-history ordering. // 최신 등록 순
 ] as const;
 export type Sort = (typeof SORTS)[number];
 
@@ -90,7 +91,13 @@ export function buildCreateBody(p: SearchParams, id: Identity) {
   if (p.category || p.jobClass) {
     const cat: Record<string, string> = {};
     if (p.category) cat.itemDetailCategory = p.category;
-    if (p.jobClass) cat.itemJobCategory = p.jobClass;
+    // UI/catalog groups are not the API enum. Observed in the official auction
+    // bundle (2026-11-04): KMe -> Na.FIGHTER / Na.WIZARD / ARCHER / THIEF / PIRATE.
+    if (p.jobClass) {
+      const jobCodes: Record<string,string> = { WARRIOR:'FIGHTER', MAGE:'WIZARD', ARCHER:'ARCHER', THIEF:'THIEF', PIRATE:'PIRATE', FIGHTER:'FIGHTER', WIZARD:'WIZARD' };
+      if (!Object.hasOwn(jobCodes,p.jobClass)) throw new Error('지원하지 않는 직업군입니다.');
+      cat.itemJobCategory = jobCodes[p.jobClass];
+    }
     filters.itemCategory = cat;
   }
 

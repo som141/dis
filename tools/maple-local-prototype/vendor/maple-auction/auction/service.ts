@@ -1,3 +1,6 @@
+import { POTENTIAL_OPTION_LABELS } from './constants.js';
+import {SET_DB} from '../damage/setDb.js';
+import {normalizeSetName,setOfItem} from '../damage/setSimulation.js';
 import {
   buildCreateBody,
   parseItemId,
@@ -19,7 +22,8 @@ import { getAuctionEquipmentSlots } from '../damage/auctionEquipmentSlot.js';
 import type { AuctionItem, AuctionSearchResponse } from './item.js';
 import { isAuctionItemWearable } from '../damage/auctionWearable.js';
 import { getStatsAfterEquipmentReplacement } from '../damage/equipmentReplacement.js';
-import { getFinalDamageChangeRate } from '../damage/finalDamage.js';
+import { getFinalDamageChangeRate, getDamageBreakdown, getAnchoredDamageBreakdown, auditDamageBaseline } from '../damage/finalDamage.js';
+import { compareRingActivation, type RingChoice } from '../damage/ringEfficiency.js';
 import { getEquipmentSlot, type EquipmentSlot } from '../damage/equipmentSlot.js';
 import { getAuctionItemStats } from '../damage/stat/gear.js';
 import { worldName } from './constants.js';
@@ -28,6 +32,25 @@ import type {
   LoadCharacterSnapshot,
   RefreshCharacterSnapshot,
 } from '../characterSnapshot.js';
+
+// Granted skills are outside the equipment stat comparison on both sides.
+// Other effects that need a skill model must still match before and after.
+const grantedSkillNames = Object.values(POTENTIAL_OPTION_LABELS).filter(label => label.startsWith('쓸만한 '));
+function classifySkillPotentials(entries: Array<string | null | undefined>) {
+  const granted = new Set<string>();
+  const conditional: string[] = [];
+  for (const entry of entries) {
+    for (const part of (entry ?? '').split(/[,;\n]/)) {
+      const text = part.replace(/[<>]/g, '').trim();
+      const normalized = text.replace(/[\s:]/g, '');
+      const skill = grantedSkillNames.find(name => normalized.includes(name.replace(/\s/g, '')));
+      if (skill) granted.add(skill);
+      const other = skill ? normalized.replace(skill.replace(/\s/g, ''), '') : normalized;
+      if (/쓸만한|스킬.*레벨|버프.*지속|소환수|재사용|쿨타임/.test(other)) conditional.push(other);
+    }
+  }
+  return { granted, conditional: conditional.sort().join('|') };
+}
 
 // 키 설정은 MCP 서버 등록을 다시 해야 해서 AI가 대신 해줄 수 없다 — 사용자가 직접 할 일임을 명시한다
 // (주체를 안 밝히면 AI가 자기 일로 해석해 코드/설정 디버깅에 빠진다. shared의 DISCONNECTED_MSG 주석 참고).
@@ -76,18 +99,25 @@ function errorText(reply: Extract<AuctionReply, { ok: false }>): string {
     return '검색 결과가 너무 많아 거래소가 검색을 거부했습니다 (검색 횟수 소진 없음). 하위 분류(subCategory)나 키워드로 범위를 좁혀 다시 검색하세요.';
   }
   const suffix = apiCode != null ? ` (API code ${apiCode})` : '';
-  return `요청 실패 (${reply.code}): ${reply.error}${suffix}`;
+  return `요청 실패 (HTTP ${reply.status??0}, ${reply.code}): ${reply.error}${suffix}`;
 }
 
 // MCP 도구 뒤의 애플리케이션 서비스 — 세션 상태(신원·캐시)와 유스케이스를 소유한다.
 // 반환 규약: 실패는 한국어 안내 문자열, 성공은 요약 객체 (mcp.ts가 text()로 감싼다).
 export class AuctionService {
+  private damageBossDefense = 380;
+  private statusDamageUptime=0;
+  private ringChoice: RingChoice='none';
+  private ringLevel=4;
+  private ringBaselineOff=false;
+  setComparisonContext({bossDefenseRate=380,statusDamageUptime=0,ringChoice='none',ringLevel=4,ringBaselineOff=false}:{bossDefenseRate?:number;statusDamageUptime?:number;ringChoice?:RingChoice;ringLevel?:number;ringBaselineOff?:boolean}={}) {this.damageBossDefense=bossDefenseRate;this.statusDamageUptime=statusDamageUptime;this.ringChoice=ringChoice;this.ringLevel=ringLevel;this.ringBaselineOff=ringBaselineOff;}
   private identity: (Identity & { characterName?: string }) | null = null;
   private characters: CharacterInfo[] | null = null;
   private readonly bodyCache = new Map<string, { body: ReturnType<typeof buildCreateBody>; sold: boolean; category?: string }>();
   // 동일 조건(body+sold) → 살아있는 searchKey. 같은 조건 재검색을 POST 없이 재사용해 검색 횟수를 구조적으로 아낀다.
   // (searchKey는 조건만 저장하므로 GET 결과는 항상 실시간 — 재사용해도 낡은 데이터가 아니다)
   private readonly conditionCache = new Map<string, string>();
+  private comparisonSnapshot: ReturnType<LoadCharacterSnapshot> | null = null;
   constructor(
     private api: MapleAuctionApi,
     private loadCharacterSnapshot: LoadCharacterSnapshot,
@@ -95,9 +125,10 @@ export class AuctionService {
   ) {}
 
   private async summarizeSearchWithDamage(
-    data: AuctionSearchResponse
+    data: AuctionSearchResponse, compare = true
   ): Promise<SearchSummary & { finalDamageNote?: string }> {
     const summary = summarizeSearch(data);
+    if (!compare) return summary;
     // 부위는 매물 JSON만으로 정한다 — 검색 조건을 보면 이름만으로 검색했을 때 슬롯을 잃는다.
     const rawItems = data.items ?? [];
     const slotsByItem = rawItems.map(getAuctionEquipmentSlots);
@@ -112,30 +143,63 @@ export class AuctionService {
     }
 
     try {
-      const character = await this.loadCharacterSnapshot(characterName);
+      const character = await (this.comparisonSnapshot ??= this.loadCharacterSnapshot(characterName));
       const items = summary.items.map((item, index) => {
+        try{
         const slots = slotsByItem[index];
         if (!slots?.length) return item;
         const raw = rawItems[index];
         // 못 입는 장비의 증감률은 의미가 없다 — 카데나에게 마법사 스태프가 +26%로 뜨던 버그.
-        if (!raw || !isAuctionItemWearable(raw, character.job)) return item;
+        if (!raw || !isAuctionItemWearable(raw, character.job)) return {...item,comparisonErrors:{item:'현재 캐릭터가 착용할 수 없는 장비입니다.'}};
+        if(!raw.toolTip?.stat)throw new Error('매물 상세 스탯이 없습니다.');
+        if((raw.toolTip.reqLevel??0)>character.level)return {...item,comparisonErrors:{item:'현재 캐릭터의 레벨로 착용할 수 없는 장비입니다.'}};
         const stat = getAuctionItemStats(raw, character.level);
         const finalDamageChangeRate: Partial<Record<EquipmentSlot, number>> = {};
+        const comparisonDetails:Record<string,unknown>={},comparisonErrors:Record<string,string>={};
         for (const slot of slots) {
           if (!character.stats.장비?.[slot]) continue;
-          const changedStats = getStatsAfterEquipmentReplacement(character.stats, {
-            slot,
-            name: item.name,
-            stat,
-          });
-          finalDamageChangeRate[slot] = getFinalDamageChangeRate(
-            { job: character.job, level: character.level, stats: character.stats },
-            changedStats
-          );
+          try{
+            const old=character.stats.장비[slot]!;
+            if((old.stat.쿨감??0)!==(stat.쿨감??0))throw new Error('쿨감 변화는 스킬별 사용 주기를 계산해야 합니다.');
+            const currentItem=character.equipment.item_equipment.find(e=>getEquipmentSlot(e.item_equipment_slot)===slot);
+            if((raw.seedRingLevel??0)>0||(currentItem?.special_ring_level??0)>0)throw new Error('특수 반지 효과는 발동 조건·유지 시간의 별도 모델이 필요합니다.');
+            const beforeSkills = classifySkillPotentials(currentItem ? [
+              currentItem.potential_option_1, currentItem.potential_option_2, currentItem.potential_option_3,
+              currentItem.additional_potential_option_1, currentItem.additional_potential_option_2, currentItem.additional_potential_option_3,
+            ] : []);
+            const afterSkills = classifySkillPotentials([
+              ...(raw.toolTip?.upgradeInfo?.potential?.entries ?? []),
+              ...(raw.toolTip?.upgradeInfo?.additionalPotential?.entries ?? []),
+            ].map(entry => entry.text));
+            if (beforeSkills.conditional !== afterSkills.conditional) {
+              throw new Error('스킬 레벨·재사용 등 특수 잠재 변화는 별도 스킬 모델이 필요합니다.');
+            }
+            const ignoredSkills = [...new Set([...beforeSkills.granted, ...afterSkills.granted])];
+            if(slot==='무기'&&currentItem?.item_equipment_part&&!raw.toolTip?.categories?.includes(currentItem.item_equipment_part))throw new Error('무기 종류가 달라 무기 상수·숙련도·스킬 변화를 확인해야 합니다.');
+            if(Object.keys(character.stats.세트효과??{}).some(name=>!SET_DB[normalizeSetName(name)]))throw new Error('현재 장비의 미지원 세트 효과가 있어 정확하게 교체 계산할 수 없습니다.');
+            if((raw.toolTip as any)?.setEffects?.length&&!setOfItem(item.name))throw new Error('새 장비의 세트 소속을 확인하지 못했습니다.');
+            const changedStats = getStatsAfterEquipmentReplacement(character.stats, {slot,name:item.name,stat},character.setDefinitions);
+            const context={...character,bossDefenseRate:this.damageBossDefense,statusDamageUptime:this.statusDamageUptime};
+            const detail=character.observedFinalStats?getAnchoredDamageBreakdown:getDamageBreakdown;
+            const before=detail(context,character.stats),after=detail(context,changedStats);
+            finalDamageChangeRate[slot]=getFinalDamageChangeRate(context,changedStats);
+            let ring: ReturnType<typeof compareRingActivation> | {error:string} | undefined;
+            if(this.ringChoice!=='none') {
+              try {
+                if(!this.ringBaselineOff)throw new Error('API 기준 스탯에서 선택한 링 스킬이 꺼져 있음을 확인해 주세요.');
+                if(slot==='무기'&&this.ringChoice.startsWith('weapon-'))throw new Error('교체할 무기의 기본 공마를 확인할 수 없어 웨폰퍼프 재계산이 필요합니다.');
+                ring=compareRingActivation(character,changedStats,this.ringChoice,this.ringLevel,undefined,this.damageBossDefense,this.statusDamageUptime);
+              } catch(error) { ring={error:(error as Error).message}; }
+            }
+            comparisonDetails[slot]={ignoredSkills,ring,baseline:character.observedFinalStats?'API 총스탯 기준':'재구성 모델 기준 · API 대조 없음',bossDefenseRate:this.damageBossDefense,before:before.factors,after:after.factors,statChanges:after.finalStats,observedAt:character.observedAt??null,
+              notes:['크리티컬 확률 100% 고정','동일 공격·대상·버프 조건의 기대 피해 계수','주스탯/공마 %와 적용 제외 스탯은 API 분해 자료 사용','쿨감·스킬 회전율·데미지 상한·속성/포스 차이 미반영',this.statusDamageUptime?'대상 상태이상 추가 데미지 적용':'대상 상태이상 추가 데미지 제외'],reconstructionAudit:auditDamageBaseline(context)};
+          }catch(error){comparisonErrors[slot]=(error as Error).message;}
+
         }
         return Object.keys(finalDamageChangeRate).length
-          ? { ...item, finalDamageChangeRate }
-          : item;
+          ? { ...item, finalDamageChangeRate, comparisonDetails, ...(Object.keys(comparisonErrors).length?{comparisonErrors}:{}) }
+          : {...item,comparisonErrors};
+        }catch{return {...item,comparisonErrors:{item:'매물의 상세 수치를 해석하지 못해 계산하지 않았습니다.'}};}
       });
       return { ...summary, items };
     } catch (error) {
@@ -144,13 +208,14 @@ export class AuctionService {
       }
       return {
         ...summary,
-        finalDamageNote: `최종 데미지 증감률 계산 실패: ${(error as Error).message}`,
+        finalDamageNote: '캐릭터 기준 정보를 불러오지 못해 비교 수치를 계산하지 않았습니다.',
       };
     }
   }
 
   // Local prototype: invalidate handles before an explicitly fresh search.
   clearSearchCache(): void {
+    this.comparisonSnapshot = null;
     this.conditionCache.clear();
     this.bodyCache.clear();
   }
@@ -205,7 +270,7 @@ export class AuctionService {
 
   // POST: 세션 생성. 정렬·페이지 선택 없이 가격낮은순 10개만 반환한다. 더 보려면 getPage(GET).
   // sold=true면 판매 완료(시세) 검색. body는 동일하고 URL만 다르다.
-  async search(params: SearchParams, sold = false): Promise<unknown> {
+  async search(params: SearchParams, sold = false, { compare = true } = {}): Promise<unknown> {
     const id = await this.ensureIdentity();
     if (typeof id === 'string') return id;
     const body = buildCreateBody(params, id);
@@ -218,7 +283,7 @@ export class AuctionService {
       if (reused.ok) {
         const data = reused.data as any;
         const note = ['동일 조건의 기존 검색을 재사용 (검색 횟수 소진 없음)', this.searchNote(data?.total, params)].filter(Boolean).join(' / ');
-        return { ...(await this.summarizeSearchWithDamage(data)), searchRemaining: await this.searchRemaining(), note };
+        return { ...(await this.summarizeSearchWithDamage(data,compare)), searchRemaining: await this.searchRemaining(), note };
       }
       this.conditionCache.delete(condKey);
     }
@@ -231,10 +296,10 @@ export class AuctionService {
       this.conditionCache.set(condKey, data.searchKey);
     }
     const note = this.searchNote(data?.total, params);
-    return { ...(await this.summarizeSearchWithDamage(data)), searchRemaining: await this.searchRemaining(), ...(note ? { note } : {}) };
+    return { ...(await this.summarizeSearchWithDamage(data,compare)), searchRemaining: await this.searchRemaining(), ...(note ? { note } : {}) };
   }
 
-  async getPage(searchKey: string, page: number, limit: GetLimit, sort: Sort): Promise<unknown> {
+  async getPage(searchKey: string, page: number, limit: GetLimit, sort: Sort, { allowRecreate = true, compare = true } = {}): Promise<unknown> {
     const id = await this.ensureIdentity();
     if (typeof id === 'string') return id;
     const q = { page, limit, sort };
@@ -242,7 +307,7 @@ export class AuctionService {
     const sold = cachedEntry?.sold ?? false;
     // 실측: 결과 500건 초과면 API가 전투력 정렬을 조용히 무시한다 — 정렬됐다고 믿고 읽는 오판 방지
     const pageResult = async (data: unknown) => {
-      const summary = await this.summarizeSearchWithDamage(data as AuctionSearchResponse);
+      const summary = await this.summarizeSearchWithDamage(data as AuctionSearchResponse,compare);
       const note =
         sort === 'ATTACK_POWER_DESC' && summary.total > 500
           ? '결과가 500건을 초과해 전투력 정렬이 적용되지 않음 (다른 정렬로 반환될 수 있음)'
@@ -255,7 +320,7 @@ export class AuctionService {
     }
 
     // searchKey 만료 추정 → 캐시된 조건으로 재검색(POST) 후 해당 페이지 재조회 (라이브/시세 각각의 URL로)
-    if (reply.code === 'HTTP_ERROR' && reply.status !== 403) {
+    if (allowRecreate && reply.code === 'HTTP_ERROR' && reply.status !== 403) {
       const cached = this.bodyCache.get(searchKey);
       if (cached) {
         const recreated = await this.api.createSearch(cached.body, cached.sold);
@@ -402,6 +467,7 @@ export class AuctionService {
       };
     }
     const c = matches[0];
+    this.comparisonSnapshot = null;
     this.identity = { worldId: c.worldId, accountId: c.accountId, characterId: c.characterId, characterName: c.characterName };
     void this.refreshCharacterSnapshot(c.characterName).catch(() => undefined);
     return { switched: { world: c.worldName, name: c.characterName, level: c.level, characterId: c.characterId } };

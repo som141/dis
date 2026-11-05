@@ -17,7 +17,9 @@ interface CachedResponse {
   data: unknown;
 }
 
-const memory = new Map<string, unknown>();
+const memory = new Map<string, {data:unknown;fetchedAt:number}>();
+export const RESPONSE_CACHE_TTL_MS=15*60*1000;
+export const responseCacheFresh=(timestamp:number,now=Date.now())=>Number.isFinite(timestamp)&&now-timestamp>=-300000&&now-timestamp<RESPONSE_CACHE_TTL_MS;
 let legacyRemoved = false;
 
 function dataDirectory(): string {
@@ -47,11 +49,11 @@ function cacheFile(url: string): string {
 }
 
 export async function readCachedResponse(url: string): Promise<{ data: unknown } | null> {
-  if (memory.has(url)) return { data: memory.get(url) };
+  const hit=memory.get(url);if(hit&&responseCacheFresh(hit.fetchedAt))return {data:hit.data};memory.delete(url);
   try {
     const parsed = JSON.parse(await readFile(cacheFile(url), 'utf8')) as Partial<CachedResponse>;
-    if (parsed.url !== url || !('data' in parsed)) return null;
-    memory.set(url, parsed.data);
+    if (parsed.url !== url || !('data' in parsed)||!responseCacheFresh(Date.parse(parsed.fetchedAt??''))) return null;
+    memory.set(url, {data:parsed.data,fetchedAt:Date.parse(parsed.fetchedAt!)});
     return { data: parsed.data };
   } catch {
     return null;
@@ -59,9 +61,10 @@ export async function readCachedResponse(url: string): Promise<{ data: unknown }
 }
 
 export async function writeCachedResponse(url: string, data: unknown): Promise<void> {
-  memory.set(url, data);
+  const timestamp=Date.now();
+  memory.set(url, {data,fetchedAt:timestamp});
 
-  const entry: CachedResponse = { url, fetchedAt: new Date().toISOString(), data };
+  const entry: CachedResponse = { url, fetchedAt: new Date(timestamp).toISOString(), data };
   const destination = cacheFile(url);
   const temporary = `${destination}.${process.pid}.${Date.now()}.tmp`;
   await mkdir(getNexonResponseCacheDirectory(), { recursive: true, mode: 0o700 });

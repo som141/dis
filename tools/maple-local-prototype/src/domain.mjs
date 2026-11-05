@@ -1,8 +1,10 @@
 import {
   AuctionService, AuctionBridge, MapleAuctionApi, loadCharacterSnapshot,
   refreshCharacterSnapshot, clearNexonResponseCache,
-  ARMOR_CATEGORY_LABELS, WEAPON_CATEGORY_LABELS,
+  ARMOR_CATEGORY_LABELS, WEAPON_CATEGORY_LABELS, POTENTIAL_OPTION_LABELS,
 } from '../dist/core.mjs';
+import { marketHistory, tradeTimestamp } from './market-stats.mjs';
+import { applyPotentialMaximums, MAXIMUM_OPTION_KEYS } from './potential-limits.mjs';
 
 export const INTERVAL_MS = 30 * 60 * 1000;
 export const DEFAULT_CHARACTER = '에반이였솜';
@@ -11,29 +13,96 @@ export class AppError extends Error {
   constructor(message, status = 400, code = 'INVALID_INPUT') { super(message); this.status = status; this.code = code; }
 }
 export function requireObject(value) {
-  if (typeof value === 'string') throw new AppError(value, 422, 'PROVIDER_ERROR');
+  if (typeof value === 'string') {
+    const match=value.match(/(?:API code |HTTP_|\bcode[^0-9]*)(404[012])/i);
+    const code=/결과가 너무 많/.test(value)||match?.[1]==='4040'?'TOO_MANY_RESULTS':match?.[1]==='4041'?'PROVIDER_THROTTLED':match?.[1]==='4042'?'QUOTA_EXHAUSTED':/429/.test(value)?'PROVIDER_THROTTLED':/401|403|세션|인증|로그인/.test(value)?'AUTH_EXPIRED':/400|조건|필터/.test(value)?'INVALID_QUERY':'PROVIDER_ERROR';
+    throw new AppError({TOO_MANY_RESULTS:'결과가 너무 많습니다. 아이템·가격·옵션 조건을 좁혀 주세요.',PROVIDER_THROTTLED:'경매장이 연속 조회를 제한했습니다. 잠시 후 직접 다시 조회하세요.',QUOTA_EXHAUSTED:'오늘 검색 한도를 모두 사용했습니다.',AUTH_EXPIRED:'공식 경매장 인증이 만료됐거나 변경됐습니다. 계정을 다시 연결하세요.',INVALID_QUERY:'경매장이 검색 조건을 거절했습니다. 부위와 옵션 조건을 확인하세요.',PROVIDER_ERROR:'경매장 응답을 확인하지 못했습니다. 자동으로 재검색하지 않습니다.'}[code],422,code);
+  }
   if (!value || typeof value !== 'object') throw new AppError('제공자 응답 형식이 올바르지 않습니다.', 502, 'INVALID_RESPONSE');
   return value;
 }
+// Recognize scheduled work and submissions created by the retired fragment view.
+export function isFragmentSearch(input) {
+  return input?.id === 'sol-fragment' || (typeof input?.keyword === 'string' && input.keyword.replace(/\s/g, '') === '솔에르다조각');
+}
 export function parseQuery(input) {
+  if (isFragmentSearch(input)) throw new AppError('솔 에르다 조각 시세 기능은 종료되었습니다. 장비를 선택해 주세요.');
   const keyword = typeof input.keyword === 'string' ? input.keyword.trim() : '';
-  if (!keyword || keyword.length > 80) throw new AppError('아이템 이름을 1~80자로 입력하세요.');
-  if (!Object.hasOwn(CATEGORIES, input.category)) throw new AppError('목록에서 부위를 선택하세요.');
+  if (keyword.length > 80) throw new AppError('아이템 이름은 80자 이내로 입력하세요.');
+  const category = input.category === 'ALL' ? undefined : input.category;
+  if (category && !Object.hasOwn(CATEGORIES, category)) throw new AppError('목록에서 부위를 선택하세요.');
+  if (!keyword && !category) throw new AppError('아이템 이름 또는 부위를 선택하세요.');
   const budget = Number(input.budget);
-  if (!Number.isFinite(budget) || budget <= 0 || budget > 10000) throw new AppError('예산은 0 초과 10,000억 이하로 입력하세요.');
+  if (!['none','custom'].includes(input.budgetMode) && (!Number.isFinite(budget) || budget <= 0 || !Number.isSafeInteger(Math.round(budget*1e8)))) throw new AppError('올바른 예산을 입력하세요.');
+  if(input.bossDefenseRate!=null&&(!Number.isFinite(Number(input.bossDefenseRate))||Number(input.bossDefenseRate)<0||Number(input.bossDefenseRate)>1000))throw new AppError('대상 방어율은 0~1000%로 입력하세요.');
   const star = Number(input.starforceMin ?? 0), grade = Number(input.potentialGrade ?? 0);
   if (!Number.isInteger(star) || star < 0 || star > 30 || !Number.isInteger(grade) || grade < 0 || grade > 4) throw new AppError('스타포스·잠재 등급을 확인하세요.');
-  const option = input.option || '', allowed = ['intPercent', 'magicAttackPercent', 'bossDamagePercent', 'ignoreMonsterDefense', 'criticalDamagePercent', 'strPercent', 'dexPercent', 'lukPercent', 'physicalAttackPercent', 'allStatsPercent'];
-  const min = Number(input.optionMin ?? 0);
-  if ((option && !allowed.includes(option)) || !Number.isFinite(min) || min < 0 || min > 1000) throw new AppError('옵션 조건을 확인하세요.');
-  const meso = Math.round(budget * 100_000_000);
+  const potentials=normalizeOptionRows(input.potentialOptions,input.option,input.optionMin),additionals=normalizeOptionRows(input.additionalPotentialOptions,input.additionalOption,input.additionalMin);
+  parseMaximums(input,potentials,additionals);
+  if(input.jobClass&&!['ALL','WARRIOR','MAGE','ARCHER','THIEF','PIRATE'].includes(input.jobClass))throw new AppError('직업군을 확인하세요.');
+
+  const meso = Math.round(budget * 100_000_000), budgetMode=input.budgetMode || (input.hardCap ? 'max' : 'range');
+  if (!['none','max','range','custom'].includes(budgetMode)) throw new AppError('예산 검색 방식을 확인하세요.');
+  if(potentials.some(x=>x.option.endsWith('PerLevel')))throw new AppError('레벨당 스탯은 에디 잠재에서 선택하세요.');
+  const additional = Number(input.additionalGrade ?? 0);
+  if (!Number.isInteger(additional) || additional<0 || additional>4) throw new AppError('에디셔널 등급을 확인하세요.');
+  if(input.potentialNone&&potentials.length||input.additionalNone&&additionals.length)throw new AppError('잠재 없음 등급에는 옵션 조건을 지정할 수 없습니다.');
   return {
-    keyword, category: input.category,
-    priceMin: Math.ceil(meso * 7 / 10), priceMax: Math.floor(meso * (input.hardCap === true ? 1 : 1.3)),
-    starforceMin: star, ...(grade ? { potentialGrade: grade } : {}),
-    ...(option && min > 0 ? { potentialOptions: [{ option, minValue: min }], potentialSum: true } : {}),
+    ...(keyword ? {keyword} : {}), ...(category ? {category} : {}),
+    ...(budgetMode==='none' ? {} : priceBounds(input,meso,budgetMode)),
+    ...(star>0?{starforceMin:star}:{}), ...(grade || input.potentialNone ? { potentialGrade: grade } : {}),
+    ...(additional || input.additionalNone ? {additionalPotentialGrade:additional} : {}),
+    ...(input.jobClass && input.jobClass!=='ALL' ? {jobClass:input.jobClass} : {}),
+    ...(additionals.length?{additionalPotentialOptions:additionals,additionalPotentialSum:true}:{}),
+    ...(potentials.length?{potentialOptions:potentials,potentialSum:true}:{}),
     exactMatch: input.exactMatch === true, myWorldOnly: input.myWorldOnly === true,
   };
+}
+
+export function normalizeMaximumRows(rows){
+  if(rows==null)return [];
+  if(!Array.isArray(rows)||rows.length>8)throw new AppError('옵션 상한은 잠재·에디 각각 최대 8개까지 입력하세요.');
+  const unique=new Map();
+  for(const row of rows){
+    if(!row||typeof row!=='object'||!MAXIMUM_OPTION_KEYS.includes(row.option))throw new AppError('상한을 확인할 수 있는 옵션을 목록에서 선택하세요.');
+    if(row.maxValue===''||row.maxValue==null||typeof row.maxValue==='boolean')throw new AppError('옵션 상한을 입력하세요.');
+    const max=Number(row.maxValue);
+    if(!Number.isFinite(max)||max<0||max>10000)throw new AppError('옵션 상한은 0~10000의 숫자로 입력하세요.');
+    unique.set(row.option,Math.min(max,unique.get(row.option)??Infinity));
+  }
+  return [...unique].map(([option,maxValue])=>({option,maxValue})).sort((a,b)=>a.option.localeCompare(b.option));
+}
+export function parseMaximums(input,potentials=normalizeOptionRows(input.potentialOptions,input.option,input.optionMin),additionals=normalizeOptionRows(input.additionalPotentialOptions,input.additionalOption,input.additionalMin)){
+  const potentialMaximums=normalizeMaximumRows(input.potentialMaximums),additionalPotentialMaximums=normalizeMaximumRows(input.additionalPotentialMaximums);
+  if(input.potentialNone&&potentialMaximums.length||input.additionalNone&&additionalPotentialMaximums.length)throw new AppError('잠재 없음 등급에는 옵션 상한을 지정할 수 없습니다.');
+  for(const [minimums,maximums] of [[potentials,potentialMaximums],[additionals,additionalPotentialMaximums]])for(const max of maximums){
+    const min=minimums.find(row=>row.option===max.option)?.minValue;
+    if(min!=null&&min>max.maxValue)throw new AppError('같은 옵션의 최소치가 상한보다 큽니다.');
+  }
+  return {potentialMaximums,additionalPotentialMaximums};
+}
+
+export function normalizeOptionRows(rows,legacyOption='',legacyMin=0){
+  if(rows==null)rows=legacyOption?[{option:legacyOption,minValue:legacyMin??0}]:[];
+  if(!Array.isArray(rows)||rows.length>8)throw new AppError('잠재 조건은 각 영역에 최대 8개까지 입력하세요.');
+  const unique=new Map();
+  for(const row of rows){
+    if(!row||typeof row!=='object'||!Object.hasOwn(POTENTIAL_OPTION_LABELS,row.option))throw new AppError('목록에 있는 잠재 옵션을 선택하세요.');
+    if(row.minValue===''||row.minValue==null||typeof row.minValue==='boolean')throw new AppError('옵션 최소치를 입력하세요.');
+    const min=Number(row.minValue);
+    if(!Number.isFinite(min)||min<0||min>10000)throw new AppError('옵션 최소치는 0~10000의 숫자로 입력하세요.');
+    if(min>0)unique.set(row.option,Math.max(min,unique.get(row.option)||0));
+  }
+  return [...unique].map(([option,minValue])=>({option,minValue})).sort((a,b)=>a.option.localeCompare(b.option));
+}
+export function priceBounds(input,meso,mode) {
+  const percent=Number(input.budgetPercent??30);
+  if(!Number.isFinite(percent)||percent<0||percent>100)throw new AppError('예산 비율은 0~100%로 입력하세요.');
+  const min=mode==='custom'?(input.budgetMin===''||input.budgetMin==null?undefined:Math.round(Number(input.budgetMin)*1e8)):mode==='max'?0:Math.ceil(meso*(1-percent/100));
+  const max=mode==='custom'?(input.budgetMax===''||input.budgetMax==null?undefined:Math.round(Number(input.budgetMax)*1e8)):mode==='max'?meso:Math.floor(meso*(1+percent/100));
+  for(const n of [min,max])if(n!==undefined&&(!Number.isSafeInteger(n)||n<0))throw new AppError('예산 범위를 확인하세요.');
+  if(min!=null&&max!=null&&min>max)throw new AppError('최소 예산이 최대 예산보다 큽니다.');
+  return {...(min!=null?{priceMin:min}:{}),...(max!=null?{priceMax:max}:{})};
 }
 export function rankItems(items = []) {
   return items.map(item => {
@@ -43,7 +112,7 @@ export function rankItems(items = []) {
     return { ...item, comparison: best ? {
       slot: best[0], gainPercent: best[1], score: 100 + best[1],
       efficiency: price > 0 && Number.isFinite(price) ? best[1] / (price / 100_000_000) : null,
-      model: '독립 장비 교체 모델 · 보스 방어율 380%',
+      model:'동일 조건의 장비 교체 기대 피해 계수',details:item.comparisonDetails?.[best[0]],
     } : null };
   }).sort((a, b) => {
     const x = a.comparison?.efficiency, y = b.comparison?.efficiency;
@@ -55,8 +124,11 @@ export function rankItems(items = []) {
 }
 
 export class PrototypeEngine {
-  constructor(wire, { now = Date.now, loadSnapshot = loadCharacterSnapshot, refreshSnapshot = refreshCharacterSnapshot } = {}) {
+  constructor(wire, { now = Date.now, loadSnapshot = loadCharacterSnapshot, refreshSnapshot = refreshCharacterSnapshot, manageKeyEnvironment = true, completePageLimit = 0 } = {}) {
     this.wire = wire; this.now = now; this.loadSnapshot = loadSnapshot; this.refreshSnapshot = refreshSnapshot;
+    this.manageKeyEnvironment = manageKeyEnvironment;
+    this.completePageLimit = Number.isInteger(completePageLimit) && completePageLimit>0 ? Math.min(10000,completePageLimit) : 0;
+    this.collection = null; this.cancelRequested = false;
     this.busy = false; this.key = process.env.NEXON_DEVELOPER_KEY || ''; this.characters = []; this.character = null;
     this.profile = null; this.profileAt = null; this.result = null; this.watch = null; this.notices = [];
     this.resetService();
@@ -81,8 +153,10 @@ export class PrototypeEngine {
   setKey(key) {
     if (typeof key !== 'string' || (key && !/^[A-Za-z0-9._-]{10,1024}$/.test(key))) throw new AppError('키 형식을 확인하세요.');
     this.key = key;
-    if (key) process.env.NEXON_DEVELOPER_KEY = key;
-    else delete process.env.NEXON_DEVELOPER_KEY;
+    if (this.manageKeyEnvironment) {
+      if (key) process.env.NEXON_DEVELOPER_KEY = key;
+      else delete process.env.NEXON_DEVELOPER_KEY;
+    }
     clearNexonResponseCache(); this.profile = null; this.profileAt = null; this.result = null;
     if (this.watch && !['종료', '만료'].includes(this.watch.status)) this.watch.status = '설정 변경 · 재확인 필요';
     return { configured: !!key };
@@ -128,23 +202,54 @@ export class PrototypeEngine {
   }
   async search(input, { fromWatch = false } = {}) {
     if (!this.character) throw new AppError('연결 확인 후 본인 캐릭터를 선택하세요.');
-    const query = parseQuery(input), epoch = this.wire.epoch, svc = this.service;
+    this.collection=null;this.cancelRequested=false;
+    const query = parseQuery(input), maximums=parseMaximums(input),epoch = this.wire.epoch, svc = this.service;
     const quota = await this.quota(); this.guard(epoch);
+    if(this.cancelRequested)throw new AppError('조회가 중지되었습니다.',409,'CANCELLED');
     if (quota.remaining <= 0) throw new AppError('오늘 검색 한도를 모두 사용했습니다. 초기화 후 다시 시도하세요.', 429, 'QUOTA_EXHAUSTED');
+    svc.setComparisonContext?.({bossDefenseRate:Number(input.bossDefenseRate??380),statusDamageUptime:input.targetStatus===true?1:0,ringChoice:'none'});
     svc.clearSearchCache(); // Fresh POST: never assume old handles include new listings.
-    const summary = requireObject(await svc.search(query, input.sold === true));
+    const sold = input.sold === true;
+    const compare = input.compare !== false && !sold;
+    let summary = requireObject(await svc.search(query,sold,{compare}));
     this.guard(epoch);
-    if (!Array.isArray(summary.items) || !summary.searchKey) throw new AppError('검색 결과 형식이 달라졌습니다.', 502, 'INVALID_RESPONSE');
-    const result = { ...summary, items: rankItems(summary.items), query,
+    if (!Array.isArray(summary.items) || !summary.searchKey || !Number.isSafeInteger(summary.total) || summary.total<0) throw new AppError('검색 결과 형식이 달라졌습니다.', 502, 'INVALID_RESPONSE');
+    const target=Math.min(Number(summary.total)||0,this.completePageLimit||summary.items.length),seen=new Map();
+    let failed=null;
+    this.collection={status:'loading',loaded:0,total:summary.total,target,page:0,pages:Math.ceil(target/60),capped:summary.total>10000};
+    try {
+      if (summary.total>summary.items.length && this.completePageLimit) {
+        for (let number=1;number<=Math.ceil(target/60);number++) {
+          if(this.cancelRequested) throw new AppError('조회가 중지되었습니다.',409,'CANCELLED');
+          this.guard(epoch);
+          const page=requireObject(await svc.getPage(summary.searchKey,number,60,'PRICE_PER_ITEM_ASC',{allowRecreate:false,compare}));
+          this.guard(epoch);
+          if(!Array.isArray(page.items)) throw new AppError('검색 결과 형식을 확인해 주세요.',502,'INVALID_RESPONSE');
+          if(page.searchKey && page.searchKey!==summary.searchKey) throw new AppError('검색 연결이 변경되었습니다.',409,'CONNECTION_CHANGED');
+          for (const item of page.items) {
+            if (item.id && !seen.has(item.id) && seen.size < target) seen.set(item.id, item);
+          }
+          this.collection={...this.collection,loaded:seen.size,page:number};
+          if(page.items.length===0 || page.hasNext===false) break;
+          if(number<Math.ceil(target/60)) await new Promise(r=>setTimeout(r,120));
+        }
+      } else for(const item of summary.items) if(item.id) seen.set(item.id,item);
+      if(this.cancelRequested) throw new AppError('조회가 중지되었습니다.',409,'CANCELLED');
+      if(seen.size<target) throw new AppError('일부 페이지를 불러오지 못했습니다. 현재 결과는 부분 조회입니다.',502,'INCOMPLETE_RESULTS');
+    } catch(e) {failed=e;}
+    this.collection={...this.collection,status:failed ? 'incomplete' : 'complete',loaded:seen.size,complete:!failed && seen.size>=Math.min(summary.total,10000),error:failed?.code||null};
+    const filtered=applyPotentialMaximums([...seen.values()],maximums.potentialMaximums,maximums.additionalPotentialMaximums);
+    const allItems=filtered.items;
+    const market = sold ? marketHistory(allItems, {now:this.now(), coverage:this.collection}) : null;
+    const marketItems=sold ? allItems.filter(item=>{const stamp=tradeTimestamp(item.tradeDate);return item.status==='SOLD' && Number.isFinite(Number(item.price)) && Number(item.price)>0 && Number.isFinite(stamp) && stamp<=this.now() && market.from<=new Date(stamp+9*3600000).toISOString().slice(0,10) && new Date(stamp+9*3600000).toISOString().slice(0,10)<=market.to;}) : allItems;
+    const result = { ...summary, items:sold ? marketItems.sort((a,b)=>tradeTimestamp(b.tradeDate)-tradeTimestamp(a.tradeDate)) : rankItems(allItems),query,collection:this.collection,market,localFilter:filtered.summary,
       character: this.character.name, characterId: this.character.characterId, sold: input.sold === true,
       fetchedAt: new Date(this.now()).toISOString(), model: '독립 장비 교체 모델 · 환산주스탯 수치 아님',
-      coverage: '조회한 페이지의 매물만 비교합니다. 전체 매물 최고 순위를 의미하지 않습니다.' };
+      coverage:(this.collection.capped ? '제공자 조회 상한인 10,000건 범위입니다. 전체 결과를 포함하지 않습니다.' : failed ? '페이지 조회가 완료되지 않은 부분 결과입니다.' : '검색 결과 페이지를 모두 조회했습니다.') };
     this.result = result;
-    this.lastInput = { keyword: query.keyword, category: query.category, budget: Number(input.budget),
-      starforceMin: query.starforceMin, potentialGrade: Number(input.potentialGrade || 0),
-      option: input.option || '', optionMin: Number(input.optionMin || 0),
-      hardCap: input.hardCap === true, exactMatch: query.exactMatch, myWorldOnly: query.myWorldOnly, sold: input.sold === true };
+    this.lastInput = structuredClone(input);
     if (!fromWatch && this.watch && !['종료', '만료'].includes(this.watch.status)) this.watch.status = '검색 변경 · 재확인 필요';
+    if(failed) throw failed;
     return result;
   }
   async page(input) {
@@ -158,14 +263,15 @@ export class PrototypeEngine {
     this.result = { ...previous, ...summary, items: rankItems(summary.items), fetchedAt: new Date(this.now()).toISOString() };
     return this.result;
   }
-  startWatch({ days = 1, minGain = 0 } = {}) {
+  startWatch({ days = 1, minGain = 0, intervalMinutes = 30 } = {}) {
     if (!this.result || this.result.sold || this.result.characterId !== this.character?.characterId) throw new AppError('판매 중 매물을 검색한 뒤 감시를 시작하세요.');
-    if (this.result.total > this.result.items.length) throw new AppError('현재 프로토타입 감시는 한 페이지에 모두 담기는 검색만 지원합니다. 이름·옵션·가격을 좁혀 다시 검색하세요.');
-    if (![1, 3, 7].includes(Number(days)) || !Number.isFinite(Number(minGain)) || Number(minGain) < 0) throw new AppError('기간·개선율을 확인하세요.');
+    if (this.result.total>this.result.items.length && !this.result.collection?.complete) throw new AppError('일부 결과가 누락되어 감시를 시작할 수 없습니다.',409,'INCOMPLETE_RESULTS');
+    if (!Number.isInteger(Number(days)) || Number(days)<0 || Number(days)>365 || !Number.isFinite(Number(minGain)) || Number(minGain)<0 || !Number.isInteger(Number(intervalMinutes)) || Number(intervalMinutes)<1 || Number(intervalMinutes)>1440) throw new AppError('기간·개선율·조회 간격을 확인하세요.');
     if (Number(minGain) > 0 && !this.result.items.some(i => i.comparison)) throw new AppError('개선율 조건을 쓰려면 계산 가능한 결과가 필요합니다. 스펙 조건만 감시하려면 0으로 설정하세요.');
     if (!this.lastInput) throw new AppError('다시 검색한 뒤 감시를 시작하세요.');
-    this.watch = { status: '감시 중', intervalMs: INTERVAL_MS, startedAt: this.now(), expiresAt: this.now() + Number(days) * 86400000,
-      nextPollAt: this.now() + INTERVAL_MS, lastCheckedAt: this.result.fetchedAt, characterId: this.character.characterId,
+    const intervalMs=Number(intervalMinutes)*60000;
+    this.watch = { status:'감시 중',intervalMs,startedAt:this.now(),expiresAt:Number(days)===0 ? null : this.now()+Number(days)*86400000,
+      nextPollAt:this.now()+intervalMs,lastCheckedAt:this.result.fetchedAt,characterId:this.character.characterId,
       input: { ...this.lastInput }, minGain: Number(minGain), seen: new Set(this.result.items.map(i => i.id)), error: null };
     return this.watchView();
   }
@@ -174,14 +280,14 @@ export class PrototypeEngine {
   async tick() {
     const w = this.watch;
     if (!w || w.status !== '감시 중' || this.busy) return;
-    if (this.now() >= w.expiresAt) { w.status = '만료'; return; }
+    if (w.expiresAt!=null && this.now() >= w.expiresAt) { w.status = '만료'; return; }
     if (this.now() < w.nextPollAt) return;
     await this.run(async () => {
       try {
         if (this.character?.characterId !== w.characterId) throw new AppError('캐릭터를 다시 확인하세요.', 409, 'CONNECTION_CHANGED');
         const result = await this.search(w.input, { fromWatch: true });
-        if (this.watch !== w || w.status !== '감시 중' || this.now() >= w.expiresAt) return;
-        if (result.total > result.items.length) { w.status = '검색 범위 초과 · 조건 조정 필요'; return; }
+        if (this.watch !== w || w.status !== '감시 중' || (w.expiresAt!=null && this.now() >= w.expiresAt)) return;
+        if (result.total>result.items.length && !result.collection?.complete) { w.status='일부 결과 누락 · 재확인 필요';return; }
         for (const item of result.items) {
           if (!w.seen.has(item.id) && (w.minGain === 0 || item.comparison?.gainPercent >= w.minGain)) {
             this.notices.unshift({ item, foundAt: new Date(this.now()).toISOString(), character: result.character });
@@ -195,7 +301,7 @@ export class PrototypeEngine {
         // Do not retry a POST immediately: even a timeout may have consumed quota.
         if (e.code === 'QUOTA_EXHAUSTED') w.status = '한도 대기';
         else if (!this.wire.connected || e.code === 'CONNECTION_CHANGED') w.status = '인증 필요';
-      } finally { w.nextPollAt = this.now() + INTERVAL_MS; }
+      } finally { w.nextPollAt=this.now()+w.intervalMs; }
     });
   }
   state() {

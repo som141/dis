@@ -1,6 +1,8 @@
 # 현재 구현과 검증 범위
 
-2026-10-23 기준. 아래 항목은 같은 브랜치의 소스와 함께 읽는다.
+2026-10-24 기준. 아래 항목은 같은 브랜치의 소스와 함께 읽는다.
+
+로그인 이후 자동 실행을 위한 [로컬 서비스 포털](../tools/maple-local-prototype/PORTAL.md)을 추가했다. `http://127.0.0.1:18877/`에서 사용자별 공식 로그인 → 최고 레벨 본인 캐릭터·장비 자동 조회 → 장갑 검색·계산 → 30분 감시를 진행한다. 기존 17900 개인 도구와 별도 프로젝트·볼륨을 사용하며 일반 사용자 API 키 입력과 VNC 비밀번호가 없다. 실제 새 포털의 전체 계정 검증은 운영자 서비스 키·사용자 로그인 입력을 기다린다.
 
 ## 실제 실행 구조
 
@@ -29,6 +31,8 @@ UI의 8877 포트는 컨테이너 내부에서만 사용한다. Windows 사용�
 | [server.mjs](../tools/maple-local-prototype/src/server.mjs) | HTTP API, Host·Origin·CSRF 확인, 메모리 키 입력 |
 | [docker-server.mjs](../tools/maple-local-prototype/src/docker-server.mjs) | 도커 서버와 브라우저 시작 |
 | [auto-connect.mjs](../tools/maple-local-prototype/src/auto-connect.mjs) | 수동 로그인 후 세션 확인·본인 캐릭터 조회·에반이였솜 자동 선택. 조회만 수행하고 검색/감시는 시작하지 않음 |
+| [portal-server.mjs](../tools/maple-local-prototype/src/portal-server.mjs) · [portal-browser.mjs](../tools/maple-local-prototype/src/portal-browser.mjs) | 사용자별 전용 브라우저·연결 쿠키·CSRF·공식 로그인 화면/입력 전달 |
+| [portal-flow.mjs](../tools/maple-local-prototype/src/portal-flow.mjs) · [portal-store.mjs](../tools/maple-local-prototype/src/portal-store.mjs) | 로그인 이후 장비/검색/계산/감시 자동 실행·사용자별 체크포인트·계정 확인 후 복원 |
 | [browser-transport.mjs](../tools/maple-local-prototype/src/browser-transport.mjs) | 공식 탭 안에서 조회·검색, 관찰한 클라이언트 헤더, 계정 변경·401 처리 |
 | [domain.mjs](../tools/maple-local-prototype/src/domain.mjs) | 본인 캐릭터 선택, ±30% 가격, 점수/가성비, 한도, 감시·중복 억제 |
 | [bridge.mjs](../tools/maple-local-prototype/src/bridge.mjs) | 조회·검색 URL 허용 목록과 별도 Windows 확장 연결 |
@@ -59,7 +63,7 @@ UI의 8877 포트는 컨테이너 내부에서만 사용한다. Windows 사용�
 
 | 항목 | 상태 |
 | --- | --- |
-| `npm test` | 24개 통과: 기존 18개와 자동 연결·미일치 캐릭터·재시도 간격·경합/연결 변경·426 중단/전파 6개 |
+| `npm test` | 31개 통과: 기존 24개와 포털 자동 실행·두 사용자 격리·재시작/재연결·검색 의도 기록·운영자 키 수명·접속 제한 7개 |
 | 도커 빌드·실행·원격 화면·health | Codex Linux와 Windows Docker Desktop에서 확인 |
 | 실제 headed Chromium에서 캐릭터→계산→검색→감시 | API 응답을 가상 route로 대체하여 통과 |
 | 30분 감시·중복 억제 | 가상 시계로 확인. 실제 30분 운영 성공 기록은 아님 |
@@ -70,6 +74,7 @@ UI의 8877 포트는 컨테이너 내부에서만 사용한다. Windows 사용�
 | 실제 검색·한도 | 판매 중 검색 3회 HTTP 200, 각각 0건, 잔여량 99→98→97. 매물 가격·옵션 대조는 미완료 |
 | 실제 장비 정확도·실제 30분 회차 | 키 미설정으로 실제 장비/계산 미완료. 세션 이탈로 실제 감시는 시작되지 않음 |
 | Discord 계정 연결·명령·DM·감시 DB 복원 | 미구현 |
-| 여러 사용자의 로그인만으로 후속 작업 실행 | 사용자 최종 요구. 현재 개인용 도구는 미충족. 서비스 키·사용자별 연결/감시 분리 및 경매장 위임 방식 확인 필요 |
+| 여러 사용자의 로그인만으로 후속 작업 실행 | 별도 로컬 포털 구현. 독립 Chromium 두 개의 가상 로그인 → 장비/계산/검색/감시 통과. 새 포털의 실제 계정 전체 검증은 대기 |
+| 포털 감시·수신함 복원 | 사용자별 JSON 체크포인트, 같은 계정/캐릭터일 때 복원. 가상 검사 통과. 운영 DB·Discord 신원 복구와 별개 |
 
 검증 당시 도커는 Node 24.22.1 / Chromium 155였다. 앞으로 빌드되는 OS 패키지와 브라우저 버전은 달라질 수 있으므로 로컬 결과에 실제 버전을 남긴다.

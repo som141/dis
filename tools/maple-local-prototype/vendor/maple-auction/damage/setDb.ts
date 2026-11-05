@@ -28,7 +28,7 @@ export const SET_DB: Record<string, Record<number, SetTier>> = {
     4: { atk: 40, boss: 10 },
     5: { atk: 40, ida: 20 },
     6: { atk: 40, boss: 15 },
-    7: { allStat: 50, atk: 40, boss: 15 },
+    7: { allStat: 50, hp: 2500, atk: 40, boss: 15 },
     8: { atk: 40, boss: 15 },
   },
   앱솔랩스: {

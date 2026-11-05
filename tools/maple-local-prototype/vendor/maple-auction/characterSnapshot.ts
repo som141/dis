@@ -1,5 +1,7 @@
+import {parseEffectLines} from './damage/stat/effect-lines-parser.js';
+import {normalizeSetName} from './damage/setSimulation.js';
 import { getCharacterStats } from './damage/characterStats.js';
-import type { CharacterStats } from './damage/stat-interface.js';
+import type { CharacterStats, StatBlock } from './damage/stat-interface.js';
 import {
   getAbility,
   getCashItemEquipment,
@@ -29,6 +31,9 @@ export interface CharacterSnapshot {
   level: number;
   stats: CharacterStats;
   equipment: ItemEquipmentRes;
+  observedFinalStats?: Record<string,number>;
+  observedAt?: string | null;
+  setDefinitions?: Record<string,Record<number,StatBlock>>;
 }
 
 export type LoadCharacterSnapshot = (name: string) => Promise<CharacterSnapshot>;
@@ -74,6 +79,9 @@ async function fetchCharacterSnapshot(name: string, options?: NexonApiOptions): 
     job: basic.character_class ?? stat.character_class,
     level: basic.character_level,
     equipment,
+    observedFinalStats:Object.fromEntries(stat.final_stat.filter(x=>Number.isFinite(Number(x.stat_value))).map(x=>[x.stat_name,Number(x.stat_value)])),
+    observedAt:stat.date,
+    setDefinitions:Object.fromEntries(setEffect.set_effect.map(set=>[normalizeSetName(set.set_name),Object.fromEntries([...new Set(set.set_option_full.map(x=>x.set_count))].map(count=>[count,parseEffectLines(set.set_option_full.filter(x=>x.set_count===count).flatMap(x=>x.set_option.split(/\r?\n/)))]))])),
     stats: getCharacterStats({
       stat,
       basic,

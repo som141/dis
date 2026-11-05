@@ -4,6 +4,7 @@ import discordgateway.common.command.MusicCommandEnvelope;
 import discordgateway.gateway.application.MusicApplicationService;
 import discordgateway.gateway.application.PlayAutocompleteService;
 import discordgateway.gateway.application.StockApplicationService;
+import discordgateway.gateway.maple.MapleDiscordService;
 import discordgateway.gateway.interaction.InteractionResponseContext;
 import discordgateway.gateway.interaction.PendingInteractionRepository;
 import discordgateway.stock.command.StockCommandEnvelope;
@@ -38,6 +39,7 @@ public class DiscordBotListener extends ListenerAdapter {
     private final StockApplicationService stockApplicationService;
     private final PlayAutocompleteService playAutocompleteService;
     private final PendingInteractionRepository pendingInteractionRepository;
+    private final MapleDiscordService mapleDiscordService;
 
     public DiscordBotListener(
             MusicApplicationService musicApplicationService,
@@ -45,10 +47,21 @@ public class DiscordBotListener extends ListenerAdapter {
             PlayAutocompleteService playAutocompleteService,
             PendingInteractionRepository pendingInteractionRepository
     ) {
+        this(musicApplicationService, stockApplicationService, playAutocompleteService, pendingInteractionRepository, null);
+    }
+
+    public DiscordBotListener(
+            MusicApplicationService musicApplicationService,
+            StockApplicationService stockApplicationService,
+            PlayAutocompleteService playAutocompleteService,
+            PendingInteractionRepository pendingInteractionRepository,
+            MapleDiscordService mapleDiscordService
+    ) {
         this.musicApplicationService = musicApplicationService;
         this.stockApplicationService = stockApplicationService;
         this.playAutocompleteService = playAutocompleteService;
         this.pendingInteractionRepository = pendingInteractionRepository;
+        this.mapleDiscordService = mapleDiscordService;
     }
 
     @Override
@@ -77,6 +90,7 @@ public class DiscordBotListener extends ListenerAdapter {
                 case DiscordCommandCatalog.CMD_SFX -> handleSfx(event);
                 case DiscordCommandCatalog.CMD_PIZZA -> handlePizza(event);
                 case DiscordCommandCatalog.CMD_STOCK -> handleStock(event);
+                case DiscordCommandCatalog.CMD_MAPLE -> handleMaple(event);
                 default -> event.reply("알 수 없는 명령어입니다.").setEphemeral(true).queue();
             }
         } catch (Exception e) {
@@ -304,6 +318,31 @@ public class DiscordBotListener extends ListenerAdapter {
                 !isPublicStockSubcommand(subcommand),
                 () -> stockApplicationService.dispatch(envelope)
         );
+    }
+
+    private void handleMaple(SlashCommandInteractionEvent event) {
+        if (mapleDiscordService == null) {
+            event.reply("메이플 Discord 연결이 준비되지 않았습니다.").setEphemeral(true).queue();
+            return;
+        }
+        String action=event.getSubcommandName();
+        long userId=event.getUser().getIdLong();
+        if (DiscordCommandCatalog.SUB_CONNECT.equals(action)) {
+            event.reply("개인 메이플 포털 연결 링크: " + mapleDiscordService.linkFor(userId))
+                    .setEphemeral(true).queue();
+            return;
+        }
+        if (!DiscordCommandCatalog.SUB_STATUS.equals(action) && !DiscordCommandCatalog.SUB_STOP.equals(action)) {
+            event.reply("지원하지 않는 메이플 명령입니다.").setEphemeral(true).queue();
+            return;
+        }
+        String jobId=DiscordCommandCatalog.SUB_STOP.equals(action)
+                ? getRequiredStringOption(event,DiscordCommandCatalog.OPT_JOB_ID):null;
+        event.deferReply(true).queue(hook -> CompletableFuture.supplyAsync(() ->
+                jobId==null?mapleDiscordService.status(userId):mapleDiscordService.stop(userId,jobId)
+        ).whenComplete((answer,error) -> safeEditHook(hook,
+                error==null?answer:"메이플 작업을 확인하지 못했습니다. 개인 포털에서 상태를 확인해 주세요.",
+                event.getName(),event.getGuild().getId(),event.getChannel().getId())));
     }
 
     private void dispatchDeferred(SlashCommandInteractionEvent event, MusicCommandEnvelope envelope) {

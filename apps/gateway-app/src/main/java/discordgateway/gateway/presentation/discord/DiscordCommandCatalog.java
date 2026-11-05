@@ -27,6 +27,7 @@ public final class DiscordCommandCatalog {
     public static final String CMD_SFX = "sfx";
     public static final String CMD_PIZZA = "pizza";
     public static final String CMD_STOCK = "stock";
+    public static final String CMD_MAPLE = "maple";
 
     public static final String OPT_QUERY = "query";
     public static final String OPT_AUTOPLAY = "autoplay";
@@ -36,6 +37,7 @@ public final class DiscordCommandCatalog {
     public static final String OPT_LEVERAGE = "leverage";
     public static final String OPT_LIMIT = "limit";
     public static final String OPT_PERIOD = "period";
+    public static final String OPT_JOB_ID = "job";
 
     public static final String SUB_QUOTE = "quote";
     public static final String SUB_LIST = "list";
@@ -45,6 +47,9 @@ public final class DiscordCommandCatalog {
     public static final String SUB_PORTFOLIO = "portfolio";
     public static final String SUB_HISTORY = "history";
     public static final String SUB_RANK = "rank";
+    public static final String SUB_CONNECT = "connect";
+    public static final String SUB_STATUS = "status";
+    public static final String SUB_STOP = "stop";
 
     private DiscordCommandCatalog() {
     }
@@ -99,6 +104,13 @@ public final class DiscordCommandCatalog {
                 Commands.slash(CMD_RESUME, "재생을 다시 시작합니다"),
                 Commands.slash(CMD_SFX, "효과음을 재생합니다").addOptions(sfxName),
                 Commands.slash(CMD_PIZZA, "피자 이미지를 보여줍니다"),
+                Commands.slash(CMD_MAPLE, "개인 메이플 경매장 조회·감시를 관리합니다")
+                        .addSubcommands(
+                                new SubcommandData(SUB_CONNECT,"개인 메이플 포털 연결 링크를 받습니다"),
+                                new SubcommandData(SUB_STATUS,"내 조회·감시 작업 상태를 봅니다"),
+                                new SubcommandData(SUB_STOP,"내 조회·감시 작업을 중지합니다")
+                                        .addOption(OptionType.STRING,OPT_JOB_ID,"/maple status에 표시된 작업 ID",true)
+                        ),
                 Commands.slash(CMD_STOCK, "모의투자 게임 명령입니다")
                         .addSubcommands(
                                 stockQuote,

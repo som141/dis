@@ -55,4 +55,12 @@ class DiscordCommandCatalogTest {
                         DiscordCommandCatalog.SUB_RANK
                 );
     }
+
+    @Test
+    void includesPrivateMapleEntryAndControlCommands(){
+        SlashCommandData maple=(SlashCommandData)DiscordCommandCatalog.commands().stream()
+                .filter(command->DiscordCommandCatalog.CMD_MAPLE.equals(command.getName())).findFirst().orElseThrow();
+        assertThat(maple.getSubcommands()).extracting(SubcommandData::getName)
+                .containsExactlyInAnyOrder(DiscordCommandCatalog.SUB_CONNECT,DiscordCommandCatalog.SUB_STATUS,DiscordCommandCatalog.SUB_STOP);
+    }
 }

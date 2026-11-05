@@ -12,7 +12,7 @@ COPY public ./public
 COPY docker ./docker
 RUN npm run build && npm prune --omit=dev --ignore-scripts && chmod -R a+rX /app
 
-FROM node:24-bookworm-slim
+FROM node:24-bookworm-slim AS desktop-base
 RUN --mount=type=secret,id=proxy_ca \
     apt-get -o Acquire::https::CaInfo=/run/secrets/proxy_ca update && \
     apt-get -o Acquire::https::CaInfo=/run/secrets/proxy_ca install -y --no-install-recommends \
@@ -28,3 +28,13 @@ ENV DISPLAY=:99 HOME=/home/node NODE_USE_ENV_PROXY=1 \
 EXPOSE 7900
 HEALTHCHECK --interval=15s --timeout=5s --start-period=90s --retries=3 CMD ["node", "/app/docker/healthcheck.mjs"]
 ENTRYPOINT ["/usr/bin/tini", "--", "/bin/sh", "/app/docker/entrypoint.sh"]
+
+# Independent service: no VNC server, VNC password or shared desktop is started.
+FROM desktop-base AS portal
+ENV MAPLE_PORTAL_BIND=0.0.0.0 MAPLE_PORTAL_PORT=8878
+EXPOSE 8878
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 CMD ["node", "--input-type=module", "-e", "const r=await fetch('http://127.0.0.1:8878/healthz');if(!r.ok)process.exit(1)"]
+ENTRYPOINT ["/usr/bin/tini", "-g", "--", "/bin/sh", "/app/docker/portal-entrypoint.sh"]
+
+# Keep the historical default for direct docker build callers as well as Compose.
+FROM desktop-base AS desktop

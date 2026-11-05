@@ -114,6 +114,9 @@ const JOB_CLASS: Record<string, JobClass> = Object.fromEntries(
     jobs.map((job) => [job, jobClass as JobClass])
   )
 );
+JOB_CLASS['캐논슈터']='해적';
+JOB_CLASS['데몬 슬레이어']='전사';
+JOB_CLASS['데몬 어벤져']='전사';
 
 export function getJobClass(job: string): JobClass | null {
   return JOB_CLASS[job] ?? null;
@@ -128,3 +131,6 @@ export const JOB_STAT: Record<string, JobStat> = {
     )
   ),
 };
+JOB_STAT['캐논슈터']='STR';
+JOB_STAT['데몬 슬레이어']='STR';
+JOB_STAT['데몬 어벤져']='deven';
