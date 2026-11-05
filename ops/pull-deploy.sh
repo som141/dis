@@ -30,8 +30,13 @@ tag="$(jq -r '.tag_name // empty | select(startswith("deploy-"))' <<<"${release_
 sha="${tag#deploy-}"
 [[ "${sha}" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid deployment tag" >&2; exit 1; }
 if [[ -f "${DEPLOY_DIR}/last-successful-sha" && "$(cat "${DEPLOY_DIR}/last-successful-sha")" == "${sha}" ]]; then
-  echo "DIS ${sha} is already deployed"
-  exit 0
+  maple_active="$(grep -E '^MAPLE_DISCORD_ENABLED=' "${ENV_FILE}" | tail -n 1 | cut -d '=' -f 2- || true)"
+  if [[ -f "${DEPLOY_DIR}/current/docker-compose.yml" && -f "${DEPLOY_DIR}/current/.env" ]] &&
+    { [[ "${maple_active,,}" != true ]] || [[ -f "${DEPLOY_DIR}/current/tools/maple-local-prototype/.docker-secrets/nexon-service-key" ]]; }; then
+    echo "DIS ${sha} is already deployed"
+    exit 0
+  fi
+  echo "DIS ${sha} is missing release files; redeploying"
 fi
 
 if [[ ! -d "${SOURCE_DIR}/.git" ]]; then

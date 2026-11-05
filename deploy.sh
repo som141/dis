@@ -221,6 +221,13 @@ echo "cleaning incoming artifacts"
 rm -f "${GATEWAY_IMAGE_ARCHIVE}" "${AUDIONODE_IMAGE_ARCHIVE}" "${STOCKNODE_IMAGE_ARCHIVE}" "${YOUTUBE_CIPHER_IMAGE_ARCHIVE}" "${ENV_FILE}" "${COMPOSE_FILE}"
 rm -f "${MAPLE_PORTAL_IMAGE_ARCHIVE}" "${MAPLE_SERVICE_KEY_FILE}"
 rm -rf "${OPS_DIR}"
-find "${RELEASES_DIR}" -mindepth 1 -maxdepth 1 -type d | sort | head -n "-${RELEASES_TO_KEEP}" | xargs -r rm -rf
+mapfile -t release_dirs < <(find "${RELEASES_DIR}" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' | sort -rn | cut -d ' ' -f 2-)
+for ((index=RELEASES_TO_KEEP; index<${#release_dirs[@]}; index++)); do
+  stale_dir="${release_dirs[index]}"
+  if [[ "${stale_dir}" == "${RELEASE_DIR}" || "${stale_dir}" == "${PREVIOUS_RELEASE_DIR}" ]]; then
+    continue
+  fi
+  rm -rf -- "${stale_dir}"
+done
 
 echo "deployed release ${SHA}"
