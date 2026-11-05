@@ -1,0 +1,9 @@
+[Unit]
+Description=Pull and deploy the latest verified DIS release
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=DEPLOY_DIR=/home/ubuntu/dis-bot
+ExecStart=/bin/bash /home/ubuntu/dis-bot/source/ops/pull-deploy.sh

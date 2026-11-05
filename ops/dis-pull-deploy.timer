@@ -1,0 +1,11 @@
+[Unit]
+Description=Check for verified DIS releases every ten minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=10min
+Persistent=true
+Unit=dis-pull-deploy.service
+
+[Install]
+WantedBy=timers.target

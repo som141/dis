@@ -8,6 +8,8 @@ DIS는 음성 채널에서 음악을 재생하고, 채팅에서 주식 모의투
 
 DIS 봇과 메이플 경매장을 연결하는 선택 기능은 [Spring Gateway 기반 통합 계획](docs/internal/analysis/MAPLE_DISCORD_INTEGRATION_PLAN.md)과 [운영 가이드](docs/operations/MAPLE_DISCORD_SETUP.md)에 정리했다.
 
+인바운드 연결이 막힌 Ubuntu 서버의 배포 절차는 [아웃바운드 전용 배포 안내](docs/operations/OUTBOUND_ONLY_DEPLOY.md)를 따른다.
+
 ## 주요 명령어
 
 | 기능 | 사용 예 | 응답 공개 범위 |

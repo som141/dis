@@ -1,5 +1,7 @@
 # 서버 배포 스크립트 가이드
 
+> 새 Ubuntu 인스턴스는 인바운드 전용 SSH 배포 대신 [아웃바운드 전용 배포](OUTBOUND_ONLY_DEPLOY.md)를 사용한다. 아래 내용은 기존 SSH 배포 방식의 기록이다.
+
 ## 개요
 
 현재 배포는 [GitHub Actions Deploy Bot](../../.github/workflows/cicd-deploy.yml)과 서버의 [deploy.sh](../../deploy.sh)를 기준으로 동작한다. `main` push와 수동 `workflow_dispatch`는 모두 실제 배포를 포함한다. 로컬 실행은 [로컬 개발 안내](LOCAL_DEVELOPMENT.md), 배포 후 장애 대응은 [운영 런북](OPERATIONS_RUNBOOK.md)을 따른다.

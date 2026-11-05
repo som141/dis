@@ -32,11 +32,11 @@ docker compose --profile maple ps
 
 기존 전체 DIS 서비스가 이미 구동 중이라면 Gateway만 교체되는지 확인한다. `maple-edge`를 통해 포털을 열고 Discord 개발 길드에서 `/maple connect`를 실행한다. 같은 사람의 다른 기기 연결은 이전 포털 쿠키를 무효화한다. `/maple status`의 작업 ID로 `/maple stop`을 실행한다. 웹의 감시 작업은 해당 사용자에게만 DM된다.
 
-### 기존 GitHub Actions 서버 배포
+### 인바운드가 없는 Ubuntu 서버 배포
 
-`main` 푸시가 기존 봇을 배포한다. GitHub 변수 `MAPLE_DISCORD_ENABLED`가 `true`일 때만 메이플 포털 이미지를 빌드·업로드하고 Compose의 `maple` 프로필을 켠다. 설정 전에는 Gateway 코드만 배포되고 `/maple` 연결은 활성화되지 않는다.
+`main` 푸시가 검증된 이미지 릴리스를 만든다. [아웃바운드 전용 배포 안내](OUTBOUND_ONLY_DEPLOY.md)에 따라 Ubuntu 서버가 릴리스를 가져와 적용한다. GitHub 변수 `MAPLE_DISCORD_ENABLED`가 `true`일 때만 메이플 포털 이미지가 릴리스에 포함된다. 설정 전에는 Gateway 코드만 배포되고 `/maple` 연결은 활성화되지 않는다.
 
-활성화 시 GitHub Variables에 `MAPLE_PUBLIC_BASE_URL`, `MAPLE_DISCORD_REDIRECT_URI`, `MAPLE_DISCORD_CLIENT_ID`, 필요에 따라 `MAPLE_PORTAL_USERS`, `MAPLE_EDGE_BIND`, `MAPLE_EDGE_PORT`를 등록한다. GitHub Secrets에는 `MAPLE_DISCORD_CLIENT_SECRET`, `MAPLE_LINK_SIGNING_KEY`, `MAPLE_DISCORD_INTERNAL_KEY`, `MAPLE_NEXON_SERVICE_KEY`를 등록한다. 실제 HTTPS 진입점이 `maple-edge`에 연결된 후 `MAPLE_DISCORD_ENABLED=true`로 변경하고 워크플로를 다시 실행한다.
+활성화 시 GitHub Variables에 `MAPLE_DISCORD_ENABLED=true`를 등록하고, 서버의 `/home/ubuntu/dis-bot/.env`에 공개 주소·Discord OAuth2 값·두 비밀 키를 설정한다. 넥슨 서비스 키는 서버의 `/home/ubuntu/dis-bot/secrets/maple-nexon-service-key` 파일에 둔다. 실제 HTTPS 진입점이 `maple-edge`에 연결된 후 워크플로를 다시 실행한다. 비밀값은 GitHub 릴리스에 포함하지 않는다.
 
 ## 운영 경계
 

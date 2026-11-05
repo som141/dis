@@ -1,4 +1,4 @@
-name: Deploy Bot
+name: Build Bot Release
 
 on:
   push:
@@ -6,24 +6,21 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: dis-deploy-main
+  group: dis-release-main
   cancel-in-progress: true
 
 jobs:
-  build-and-deploy:
+  build-and-publish:
     runs-on: ubuntu-latest
-
     env:
       GATEWAY_IMAGE_NAME: discord-gateway
       AUDIO_NODE_IMAGE_NAME: discord-audio-node
       STOCK_NODE_IMAGE_NAME: discord-stock-node
       YOUTUBE_CIPHER_IMAGE_NAME: discord-youtube-cipher
       MAPLE_PORTAL_IMAGE_NAME: dis-maple-portal
-      COMPOSE_PROJECT_NAME: discord-bot
-      DEPLOY_DIR: /home/ubuntu/dis-bot
 
     steps:
       - name: Checkout
@@ -66,253 +63,36 @@ jobs:
 
       - name: Build Docker images
         run: |
-          docker build -f apps/gateway-app/Dockerfile -t "${GATEWAY_IMAGE_NAME}:${{ github.sha }}" .
-          docker build -f apps/audio-node-app/Dockerfile -t "${AUDIO_NODE_IMAGE_NAME}:${{ github.sha }}" .
-          docker build -f apps/stock-node-app/Dockerfile -t "${STOCK_NODE_IMAGE_NAME}:${{ github.sha }}" .
-          docker build -f ops/youtube-cipher/Dockerfile -t "${YOUTUBE_CIPHER_IMAGE_NAME}:${{ github.sha }}" .
+          docker build -f apps/gateway-app/Dockerfile -t "${GATEWAY_IMAGE_NAME}:${GITHUB_SHA}" .
+          docker build -f apps/audio-node-app/Dockerfile -t "${AUDIO_NODE_IMAGE_NAME}:${GITHUB_SHA}" .
+          docker build -f apps/stock-node-app/Dockerfile -t "${STOCK_NODE_IMAGE_NAME}:${GITHUB_SHA}" .
+          docker build -f ops/youtube-cipher/Dockerfile -t "${YOUTUBE_CIPHER_IMAGE_NAME}:${GITHUB_SHA}" .
 
       - name: Build Maple portal image
         if: ${{ vars.MAPLE_DISCORD_ENABLED == 'true' }}
-        run: docker build -f tools/maple-local-prototype/Dockerfile --target portal -t "${MAPLE_PORTAL_IMAGE_NAME}:${{ github.sha }}" tools/maple-local-prototype
+        run: docker build -f tools/maple-local-prototype/Dockerfile --target portal -t "${MAPLE_PORTAL_IMAGE_NAME}:${GITHUB_SHA}" tools/maple-local-prototype
 
-      - name: Save Docker images to tar.gz
+      - name: Save Docker images and checksums
         run: |
           mkdir -p out
-          docker save "${GATEWAY_IMAGE_NAME}:${{ github.sha }}" | gzip > "out/${GATEWAY_IMAGE_NAME}-${{ github.sha }}.tar.gz"
-          docker save "${AUDIO_NODE_IMAGE_NAME}:${{ github.sha }}" | gzip > "out/${AUDIO_NODE_IMAGE_NAME}-${{ github.sha }}.tar.gz"
-          docker save "${STOCK_NODE_IMAGE_NAME}:${{ github.sha }}" | gzip > "out/${STOCK_NODE_IMAGE_NAME}-${{ github.sha }}.tar.gz"
-          docker save "${YOUTUBE_CIPHER_IMAGE_NAME}:${{ github.sha }}" | gzip > "out/${YOUTUBE_CIPHER_IMAGE_NAME}-${{ github.sha }}.tar.gz"
-
-      - name: Save Maple portal image
-        if: ${{ vars.MAPLE_DISCORD_ENABLED == 'true' }}
-        run: docker save "${MAPLE_PORTAL_IMAGE_NAME}:${{ github.sha }}" | gzip > "out/${MAPLE_PORTAL_IMAGE_NAME}-${{ github.sha }}.tar.gz"
-
-      - name: Create env file
-        env:
-          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN || secrets.TOKEN }}
-          DISCORD_DEV_GUILD_ID: ${{ secrets.DISCORD_DEV_GUILD_ID }}
-          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
-          YOUTUBE_PO_TOKEN: ${{ secrets.YOUTUBE_PO_TOKEN }}
-          YOUTUBE_VISITOR_DATA: ${{ secrets.YOUTUBE_VISITOR_DATA }}
-          YOUTUBE_REMOTE_CIPHER_URL: ${{ secrets.YOUTUBE_REMOTE_CIPHER_URL || vars.YOUTUBE_REMOTE_CIPHER_URL || 'http://youtube-cipher:8001' }}
-          YOUTUBE_REMOTE_CIPHER_PASSWORD: ${{ secrets.YOUTUBE_REMOTE_CIPHER_PASSWORD }}
-          YOUTUBE_REMOTE_CIPHER_USER_AGENT: ${{ secrets.YOUTUBE_REMOTE_CIPHER_USER_AGENT || vars.YOUTUBE_REMOTE_CIPHER_USER_AGENT || 'dis-bot' }}
-          YOUTUBE_CIPHER_MAX_THREADS: ${{ vars.YOUTUBE_CIPHER_MAX_THREADS || '1' }}
-          RABBITMQ_USERNAME: ${{ secrets.RABBITMQ_USERNAME }}
-          RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD }}
-          POSTGRES_DB: ${{ vars.POSTGRES_DB || 'stock' }}
-          POSTGRES_USER: ${{ vars.POSTGRES_USER || 'stock' }}
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD || vars.POSTGRES_PASSWORD || 'stock' }}
-          APP_ENV: ${{ vars.APP_ENV || 'prod' }}
-          OBSERVABILITY_ENABLED: ${{ vars.OBSERVABILITY_ENABLED || 'true' }}
-          GRAFANA_IMAGE: ${{ vars.GRAFANA_IMAGE }}
-          PROMETHEUS_IMAGE: ${{ vars.PROMETHEUS_IMAGE }}
-          LOKI_IMAGE: ${{ vars.LOKI_IMAGE }}
-          ALLOY_IMAGE: ${{ vars.ALLOY_IMAGE }}
-          REDIS_EXPORTER_IMAGE: ${{ vars.REDIS_EXPORTER_IMAGE }}
-          GRAFANA_ADMIN_USER: ${{ secrets.GRAFANA_ADMIN_USER || vars.GRAFANA_ADMIN_USER || 'admin' }}
-          GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD || 'admin' }}
-          GRAFANA_ANONYMOUS_ENABLED: ${{ vars.GRAFANA_ANONYMOUS_ENABLED || 'false' }}
-          GRAFANA_ALERT_DEFAULT_RECEIVER: ${{ vars.GRAFANA_ALERT_DEFAULT_RECEIVER || 'observability-noop' }}
-          GRAFANA_ALERT_NOOP_WEBHOOK_URL: ${{ vars.GRAFANA_ALERT_NOOP_WEBHOOK_URL || 'http://127.0.0.1:9/disabled' }}
-          GRAFANA_ALERT_DISCORD_WEBHOOK_URL: ${{ secrets.GRAFANA_ALERT_DISCORD_WEBHOOK_URL || 'https://example.invalid/discord-webhook' }}
-          GRAFANA_ALERT_DISCORD_AVATAR_URL: ${{ vars.GRAFANA_ALERT_DISCORD_AVATAR_URL }}
-          GRAFANA_ALERT_DISCORD_USE_USERNAME: ${{ vars.GRAFANA_ALERT_DISCORD_USE_USERNAME || 'true' }}
-          STOCK_QUOTE_PROVIDER: ${{ vars.STOCK_QUOTE_PROVIDER || secrets.STOCK_QUOTE_PROVIDER || 'mock' }}
-          STOCK_QUOTE_CACHE_TTL: ${{ vars.STOCK_QUOTE_CACHE_TTL || '60s' }}
-          STOCK_QUOTE_FRESHNESS: ${{ vars.STOCK_QUOTE_FRESHNESS || '45s' }}
-          STOCK_QUOTE_TRADE_FRESHNESS: ${{ vars.STOCK_QUOTE_TRADE_FRESHNESS || '45s' }}
-          STOCK_PROVIDER_PER_MINUTE_LIMIT: ${{ vars.STOCK_PROVIDER_PER_MINUTE_LIMIT || '60' }}
-          STOCK_PROVIDER_PER_DAY_LIMIT: ${{ vars.STOCK_PROVIDER_PER_DAY_LIMIT || '100000' }}
-          STOCK_MARKET_DATA_ENABLED: ${{ vars.STOCK_MARKET_DATA_ENABLED || 'true' }}
-          STOCK_MARKET: ${{ vars.STOCK_MARKET || 'US' }}
-          STOCK_MARKET_REFRESH_DELAY_MS: ${{ vars.STOCK_MARKET_REFRESH_DELAY_MS || '20000' }}
-          STOCK_TOP_RANK_LIMIT: ${{ vars.STOCK_TOP_RANK_LIMIT || '10' }}
-          FINNHUB_BASE_URL: ${{ vars.FINNHUB_BASE_URL || 'https://finnhub.io/api/v1' }}
-          FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
-          MAPLE_DISCORD_ENABLED: ${{ vars.MAPLE_DISCORD_ENABLED || 'false' }}
-          MAPLE_PUBLIC_BASE_URL: ${{ vars.MAPLE_PUBLIC_BASE_URL }}
-          MAPLE_DISCORD_REDIRECT_URI: ${{ vars.MAPLE_DISCORD_REDIRECT_URI }}
-          MAPLE_DISCORD_CLIENT_ID: ${{ vars.MAPLE_DISCORD_CLIENT_ID }}
-          MAPLE_DISCORD_CLIENT_SECRET: ${{ secrets.MAPLE_DISCORD_CLIENT_SECRET }}
-          MAPLE_LINK_SIGNING_KEY: ${{ secrets.MAPLE_LINK_SIGNING_KEY }}
-          MAPLE_DISCORD_INTERNAL_KEY: ${{ secrets.MAPLE_DISCORD_INTERNAL_KEY }}
-          MAPLE_PORTAL_USERS: ${{ vars.MAPLE_PORTAL_USERS || '2' }}
-          MAPLE_EDGE_BIND: ${{ vars.MAPLE_EDGE_BIND || '127.0.0.1' }}
-          MAPLE_EDGE_PORT: ${{ vars.MAPLE_EDGE_PORT || '18877' }}
-        run: |
-          mkdir -p out
-          if [[ "${MAPLE_DISCORD_ENABLED}" == "true" ]]; then
-            for required in MAPLE_PUBLIC_BASE_URL MAPLE_DISCORD_REDIRECT_URI MAPLE_DISCORD_CLIENT_ID MAPLE_DISCORD_CLIENT_SECRET MAPLE_LINK_SIGNING_KEY MAPLE_DISCORD_INTERNAL_KEY; do
-              if [[ -z "${!required}" ]]; then echo "missing required Maple setting: ${required}"; exit 1; fi
-            done
+          for image in "${GATEWAY_IMAGE_NAME}" "${AUDIO_NODE_IMAGE_NAME}" "${STOCK_NODE_IMAGE_NAME}" "${YOUTUBE_CIPHER_IMAGE_NAME}"; do
+            docker save "${image}:${GITHUB_SHA}" | gzip > "out/${image}-${GITHUB_SHA}.tar.gz"
+          done
+          if [[ "${{ vars.MAPLE_DISCORD_ENABLED }}" == "true" ]]; then
+            docker save "${MAPLE_PORTAL_IMAGE_NAME}:${GITHUB_SHA}" | gzip > "out/${MAPLE_PORTAL_IMAGE_NAME}-${GITHUB_SHA}.tar.gz"
           fi
-          {
-            printf "GATEWAY_IMAGE_NAME=%s\n" "${GATEWAY_IMAGE_NAME}"
-            printf "GATEWAY_IMAGE_TAG=%s\n" "${{ github.sha }}"
-            printf "AUDIO_NODE_IMAGE_NAME=%s\n" "${AUDIO_NODE_IMAGE_NAME}"
-            printf "AUDIO_NODE_IMAGE_TAG=%s\n" "${{ github.sha }}"
-            printf "STOCK_NODE_IMAGE_NAME=%s\n" "${STOCK_NODE_IMAGE_NAME}"
-            printf "STOCK_NODE_IMAGE_TAG=%s\n" "${{ github.sha }}"
-            printf "YOUTUBE_CIPHER_IMAGE_NAME=%s\n" "${YOUTUBE_CIPHER_IMAGE_NAME}"
-            printf "YOUTUBE_CIPHER_IMAGE_TAG=%s\n" "${{ github.sha }}"
-            printf "YOUTUBE_CIPHER_MAX_THREADS=%s\n" "${YOUTUBE_CIPHER_MAX_THREADS}"
-            printf "COMPOSE_PROJECT_NAME=%s\n" "${COMPOSE_PROJECT_NAME}"
-            printf "APP_ENV=%s\n" "${APP_ENV}"
-            printf "OBSERVABILITY_ENABLED=%s\n" "${OBSERVABILITY_ENABLED}"
-            printf "DISCORD_TOKEN=%s\n" "${DISCORD_TOKEN}"
-            printf "DISCORD_DEV_GUILD_ID=%s\n" "${DISCORD_DEV_GUILD_ID}"
-            printf "YOUTUBE_REFRESH_TOKEN=%s\n" "${YOUTUBE_REFRESH_TOKEN}"
-            printf "YOUTUBE_PO_TOKEN=%s\n" "${YOUTUBE_PO_TOKEN}"
-            printf "YOUTUBE_VISITOR_DATA=%s\n" "${YOUTUBE_VISITOR_DATA}"
-            printf "YOUTUBE_REMOTE_CIPHER_URL=%s\n" "${YOUTUBE_REMOTE_CIPHER_URL}"
-            printf "YOUTUBE_REMOTE_CIPHER_PASSWORD=%s\n" "${YOUTUBE_REMOTE_CIPHER_PASSWORD}"
-            printf "YOUTUBE_REMOTE_CIPHER_USER_AGENT=%s\n" "${YOUTUBE_REMOTE_CIPHER_USER_AGENT}"
-            printf "YOUTUBE_OAUTH_INIT=false\n"
-            printf "RABBITMQ_USERNAME=%s\n" "${RABBITMQ_USERNAME}"
-            printf "RABBITMQ_PASSWORD=%s\n" "${RABBITMQ_PASSWORD}"
-            printf "POSTGRES_DB=%s\n" "${POSTGRES_DB}"
-            printf "POSTGRES_USER=%s\n" "${POSTGRES_USER}"
-            printf "POSTGRES_PASSWORD=%s\n" "${POSTGRES_PASSWORD}"
-            printf "GRAFANA_IMAGE=%s\n" "${GRAFANA_IMAGE}"
-            printf "PROMETHEUS_IMAGE=%s\n" "${PROMETHEUS_IMAGE}"
-            printf "LOKI_IMAGE=%s\n" "${LOKI_IMAGE}"
-            printf "ALLOY_IMAGE=%s\n" "${ALLOY_IMAGE}"
-            printf "REDIS_EXPORTER_IMAGE=%s\n" "${REDIS_EXPORTER_IMAGE}"
-            printf "GRAFANA_ADMIN_USER=%s\n" "${GRAFANA_ADMIN_USER}"
-            printf "GRAFANA_ADMIN_PASSWORD=%s\n" "${GRAFANA_ADMIN_PASSWORD}"
-            printf "GRAFANA_ANONYMOUS_ENABLED=%s\n" "${GRAFANA_ANONYMOUS_ENABLED}"
-            printf "GRAFANA_ALERT_DEFAULT_RECEIVER=%s\n" "${GRAFANA_ALERT_DEFAULT_RECEIVER}"
-            printf "GRAFANA_ALERT_NOOP_WEBHOOK_URL=%s\n" "${GRAFANA_ALERT_NOOP_WEBHOOK_URL}"
-            printf "GRAFANA_ALERT_DISCORD_WEBHOOK_URL=%s\n" "${GRAFANA_ALERT_DISCORD_WEBHOOK_URL}"
-            printf "GRAFANA_ALERT_DISCORD_AVATAR_URL=%s\n" "${GRAFANA_ALERT_DISCORD_AVATAR_URL}"
-            printf "GRAFANA_ALERT_DISCORD_USE_USERNAME=%s\n" "${GRAFANA_ALERT_DISCORD_USE_USERNAME}"
-            printf "STOCK_QUOTE_PROVIDER=%s\n" "${STOCK_QUOTE_PROVIDER}"
-            printf "STOCK_QUOTE_CACHE_TTL=%s\n" "${STOCK_QUOTE_CACHE_TTL}"
-            printf "STOCK_QUOTE_FRESHNESS=%s\n" "${STOCK_QUOTE_FRESHNESS}"
-            printf "STOCK_QUOTE_TRADE_FRESHNESS=%s\n" "${STOCK_QUOTE_TRADE_FRESHNESS}"
-            printf "STOCK_PROVIDER_PER_MINUTE_LIMIT=%s\n" "${STOCK_PROVIDER_PER_MINUTE_LIMIT}"
-            printf "STOCK_PROVIDER_PER_DAY_LIMIT=%s\n" "${STOCK_PROVIDER_PER_DAY_LIMIT}"
-            printf "STOCK_MARKET_DATA_ENABLED=%s\n" "${STOCK_MARKET_DATA_ENABLED}"
-            printf "STOCK_MARKET=%s\n" "${STOCK_MARKET}"
-            printf "STOCK_MARKET_REFRESH_DELAY_MS=%s\n" "${STOCK_MARKET_REFRESH_DELAY_MS}"
-            printf "STOCK_TOP_RANK_LIMIT=%s\n" "${STOCK_TOP_RANK_LIMIT}"
-            printf "FINNHUB_BASE_URL=%s\n" "${FINNHUB_BASE_URL}"
-            printf "FINNHUB_API_KEY=%s\n" "${FINNHUB_API_KEY}"
-            printf "MAPLE_DISCORD_ENABLED=%s\n" "${MAPLE_DISCORD_ENABLED}"
-            printf "MAPLE_PORTAL_IMAGE_NAME=%s\n" "${MAPLE_PORTAL_IMAGE_NAME}"
-            printf "MAPLE_PORTAL_IMAGE_TAG=%s\n" "${{ github.sha }}"
-            printf "MAPLE_PUBLIC_BASE_URL=%s\n" "${MAPLE_PUBLIC_BASE_URL}"
-            printf "MAPLE_DISCORD_REDIRECT_URI=%s\n" "${MAPLE_DISCORD_REDIRECT_URI}"
-            printf "MAPLE_DISCORD_CLIENT_ID=%s\n" "${MAPLE_DISCORD_CLIENT_ID}"
-            printf "MAPLE_DISCORD_CLIENT_SECRET=%s\n" "${MAPLE_DISCORD_CLIENT_SECRET}"
-            printf "MAPLE_LINK_SIGNING_KEY=%s\n" "${MAPLE_LINK_SIGNING_KEY}"
-            printf "MAPLE_DISCORD_INTERNAL_KEY=%s\n" "${MAPLE_DISCORD_INTERNAL_KEY}"
-            printf "MAPLE_PORTAL_USERS=%s\n" "${MAPLE_PORTAL_USERS}"
-            printf "MAPLE_EDGE_BIND=%s\n" "${MAPLE_EDGE_BIND}"
-            printf "MAPLE_EDGE_PORT=%s\n" "${MAPLE_EDGE_PORT}"
-          } > out/.env.cicd
+          cd out
+          sha256sum *.tar.gz > SHA256SUMS
 
-      - name: Prepare Maple service key
-        if: ${{ vars.MAPLE_DISCORD_ENABLED == 'true' }}
+      - name: Publish verified release
         env:
-          MAPLE_NEXON_SERVICE_KEY: ${{ secrets.MAPLE_NEXON_SERVICE_KEY }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          if [[ -z "${MAPLE_NEXON_SERVICE_KEY}" ]]; then echo "missing required Maple service key"; exit 1; fi
-          printf '%s' "${MAPLE_NEXON_SERVICE_KEY}" > out/maple-nexon-service-key
-          chmod 600 out/maple-nexon-service-key
-
-      - name: Prepare SSH
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_PORT: ${{ secrets.SSH_PORT }}
-        run: |
-          mkdir -p ~/.ssh
-          echo "${SSH_PRIVATE_KEY}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -p "${SSH_PORT}" "${SSH_HOST}" >> ~/.ssh/known_hosts
-
-      - name: Ensure remote directory
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-          SSH_PORT: ${{ secrets.SSH_PORT }}
-        run: |
-          ssh -p "${SSH_PORT}" -i ~/.ssh/id_ed25519 "${SSH_USER}@${SSH_HOST}" \
-            "rm -rf '${DEPLOY_DIR}/incoming' && mkdir -p '${DEPLOY_DIR}/incoming' '${DEPLOY_DIR}/releases' && chmod 700 '${DEPLOY_DIR}/incoming' && find '${DEPLOY_DIR}/releases' -mindepth 1 -maxdepth 1 -type d | sort | head -n -2 | xargs -r rm -rf"
-
-      - name: Upload files
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-          SSH_PORT: ${{ secrets.SSH_PORT }}
-        run: |
-          ssh -p "${SSH_PORT}" -i ~/.ssh/id_ed25519 "${SSH_USER}@${SSH_HOST}" \
-            "mkdir -p '${DEPLOY_DIR}/incoming/ops'"
-
-          scp -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \
-            "out/${GATEWAY_IMAGE_NAME}-${{ github.sha }}.tar.gz" \
-            "${SSH_USER}@${SSH_HOST}:${DEPLOY_DIR}/incoming/"
-
-          scp -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \
-            "out/${AUDIO_NODE_IMAGE_NAME}-${{ github.sha }}.tar.gz" \
-            "${SSH_USER}@${SSH_HOST}:${DEPLOY_DIR}/incoming/"
-
-          scp -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \
-            "out/${STOCK_NODE_IMAGE_NAME}-${{ github.sha }}.tar.gz" \
-            "${SSH_USER}@${SSH_HOST}:${DEPLOY_DIR}/incoming/"
-
-          scp -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \
-            "out/${YOUTUBE_CIPHER_IMAGE_NAME}-${{ github.sha }}.tar.gz" \
-            "${SSH_USER}@${SSH_HOST}:${DEPLOY_DIR}/incoming/"
-
-          scp -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \
-            "out/.env.cicd" \
-            "${SSH_USER}@${SSH_HOST}:${DEPLOY_DIR}/incoming/.env.cicd"
-
-          scp -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \
-            "docker-compose.yml" \
-            "${SSH_USER}@${SSH_HOST}:${DEPLOY_DIR}/incoming/docker-compose.yml"
-
-          scp -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \
-            "deploy.sh" \
-            "${SSH_USER}@${SSH_HOST}:${DEPLOY_DIR}/deploy.sh"
-
-          scp -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \
-            "ops/replay-command-dlq.sh" \
-            "ops/cleanup-legacy-deploy.sh" \
-            "ops/smoke-check.sh" \
-            "${SSH_USER}@${SSH_HOST}:${DEPLOY_DIR}/incoming/ops/"
-
-          scp -r -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \
-            "ops/observability" \
-            "${SSH_USER}@${SSH_HOST}:${DEPLOY_DIR}/incoming/ops/"
-
-      - name: Upload Maple files
-        if: ${{ vars.MAPLE_DISCORD_ENABLED == 'true' }}
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-          SSH_PORT: ${{ secrets.SSH_PORT }}
-        run: |
-          ssh -p "${SSH_PORT}" -i ~/.ssh/id_ed25519 "${SSH_USER}@${SSH_HOST}" \
-            "mkdir -p '${DEPLOY_DIR}/incoming/ops/maple-edge'"
-          scp -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \
-            "out/${MAPLE_PORTAL_IMAGE_NAME}-${{ github.sha }}.tar.gz" \
-            "${SSH_USER}@${SSH_HOST}:${DEPLOY_DIR}/incoming/"
-          scp -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \
-            "out/maple-nexon-service-key" \
-            "${SSH_USER}@${SSH_HOST}:${DEPLOY_DIR}/incoming/"
-          scp -P "${SSH_PORT}" -i ~/.ssh/id_ed25519 \
-            "ops/maple-edge/nginx.conf" \
-            "${SSH_USER}@${SSH_HOST}:${DEPLOY_DIR}/incoming/ops/maple-edge/nginx.conf"
-
-      - name: Remote deploy
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-          SSH_PORT: ${{ secrets.SSH_PORT }}
-        run: |
-          ssh -p "${SSH_PORT}" -i ~/.ssh/id_ed25519 "${SSH_USER}@${SSH_HOST}" \
-            "chmod +x '${DEPLOY_DIR}/deploy.sh' && DEPLOY_DIR='${DEPLOY_DIR}' COMPOSE_PROJECT_NAME='${COMPOSE_PROJECT_NAME}' bash '${DEPLOY_DIR}/deploy.sh' '${{ github.sha }}'"
+          tag="deploy-${GITHUB_SHA}"
+          if gh release view "${tag}" >/dev/null 2>&1; then
+            gh release upload "${tag}" out/*.tar.gz out/SHA256SUMS --clobber
+          else
+            gh release create "${tag}" out/*.tar.gz out/SHA256SUMS \
+              --target "${GITHUB_SHA}" --title "DIS deployment ${GITHUB_SHA}" \
+              --notes "Verified DIS Docker images for commit ${GITHUB_SHA}. No runtime secrets are included."
+          fi
