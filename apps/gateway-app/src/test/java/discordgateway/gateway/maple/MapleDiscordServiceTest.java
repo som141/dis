@@ -3,6 +3,7 @@ package discordgateway.gateway.maple;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 import java.net.InetSocketAddress;
 import java.net.http.HttpClient;
@@ -23,6 +24,17 @@ class MapleDiscordServiceTest {
         p.setSigningKey("fixture-signing-key-12345678901234567890");
         p.setInternalKey("fixture-internal-key-12345678901234567890");p.setPortalInternalUrl(internalUrl);
         return p;
+    }
+
+    @Test
+    void springCanCreateServiceWhenMapleIntegrationIsDisabled() {
+        try (var context = new AnnotationConfigApplicationContext()) {
+            context.registerBean(MapleDiscordProperties.class);
+            context.registerBean(ObjectMapper.class);
+            context.register(MapleDiscordService.class);
+            context.refresh();
+            assertThat(context.getBean(MapleDiscordService.class)).isNotNull();
+        }
     }
 
     @Test

@@ -2,6 +2,7 @@ package discordgateway.gateway.maple;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
@@ -23,6 +24,7 @@ public class MapleDiscordService {
     private final Clock clock;
     private final String discordApiBase;
 
+    @Autowired
     public MapleDiscordService(MapleDiscordProperties settings, ObjectMapper json) {
         this(settings,json,HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).followRedirects(HttpClient.Redirect.NEVER).build(),Clock.systemUTC(),"https://discord.com/api/v10");
     }
