@@ -24,8 +24,8 @@ flock -n 9 || exit 0
 
 release_json="$(curl -fsSL --retry 3 \
   -H 'Accept: application/vnd.github+json' \
-  "https://api.github.com/repos/${REPOSITORY}/releases?per_page=10")"
-tag="$(jq -r '[.[] | .tag_name | select(startswith("deploy-"))][0] // empty' <<<"${release_json}")"
+  "https://api.github.com/repos/${REPOSITORY}/releases/latest")"
+tag="$(jq -r '.tag_name // empty | select(startswith("deploy-"))' <<<"${release_json}")"
 [[ -n "${tag}" ]] || { echo "no verified DIS release has been published"; exit 0; }
 sha="${tag#deploy-}"
 [[ "${sha}" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid deployment tag" >&2; exit 1; }
