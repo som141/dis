@@ -38,6 +38,14 @@ docker compose --profile maple ps
 
 활성화 시 GitHub Variables에 `MAPLE_DISCORD_ENABLED=true`를 등록하고, 서버의 `/home/ubuntu/dis-bot/.env`에 공개 주소·Discord OAuth2 값·두 비밀 키를 설정한다. 넥슨 서비스 키는 서버의 `/home/ubuntu/dis-bot/secrets/maple-nexon-service-key` 파일에 둔다. 실제 HTTPS 진입점이 `maple-edge`에 연결된 후 워크플로를 다시 실행한다. 비밀값은 GitHub 릴리스에 포함하지 않는다.
 
+### ngrok HTTPS 진입점
+
+인바운드 포트를 열 수 없는 Ubuntu 서버는 ngrok의 고정 도메인을 사용할 수 있다. 공식 ngrok 에이전트를 서버에 설치하고 `ngrok config add-authtoken`으로 해당 계정의 토큰을 등록한다. `/home/ubuntu/dis-bot/ngrok.env`에는 `NGROK_URL=https://<할당된 ngrok 도메인>`만 넣는다. 토큰은 Git이나 Discord에 올리지 않는다.
+
+`ops/dis-maple-ngrok.service`를 `/etc/systemd/system/`에 설치해 `systemctl daemon-reload`와 `systemctl enable --now dis-maple-ngrok.service`를 실행한다. 서비스는 호스트의 `127.0.0.1:18877`만 ngrok HTTPS 도메인으로 전달한다. Compose의 `MAPLE_EDGE_BIND=127.0.0.1`을 유지한다. Discord OAuth2 Redirect URI, `MAPLE_DISCORD_REDIRECT_URI`는 모두 `https://<할당된 ngrok 도메인>/maple/oauth/callback`으로 일치시킨다. `MAPLE_PUBLIC_BASE_URL`에는 같은 도메인의 HTTPS 원점만 넣는다.
+
+배포 후 `systemctl is-active dis-maple-ngrok.service`, `docker compose --profile maple ps`, 공개 도메인의 `/` 응답을 확인한다. ngrok 에이전트가 재시작되어도 고정 도메인을 재사용하므로 systemd가 연결을 복구한다.
+
 ## 운영 경계
 
 - 기본 2명 상한은 총 사용자 기록 수다. 상한 증가는 포털 메모리/CPU 조정과 함께 한다. 현재 구성은 자동 사용자 삭제를 하지 않는다.

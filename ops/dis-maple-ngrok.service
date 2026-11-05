@@ -1,0 +1,16 @@
+[Unit]
+Description=DIS Maple HTTPS tunnel through ngrok
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+EnvironmentFile=/home/ubuntu/dis-bot/ngrok.env
+ExecStart=/usr/local/bin/ngrok http --url=${NGROK_URL} http://127.0.0.1:18877
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
