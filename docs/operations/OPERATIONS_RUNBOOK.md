@@ -122,4 +122,6 @@ docker system df
 
 배포는 archive 복사와 image 적재에 공간을 사용한다. release 보존 수·Docker data-root·실행/rollback에 필요한 이미지를 확인하고 정리한다. 데이터 volume 삭제나 서버 전체 image prune을 일반 점검 명령으로 실행하지 않는다.
 
+메이플 DB 배포는 Flyway 이미지를 이전 release 정지 전에 받아 둔다. 이 단계가 디스크 부족으로 실패하면 기존 컨테이너는 계속 실행되므로 공간을 확보하고 배포를 재시도한다. 이미 정지된 상태에서 실패했다면 `current` 링크와 이전 release를 확인하고 복구 절차를 따른다.
+
 [개발·운영 문서](README.md) · [운영 파일 목록](../../ops/README.md)
