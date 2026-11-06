@@ -30,7 +30,7 @@ jobs:
           --health-cmd "pg_isready -U test -d maple_test"
           --health-interval 5s --health-timeout 3s --health-retries 20
     env:
-      MAPLE_TEST_DATABASE_URL: postgresql://test:test@127.0.0.1:5432/maple_test
+      MAPLE_TEST_DATABASE_URL: postgresql://maple_app:test@127.0.0.1:5432/maple_test
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v4
@@ -40,8 +40,21 @@ jobs:
           cache-dependency-path: apps/maple-portal/package-lock.json
       - run: npm ci --ignore-scripts
         working-directory: apps/maple-portal
-      - run: node scripts/prepare-postgres-test.mjs
-        working-directory: apps/maple-portal
+      - name: Bootstrap Maple DB role and schema
+        run: |
+          docker run --rm --network host \
+            -e POSTGRES_DB=maple_test -e POSTGRES_USER=test -e POSTGRES_PASSWORD=test \
+            -e MAPLE_POSTGRES_PASSWORD=test -e MAPLE_POSTGRES_HOST=127.0.0.1 \
+            -v "$PWD/ops/maple-db/bootstrap.sh:/bootstrap.sh:ro" \
+            postgres:16-alpine /bin/sh /bootstrap.sh
+      - name: Apply Flyway migration
+        run: |
+          docker run --rm --network host \
+            -e FLYWAY_URL=jdbc:postgresql://127.0.0.1:5432/maple_test \
+            -e FLYWAY_USER=maple_app -e FLYWAY_PASSWORD=test \
+            -e FLYWAY_SCHEMAS=maple -e FLYWAY_DEFAULT_SCHEMA=maple \
+            -v "$PWD/ops/maple-db/migrations:/flyway/sql:ro" \
+            flyway/flyway:13.12.0 migrate
       - run: npm test
         working-directory: apps/maple-portal
       - run: node ops/maple-db/check-doc-links.mjs
