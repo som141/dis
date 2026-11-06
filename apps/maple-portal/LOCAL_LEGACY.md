@@ -10,7 +10,7 @@
 
 필요한 도구: **Node.js 22 이상**, 최신 **Chrome**. Java·Docker·Discord 토큰은 필요 없다.
 
-1. 이 디렉터리를 다운로드/압축 해제하거나 저장소에서 `tools/maple-local-prototype`을 연다.
+1. 이 디렉터리를 다운로드/압축 해제하거나 저장소에서 `apps/maple-portal`을 연다.
 2. **`start-windows.cmd`를 더블클릭**한다. 최초에는 고정 버전 의존성을 설치하고 계산 코드를 빌드한다.
 3. 자동으로 열린 주소가 아직 연결되지 않으면 새로고침한다. 주소는 **http://127.0.0.1:8877** 이다. 실행한 터미널은 유지한다.
 4. Chrome 주소창에 `chrome://extensions`를 입력한다. 개발자 모드 → **압축해제된 확장 프로그램 로드** → 이 디렉터리의 **`extension`** 폴더를 선택한다.
@@ -25,7 +25,7 @@
 PowerShell로 직접 실행할 수도 있다.
 
 ```powershell
-cd tools\maple-local-prototype
+cd apps\maple-portal
 npm ci --ignore-scripts
 npm run build
 npm start

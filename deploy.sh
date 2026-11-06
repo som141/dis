@@ -50,6 +50,9 @@ require_file "${COMPOSE_FILE}"
 
 MAPLE_ENABLED="$(grep -E '^MAPLE_DISCORD_ENABLED=' "${ENV_FILE}" | tail -n 1 | cut -d '=' -f 2- || true)"
 if [[ "${MAPLE_ENABLED,,}" == "true" ]]; then
+  [[ -n "$(grep -E '^MAPLE_POSTGRES_PASSWORD=' "${ENV_FILE}" | tail -n 1 | cut -d '=' -f 2- || true)" ]] || {
+    echo "missing MAPLE_POSTGRES_PASSWORD in release configuration" >&2; exit 1;
+  }
   require_file "${MAPLE_PORTAL_IMAGE_ARCHIVE}"
   require_file "${MAPLE_SERVICE_KEY_FILE}"
   require_file "${OPS_DIR}/maple-edge/nginx.conf"
@@ -156,9 +159,9 @@ cp "${STOCKNODE_IMAGE_ARCHIVE}" "${RELEASE_DIR}/discord-stock-node.tar.gz"
 cp "${YOUTUBE_CIPHER_IMAGE_ARCHIVE}" "${RELEASE_DIR}/discord-youtube-cipher.tar.gz"
 if [[ "${MAPLE_ENABLED,,}" == "true" ]]; then
   cp "${MAPLE_PORTAL_IMAGE_ARCHIVE}" "${RELEASE_DIR}/dis-maple-portal.tar.gz"
-  mkdir -p "${RELEASE_DIR}/tools/maple-local-prototype/.docker-secrets"
-  cp "${MAPLE_SERVICE_KEY_FILE}" "${RELEASE_DIR}/tools/maple-local-prototype/.docker-secrets/nexon-service-key"
-  chmod 600 "${RELEASE_DIR}/tools/maple-local-prototype/.docker-secrets/nexon-service-key"
+  mkdir -p "${RELEASE_DIR}/apps/maple-portal/.docker-secrets"
+  cp "${MAPLE_SERVICE_KEY_FILE}" "${RELEASE_DIR}/apps/maple-portal/.docker-secrets/nexon-service-key"
+  chmod 600 "${RELEASE_DIR}/apps/maple-portal/.docker-secrets/nexon-service-key"
 fi
 if [[ -d "${OPS_DIR}" ]]; then
   rm -rf "${RELEASE_DIR}/ops"
@@ -201,6 +204,19 @@ if [[ -n "${PREVIOUS_RELEASE_DIR}" && -d "${PREVIOUS_RELEASE_DIR}" && "${PREVIOU
   PREVIOUS_PROJECT_NAME="$(compose_project_from_env "${PREVIOUS_RELEASE_DIR}/.env")"
   PREVIOUS_OBSERVABILITY_ENABLED="$(env_value_from_file "${PREVIOUS_RELEASE_DIR}/.env" "OBSERVABILITY_ENABLED")"
   if [[ -f "${PREVIOUS_RELEASE_DIR}/docker-compose.yml" && -f "${PREVIOUS_RELEASE_DIR}/.env" ]]; then
+    if [[ "${MAPLE_ENABLED,,}" == "true" ]]; then
+      mkdir -p "${RELEASE_DIR}/backup"
+      chmod 700 "${RELEASE_DIR}/backup"
+      compose_in_dir "${PREVIOUS_RELEASE_DIR}" "${PREVIOUS_PROJECT_NAME}" "${PREVIOUS_OBSERVABILITY_ENABLED}" \
+        exec -T postgres sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' \
+        > "${RELEASE_DIR}/backup/postgres-before-maple.dump"
+      chmod 600 "${RELEASE_DIR}/backup/postgres-before-maple.dump"
+      maple_volume="${PREVIOUS_PROJECT_NAME}_maple-portal-data"
+      if docker volume inspect "${maple_volume}" >/dev/null 2>&1; then
+        docker run --rm -v "${maple_volume}:/data:ro" -v "${RELEASE_DIR}/backup:/backup" postgres:16-alpine \
+          sh -c 'cd /data; set -- *.json; if [ -e "$1" ]; then tar -czf /backup/maple-json-before-migration.tar.gz "$@"; fi'
+      fi
+    fi
     echo "stopping previous release: ${PREVIOUS_RELEASE_DIR}"
     compose_in_dir "${PREVIOUS_RELEASE_DIR}" "${PREVIOUS_PROJECT_NAME}" "${PREVIOUS_OBSERVABILITY_ENABLED}" down --remove-orphans || true
   fi

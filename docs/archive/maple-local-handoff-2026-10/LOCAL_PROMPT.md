@@ -16,7 +16,7 @@ next-plan/maple-local-handoff 브랜치에서 메이플 개인용 프로토타�
 3. NEXT PLAN/LOCAL_WORKFLOW.md
 4. NEXT PLAN/REFERENCES.md
 5. NEXT PLAN/NEXT_PLAN.md
-6. tools/maple-local-prototype/DOCKER.md 와 VALIDATION.md
+6. apps/maple-portal/DOCKER.md 와 VALIDATION.md
 
 우선 목표는 Windows Docker Desktop에서 프로토타입을 실제 실행하고,
 내가 원격 Chromium의 공식 페이지에서 로그인·OTP를 완료하면

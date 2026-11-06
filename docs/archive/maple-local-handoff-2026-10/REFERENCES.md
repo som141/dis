@@ -6,13 +6,13 @@
 
 | 자료 | 읽을 위치와 목적 |
 | --- | --- |
-| [som141/dis 인수인계 브랜치](https://github.com/som141/dis/tree/next-plan/maple-local-handoff) | `NEXT PLAN/`, `tools/maple-local-prototype/`, `docs/internal/analysis/`가 현재 작업의 기준 |
+| [som141/dis 인수인계 브랜치](https://github.com/som141/dis/tree/next-plan/maple-local-handoff) | `NEXT PLAN/`, `apps/maple-portal/`, `docs/internal/analysis/`가 현재 작업의 기준 |
 | [oyc0401/maple-auction-mcp](https://github.com/oyc0401/maple-auction-mcp/tree/d01119598479225946c3a7defa9be6f2f1b93295) | `server/src/auction/api.ts`, `mapping.ts`, `item.ts`, `service.ts`: 검색 입력/응답 매핑·장비 교체 연결. 현재 vendor는 이 MIT 커밋을 기준으로 함 |
 | [lilllee/maple-auction](https://github.com/lilllee/maple-auction/tree/3ae0bf31b8ff762739e5af3db60484d861d9232f) | `src/nexon/browser.ts`, `src/watch/loop.ts`: 화면 있는 persistent browser, 수동 로그인, 브라우저 안 fetch, 감시 흐름 참고. 해당 코드 전체를 vendor한 것이 아님 |
 | [SeleniumHQ/docker-selenium](https://github.com/SeleniumHQ/docker-selenium/blob/7d9aaf4cd13f119dce64eb258d665149131de011/README.md#using-your-browser-no-vnc-client-is-needed) | Linux 브라우저/noVNC 구성 참고. 우리 이미지는 이 Selenium 이미지를 사용하지 않고 자체 Node 이미지로 구성 |
 | [microsoft/playwright](https://github.com/microsoft/playwright) · [공식 BrowserType API](https://playwright.dev/docs/api/class-browsertype#browser-type-launch-persistent-context) | persistent context·profile·실행 옵션·프록시·브라우저 호환성 확인 |
 
-사용 중인 `playwright-core` 등 JS 버전은 [package-lock.json](../tools/maple-local-prototype/package-lock.json)을 따른다. 외부 코드를 추가로 가져오려면 해당 파일의 라이선스를 먼저 확인하고 출처·커밋·수정 내역을 기록한다. 참고 자료를 읽었다는 것과 우리 앱에서 실제 실행했다는 것을 구분한다.
+사용 중인 `playwright-core` 등 JS 버전은 [package-lock.json](../../../apps/maple-portal/package-lock.json)을 따른다. 외부 코드를 추가로 가져오려면 해당 파일의 라이선스를 먼저 확인하고 출처·커밋·수정 내역을 기록한다. 참고 자료를 읽었다는 것과 우리 앱에서 실제 실행했다는 것을 구분한다.
 
 ## 공식 제공자 자료
 
@@ -27,12 +27,12 @@
 
 | 문서 | 필요한 시점 |
 | --- | --- |
-| [경매장 검색 API 상세](../docs/internal/analysis/MAPLE_AUCTION_SEARCH_API_REFERENCE_2026-10-23.md) | 필터 body·응답·페이지·검색 키·일일 한도 확인 |
-| [Linux 운영 가능성](../docs/internal/analysis/MAPLE_LINUX_AUCTION_FEASIBILITY_2026-10-23.md) | 서버 브라우저·세션 지속·Windows 종료 이후의 구조 확인 |
-| [넥슨 로그인 조사](../docs/internal/analysis/MAPLE_OPENID_LOGIN_CHECK_2026-10-23.md) | 계정 로그인·일반 API 키·사용자 토큰 범위 구분 |
-| [경매장 AI 사례](../docs/internal/analysis/MAPLE_AUCTION_AI_CASES_2026-10-23.md) | 추천·장비 점수·공개 구현 비교 |
-| [템환산 산식 공개 범위](../docs/internal/analysis/MAPLESCOUTER_GEAR_FORMULA_CHECK_2026-10-23.md) | 독립 모델과 환산주스탯 템환산의 차이 확인 |
-| [기능 명세 V3](../docs/internal/analysis/MAPLE_GEAR_FEATURE_SPEC_2026-10-23.md) · [기술 명세 V3](../docs/internal/analysis/MAPLE_MARKET_TECH_SPEC_2026-10-23.md) | 로컬 실증 후 Discord 서비스 설계 검토 |
+| [경매장 검색 API 상세](../../internal/analysis/MAPLE_AUCTION_SEARCH_API_REFERENCE_2026-10-23.md) | 필터 body·응답·페이지·검색 키·일일 한도 확인 |
+| [Linux 운영 가능성](../../internal/analysis/MAPLE_LINUX_AUCTION_FEASIBILITY_2026-10-23.md) | 서버 브라우저·세션 지속·Windows 종료 이후의 구조 확인 |
+| [넥슨 로그인 조사](../../internal/analysis/MAPLE_OPENID_LOGIN_CHECK_2026-10-23.md) | 계정 로그인·일반 API 키·사용자 토큰 범위 구분 |
+| [경매장 AI 사례](../../internal/analysis/MAPLE_AUCTION_AI_CASES_2026-10-23.md) | 추천·장비 점수·공개 구현 비교 |
+| [템환산 산식 공개 범위](../../internal/analysis/MAPLESCOUTER_GEAR_FORMULA_CHECK_2026-10-23.md) | 독립 모델과 환산주스탯 템환산의 차이 확인 |
+| [기능 명세 V3](../../internal/analysis/MAPLE_GEAR_FEATURE_SPEC_2026-10-23.md) · [기술 명세 V3](../../internal/analysis/MAPLE_MARKET_TECH_SPEC_2026-10-23.md) | 로컬 실증 후 Discord 서비스 설계 검토 |
 
 ## 변경이 의심될 때의 조사 순서
 

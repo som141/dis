@@ -2,7 +2,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "${INFRA_BIND:-127.0.0.1}:6379:6379"
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis-data:/data
@@ -15,8 +15,8 @@ services:
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "${INFRA_BIND:-127.0.0.1}:5672:5672"
+      - "${INFRA_BIND:-127.0.0.1}:15672:15672"
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-guest}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
@@ -37,7 +37,7 @@ services:
   postgres:
     image: postgres:16-alpine
     ports:
-      - "5432:5432"
+      - "${INFRA_BIND:-127.0.0.1}:5432:5432"
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-stock}
       POSTGRES_USER: ${POSTGRES_USER:-stock}
@@ -49,6 +49,59 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+
+  maple-db-bootstrap:
+    profiles: ["maple"]
+    image: postgres:16-alpine
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-stock}
+      POSTGRES_USER: ${POSTGRES_USER:-stock}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-stock}
+      MAPLE_POSTGRES_PASSWORD: ${MAPLE_POSTGRES_PASSWORD:-}
+    volumes:
+      - ./ops/maple-db/bootstrap.sh:/bootstrap.sh:ro
+    entrypoint: ["/bin/sh", "/bootstrap.sh"]
+    restart: "no"
+
+  maple-db-migrate:
+    profiles: ["maple"]
+    image: flyway/flyway:13.12.0
+    depends_on:
+      maple-db-bootstrap:
+        condition: service_completed_successfully
+    environment:
+      FLYWAY_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-stock}
+      FLYWAY_USER: maple_app
+      FLYWAY_PASSWORD: ${MAPLE_POSTGRES_PASSWORD:-}
+      FLYWAY_SCHEMAS: maple
+      FLYWAY_DEFAULT_SCHEMA: maple
+      FLYWAY_CONNECT_RETRIES: 30
+    volumes:
+      - ./ops/maple-db/migrations:/flyway/sql:ro
+    command: ["migrate"]
+    restart: "no"
+
+  maple-db-import:
+    profiles: ["maple"]
+    image: ${MAPLE_PORTAL_IMAGE_NAME:-dis-maple-portal}:${MAPLE_PORTAL_IMAGE_TAG:-local}
+    depends_on:
+      maple-db-migrate:
+        condition: service_completed_successfully
+    environment:
+      MAPLE_PORTAL_DATA: /home/node/portal-data
+      MAPLE_PORTAL_USERS: ${MAPLE_PORTAL_USERS:-2}
+      MAPLE_POSTGRES_HOST: postgres
+      MAPLE_POSTGRES_PORT: 5432
+      MAPLE_POSTGRES_DB: ${POSTGRES_DB:-stock}
+      MAPLE_POSTGRES_USER: maple_app
+      MAPLE_POSTGRES_PASSWORD: ${MAPLE_POSTGRES_PASSWORD:-}
+    volumes:
+      - maple-portal-data:/home/node/portal-data:ro
+    entrypoint: ["node", "/app/scripts/import-portal-json.mjs"]
+    restart: "no"
 
   youtube-cipher:
     build:
@@ -104,13 +157,16 @@ services:
       MAPLE_PORTAL_INTERNAL_URL: http://maple-portal:8878
       MAPLE_DISCORD_INTERNAL_KEY: ${MAPLE_DISCORD_INTERNAL_KEY:-}
     ports:
-      - "8081:8080"
+      - "${INFRA_BIND:-127.0.0.1}:8081:8080"
     restart: unless-stopped
 
   maple-portal:
     profiles: ["maple"]
+    depends_on:
+      maple-db-import:
+        condition: service_completed_successfully
     build:
-      context: ./tools/maple-local-prototype
+      context: ./apps/maple-portal
       target: portal
     image: ${MAPLE_PORTAL_IMAGE_NAME:-dis-maple-portal}:${MAPLE_PORTAL_IMAGE_TAG:-local}
     environment:
@@ -122,6 +178,12 @@ services:
       MAPLE_PORTAL_USERS: ${MAPLE_PORTAL_USERS:-2}
       MAPLE_DISCORD_MODE: "true"
       MAPLE_DISCORD_INTERNAL_KEY: ${MAPLE_DISCORD_INTERNAL_KEY:-}
+      MAPLE_REQUIRE_POSTGRES: "true"
+      MAPLE_POSTGRES_HOST: postgres
+      MAPLE_POSTGRES_PORT: 5432
+      MAPLE_POSTGRES_DB: ${POSTGRES_DB:-stock}
+      MAPLE_POSTGRES_USER: maple_app
+      MAPLE_POSTGRES_PASSWORD: ${MAPLE_POSTGRES_PASSWORD:-}
     secrets:
       - maple_nexon_service_key
     volumes:
@@ -178,7 +240,7 @@ services:
       APP_NODE_NAME: audio-node-1
       HEALTH_PORT: 8080
     ports:
-      - "8082:8080"
+      - "${INFRA_BIND:-127.0.0.1}:8082:8080"
     restart: unless-stopped
 
   stock-node:
@@ -221,7 +283,7 @@ services:
       APP_NODE_NAME: stock-node-1
       HEALTH_PORT: 8080
     ports:
-      - "8083:8080"
+      - "${INFRA_BIND:-127.0.0.1}:8083:8080"
     restart: unless-stopped
 
   prometheus:
@@ -334,7 +396,7 @@ services:
 
 secrets:
   maple_nexon_service_key:
-    file: ./tools/maple-local-prototype/.docker-secrets/nexon-service-key
+    file: ./apps/maple-portal/.docker-secrets/nexon-service-key
 
 volumes:
   redis-data:

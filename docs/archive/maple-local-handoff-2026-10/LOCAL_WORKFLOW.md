@@ -1,6 +1,6 @@
 # Windows 로컬 실행과 실증 순서
 
-로그인 이후 자동 실행 포털은 [PORTAL.md](../tools/maple-local-prototype/PORTAL.md)를 먼저 따른다. 포트 18877에서 실행하며 일반 사용자 키/VNC 설정을 요구하지 않는다. 아래는 기존 개인 도구를 직접 실증할 때의 별도 절차다.
+로그인 이후 자동 실행 포털은 [PORTAL.md](../../../apps/maple-portal/PORTAL.md)를 먼저 따른다. 포트 18877에서 실행하며 일반 사용자 키/VNC 설정을 요구하지 않는다. 아래는 기존 개인 도구를 직접 실증할 때의 별도 절차다.
 
 ## 1. GitHub에서 받기
 
@@ -32,7 +32,7 @@ Docker Desktop이 실행 중이고 OS 유형이 `linux`여야 한다. 호스트 
 ## 3. 도커 시작
 
 ```powershell
-cd tools\maple-local-prototype
+cd apps\maple-portal
 node docker/setup.mjs
 docker compose up -d --build
 docker compose ps
@@ -100,7 +100,7 @@ $prototypePath = $PWD.Path
 docker run --rm --mount "type=bind,source=$prototypePath,target=/work" --mount type=volume,target=/work/node_modules --mount type=volume,target=/work/dist --workdir /work node:24-bookworm-slim sh -c 'npm ci --ignore-scripts && npm test'
 ```
 
-검사 코드와 기대 범위는 [VALIDATION.md](../tools/maple-local-prototype/VALIDATION.md)를 읽는다. 브라우저 fixture는 실제 로그인 검사와 별개다. 가상 시계 테스트를 실제 30분 운영 관측으로 쓰지 않는다.
+검사 코드와 기대 범위는 [VALIDATION.md](../../../apps/maple-portal/VALIDATION.md)를 읽는다. 브라우저 fixture는 실제 로그인 검사와 별개다. 가상 시계 테스트를 실제 30분 운영 관측으로 쓰지 않는다.
 
 결과에는 환경·커밋·실제 실행 버전·성공 단계·실패 단계·한도·다음 조치를 남긴다. 키/프로필/로그는 `.gitignore`에서 제외하고, 공유할 로그는 최소 필드만 추려 기록한다.
 

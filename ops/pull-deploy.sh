@@ -32,7 +32,7 @@ sha="${tag#deploy-}"
 if [[ -f "${DEPLOY_DIR}/last-successful-sha" && "$(cat "${DEPLOY_DIR}/last-successful-sha")" == "${sha}" ]]; then
   maple_active="$(grep -E '^MAPLE_DISCORD_ENABLED=' "${ENV_FILE}" | tail -n 1 | cut -d '=' -f 2- || true)"
   if [[ -f "${DEPLOY_DIR}/current/docker-compose.yml" && -f "${DEPLOY_DIR}/current/.env" ]] &&
-    { [[ "${maple_active,,}" != true ]] || [[ -f "${DEPLOY_DIR}/current/tools/maple-local-prototype/.docker-secrets/nexon-service-key" ]]; }; then
+    { [[ "${maple_active,,}" != true ]] || [[ -f "${DEPLOY_DIR}/current/apps/maple-portal/.docker-secrets/nexon-service-key" ]]; }; then
     echo "DIS ${sha} is already deployed"
     exit 0
   fi
@@ -80,6 +80,8 @@ chmod 600 "${INCOMING_DIR}/.env.cicd"
 
 maple_enabled="$(grep -E '^MAPLE_DISCORD_ENABLED=' "${ENV_FILE}" | tail -n 1 | cut -d '=' -f 2- || true)"
 if [[ "${maple_enabled,,}" == true ]]; then
+  maple_db_password="$(grep -E '^MAPLE_POSTGRES_PASSWORD=' "${ENV_FILE}" | tail -n 1 | cut -d '=' -f 2- || true)"
+  [[ -n "${maple_db_password}" ]] || { echo "missing MAPLE_POSTGRES_PASSWORD in server .env" >&2; exit 1; }
   [[ -f "${INCOMING_DIR}/dis-maple-portal-${sha}.tar.gz" ]] || { echo "release has no Maple image" >&2; exit 1; }
   key_file="${DEPLOY_DIR}/secrets/maple-nexon-service-key"
   [[ -f "${key_file}" ]] || { echo "missing Maple service key file" >&2; exit 1; }

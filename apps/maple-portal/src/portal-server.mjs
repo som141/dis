@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { PrototypeEngine, AppError, CATEGORIES } from './domain.mjs';
 import { PortalStore } from './portal-store.mjs';
+import { PostgresPortalStore } from './portal-pg-store.mjs';
 import { PortalFlow } from './portal-flow.mjs';
 import { PortalBrowser } from './portal-browser.mjs';
 
@@ -33,10 +34,10 @@ const safeErrors = {
   LOGIN_FINISHED:'로그인이 완료되어 자동 작업을 진행하고 있습니다.',
   ACCOUNT_CHANGED:'계정이 변경되어 이전 작업을 중지했습니다.',
 };
-export async function createPortal({ port = 8878, host = '127.0.0.1', origin, dataDir, limit = 2, discordMode = false, internalKey = '',
+export async function createPortal({ port = 8878, host = '127.0.0.1', origin, dataDir, limit = 2, discordMode = false, internalKey = '', database,
   browserFactory = () => new PortalBrowser(), engineFactory = wire => new PrototypeEngine(wire,{ manageKeyEnvironment:false, completePageLimit:10000 }),
   keyFile, now = Date.now, timerMs = 1000 } = {}) {
-  const store = new PortalStore(dataDir,{ limit }); await store.init();
+  const store = database ? new PostgresPortalStore(dataDir,{ limit,database }) : new PortalStore(dataDir,{ limit }); await store.init();
   const sessions = new Map(),accountReservations=new Map(); let closing = false, currentOrigin = origin, key = process.env.NEXON_DEVELOPER_KEY || '';
   let serviceKeyStatus = key ? 'configured' : 'missing';
   async function activate(record) {
@@ -93,6 +94,7 @@ export async function createPortal({ port = 8878, host = '127.0.0.1', origin, da
         }
         if (url.pathname==='/internal/discord/session'&&req.method==='POST') {
           const {discordUserId}=await body(req),issued=await store.issueDiscordSession(discordUserId);
+          await store.audit?.(issued.record,'discord_session_issued');
           return json(200,{token:issued.token});
         }
         const match=/^\/internal\/discord\/users\/(\d{1,22})\/(status|stop)$/.exec(url.pathname);
@@ -117,6 +119,7 @@ export async function createPortal({ port = 8878, host = '127.0.0.1', origin, da
               if(config)config.watch=false;
               await store.save(record);
             }
+            await store.audit?.(record,'watch_stopped',{jobId});
             return json(200,{ok:true});
           }
         }
@@ -147,7 +150,7 @@ export async function createPortal({ port = 8878, host = '127.0.0.1', origin, da
         if (url.pathname === '/api/state' && req.method === 'GET') return json(200,{ ...s.flow.state(), starting:s.starting, browserFailed:s.failed, serviceKeyStatus,
           connection:s.wire.status(), autoConnection:s.flow.auto.state(), login:loginAllowed ? s.wire.loginState() : null });
         if(url.pathname==='/api/character/select'&&req.method==='POST'){
-          const data=await body(req);await s.flow.selectCharacter(data.characterId);return json(200,{ok:true});
+          const data=await body(req);await s.flow.selectCharacter(data.characterId);await store.audit?.(record,'character_selected',{characterId:data.characterId});return json(200,{ok:true});
         }
         if (url.pathname.startsWith('/api/login/') && !loginAllowed) throw Object.assign(new Error(),{ code:'LOGIN_FINISHED', status:409 });
         if (url.pathname === '/api/login/frame' && req.method === 'GET') {
@@ -161,14 +164,14 @@ export async function createPortal({ port = 8878, host = '127.0.0.1', origin, da
           if(job.enabled===false)continue;
           if(job.itemId){const item=catalog.items.find(x=>x.id===job.itemId);if(!item||item.name!==job.keyword||item.category!==job.category)throw new AppError('아이템과 부위를 다시 선택하세요.');if(job.jobClass&&job.jobClass!=='ALL'&&!item.jobs.includes('ALL')&&!item.jobs.includes(job.jobClass))throw new AppError('직업군과 아이템이 맞지 않습니다.');job.equipmentLevel=item.level;}
 
-        }await s.flow.configure(data.jobs);return json(202,{ok:true}); }
+        }await s.flow.configure(data.jobs);await store.audit?.(record,'search_configured',{count:data.jobs.length});return json(202,{ok:true}); }
         const jobRoute=/^\/api\/jobs\/([a-zA-Z0-9_-]{1,70})\/(items|item|csv|stop|retry|delete)$/.exec(url.pathname);
         if(jobRoute) {
           const [,id,action]=jobRoute;
           if(action==='items'&&req.method==='GET') return json(200,s.flow.items(id,{page:url.searchParams.get('page')||1,size:url.searchParams.get('size')||50,sort:url.searchParams.get('sort')||'default'}));
           if(action==='item'&&req.method==='GET')return json(200,s.flow.itemDetail(id,url.searchParams.get('itemId')));
-          if(action==='delete'&&req.method==='POST'){await s.flow.remove(id);return json(200,{ok:true});}
-          if(action==='stop'&&req.method==='POST') {await s.flow.stop(id);return json(200,{ok:true});}
+          if(action==='delete'&&req.method==='POST'){await s.flow.remove(id);await store.audit?.(record,'search_deleted',{jobId:id});return json(200,{ok:true});}
+          if(action==='stop'&&req.method==='POST') {await s.flow.stop(id);await store.audit?.(record,'watch_stopped',{jobId:id});return json(200,{ok:true});}
           if(action==='retry'&&req.method==='POST') {await s.flow.retry(id);return json(202,{ok:true});}
           if(action==='csv'&&req.method==='GET') {
             s.flow.items(id);
@@ -223,6 +226,7 @@ export async function createPortal({ port = 8878, host = '127.0.0.1', origin, da
       await pumping?.catch(() => {});
       await Promise.all([...sessions.values()].map(async s => { await s.ready; await s.wire.close(); s.engine.destroy(); }));
       await new Promise(ok => server.close(ok));
+      await store.close?.();
     },
   };
 }
