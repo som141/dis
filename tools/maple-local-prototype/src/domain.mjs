@@ -15,8 +15,8 @@ export class AppError extends Error {
 export function requireObject(value) {
   if (typeof value === 'string') {
     const match=value.match(/(?:API code |HTTP_|\bcode[^0-9]*)(404[012])/i);
-    const code=/결과가 너무 많/.test(value)||match?.[1]==='4040'?'TOO_MANY_RESULTS':match?.[1]==='4041'?'PROVIDER_THROTTLED':match?.[1]==='4042'?'QUOTA_EXHAUSTED':/429/.test(value)?'PROVIDER_THROTTLED':/401|403|세션|인증|로그인/.test(value)?'AUTH_EXPIRED':/400|조건|필터/.test(value)?'INVALID_QUERY':'PROVIDER_ERROR';
-    throw new AppError({TOO_MANY_RESULTS:'결과가 너무 많습니다. 아이템·가격·옵션 조건을 좁혀 주세요.',PROVIDER_THROTTLED:'경매장이 연속 조회를 제한했습니다. 잠시 후 직접 다시 조회하세요.',QUOTA_EXHAUSTED:'오늘 검색 한도를 모두 사용했습니다.',AUTH_EXPIRED:'공식 경매장 인증이 만료됐거나 변경됐습니다. 계정을 다시 연결하세요.',INVALID_QUERY:'경매장이 검색 조건을 거절했습니다. 부위와 옵션 조건을 확인하세요.',PROVIDER_ERROR:'경매장 응답을 확인하지 못했습니다. 자동으로 재검색하지 않습니다.'}[code],422,code);
+    const code=/넥슨 오픈 API 응답 시간 초과/.test(value)?'NEXON_TIMEOUT':/결과가 너무 많/.test(value)||match?.[1]==='4040'?'TOO_MANY_RESULTS':match?.[1]==='4041'?'PROVIDER_THROTTLED':match?.[1]==='4042'?'QUOTA_EXHAUSTED':/429/.test(value)?'PROVIDER_THROTTLED':/401|403|세션|인증|로그인/.test(value)?'AUTH_EXPIRED':/400|조건|필터/.test(value)?'INVALID_QUERY':'PROVIDER_ERROR';
+    throw new AppError({NEXON_TIMEOUT:'넥슨 캐릭터 정보 응답이 지연됐습니다. 잠시 후 다시 조회해 주세요.',TOO_MANY_RESULTS:'결과가 너무 많습니다. 아이템·가격·옵션 조건을 좁혀 주세요.',PROVIDER_THROTTLED:'경매장이 연속 조회를 제한했습니다. 잠시 후 직접 다시 조회하세요.',QUOTA_EXHAUSTED:'오늘 검색 한도를 모두 사용했습니다.',AUTH_EXPIRED:'공식 경매장 인증이 만료됐거나 변경됐습니다. 계정을 다시 연결하세요.',INVALID_QUERY:'경매장이 검색 조건을 거절했습니다. 부위와 옵션 조건을 확인하세요.',PROVIDER_ERROR:'경매장 응답을 확인하지 못했습니다. 자동으로 재검색하지 않습니다.'}[code],422,code);
   }
   if (!value || typeof value !== 'object') throw new AppError('제공자 응답 형식이 올바르지 않습니다.', 502, 'INVALID_RESPONSE');
   return value;

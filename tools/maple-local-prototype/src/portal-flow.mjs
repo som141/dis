@@ -187,7 +187,7 @@ export class PortalFlow {
       for(const job of this.jobs) {
         if(this.closing) break;
         if(job.stopped||job.stopRequested) continue;
-        if(job.phase==='operator-setup'&&this.engine.key) job.phase='queued';
+        if(job.phase==='operator-setup'&&this.engine.key) {job.phase='queued';job.error=null;}
         if(job.phase==='queued') {await this.execute(job);continue;}
         if(job.config.watch!==true||!job.watch||['종료','만료'].includes(job.watch.status)) continue;
         if(job.watch.expiresAt!=null&&job.watch.expiresAt<=this.now()) {job.phase='expired';job.watch.status='만료';await this.persist();continue;}

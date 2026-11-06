@@ -9,6 +9,7 @@ import { readCachedResponse, writeCachedResponse } from './responseCache.js';
 
 export const NEXON_OPEN_API_BASE = 'https://open.api.nexon.com/maplestory/v1';
 export const NEXON_REQUEST_INTERVAL_MS = 1_000;
+export const NEXON_RESPONSE_TIMEOUT_MS = 20_000;
 
 export interface NexonApiOptions {
   apiKey?: string;
@@ -109,17 +110,26 @@ export async function requestNexonOpenApi<T>(
 async function fetchAndCache(url: URL, path: string, apiKey: string, options: NexonApiOptions): Promise<unknown> {
   const fetchFn = options.fetchFn ?? fetch;
   await waitForRequestSlot(apiKey);
-  const res = await fetchFn(url, {
-    signal: options.signal,
-    headers: { 'x-nxopen-api-key': apiKey },
-  });
-  if (!res.ok) {
-    const detail = await readErrorDetail(res);
-    const suffix = detail === undefined ? '' : ` ${JSON.stringify(detail)}`;
-    throw new NexonOpenApiError(`넥슨 오픈 API ${res.status} ${path}${suffix}`, res.status, path, detail);
-  }
+  const deadline = AbortSignal.timeout(NEXON_RESPONSE_TIMEOUT_MS);
+  const signal = options.signal ? AbortSignal.any([options.signal, deadline]) : deadline;
+  try {
+    const res = await fetchFn(url, {
+      signal,
+      headers: { 'x-nxopen-api-key': apiKey },
+    });
+    if (!res.ok) {
+      const detail = await readErrorDetail(res);
+      const suffix = detail === undefined ? '' : ` ${JSON.stringify(detail)}`;
+      throw new NexonOpenApiError(`넥슨 오픈 API ${res.status} ${path}${suffix}`, res.status, path, detail);
+    }
 
-  const data = (await res.json()) as unknown;
-  await writeCachedResponse(url.toString(), data);
-  return data;
+    const data = (await res.json()) as unknown;
+    await writeCachedResponse(url.toString(), data);
+    return data;
+  } catch (error) {
+    if (deadline.aborted && !options.signal?.aborted) {
+      throw new NexonOpenApiError(`넥슨 오픈 API 응답 시간 초과 ${path}`, 504, path);
+    }
+    throw error;
+  }
 }
