@@ -7,6 +7,7 @@ DIS는 Gateway, 음악 worker, 주식 worker를 각각 별도 JVM과 컨테이�
 | [gateway-app](gateway-app/README.md) / `gateway` | Discord 명령 수신, pending 저장, 결과 회신 | [GatewayApplication](gateway-app/src/main/java/discordgateway/gateway/GatewayApplication.java) | 8081 |
 | [audio-node-app](audio-node-app/README.md) / `audio-node` | 음악 명령 소비, 재생·복구·음성 연결 | [AudioNodeApplication](audio-node-app/src/main/java/discordgateway/audionode/AudioNodeApplication.java) | 8082 |
 | [stock-node-app](stock-node-app/README.md) / `stock-node` | 시세·모의매매·계좌·랭킹·시즌 | [StockNodeApplication](stock-node-app/src/main/java/discordgateway/stocknode/StockNodeApplication.java) | 8083 |
+| [maple-portal](maple-portal/README.md) / `maple-portal` | 사용자별 공식 로그인 브라우저·검색·감시·PostgreSQL 상태 | [portal-main.mjs](maple-portal/src/portal-main.mjs) · Node.js | 내부 8878 |
 
 Gateway와 audio는 [common-core](../modules/common-core/README.md)를, Gateway와 stock은 [stock-core](../modules/stock-core/README.md)를 사용한다. 기본 통신 경로는 `gateway → RabbitMQ → worker → RabbitMQ → gateway`이며 `/man`, `/pizza`는 Gateway가 직접 응답한다.
 

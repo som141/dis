@@ -19,6 +19,7 @@ export function withoutFragmentWork(flow) {
 }
 
 export const tokenHash = token => createHash('sha256').update(token).digest('hex');
+const expiresInThirtyDays = () => new Date(Date.now() + 30 * 86400_000).toISOString();
 const validId = id => typeof id === 'string' && /^[a-f0-9]{32}$/.test(id);
 const validDiscordId = id => typeof id === 'string' && /^\d{1,22}$/.test(id);
 export class PortalStore {
@@ -37,7 +38,7 @@ export class PortalStore {
   async create() {
     if (this.records.size >= this.limit) throw Object.assign(new Error(), { code:'CAPACITY', status:429 });
     const token = randomBytes(32).toString('hex');
-    const record = { id:randomBytes(16).toString('hex'), tokenHash:tokenHash(token), createdAt:new Date().toISOString(), flow:{} };
+    const record = { id:randomBytes(16).toString('hex'), tokenHash:tokenHash(token), createdAt:new Date().toISOString(), sessionExpiresAt:expiresInThirtyDays(), flow:{} };
     // Reserve synchronously so simultaneous creates cannot exceed the limit.
     this.records.set(record.id,record);
     try { await this.save(record); } catch(e) { this.records.delete(record.id); throw e; }
@@ -46,7 +47,8 @@ export class PortalStore {
   find(token) {
     if (!/^[a-f0-9]{64}$/.test(token || '')) return null;
     const hash = tokenHash(token);
-    return [...this.records.values()].find(r => r.tokenHash === hash) || null;
+    return [...this.records.values()].find(r => r.tokenHash === hash &&
+      Date.parse(r.sessionExpiresAt || r.createdAt) + (r.sessionExpiresAt ? 0 : 30 * 86400_000) > Date.now()) || null;
   }
   findDiscordUser(discordUserId) {
     if (!validDiscordId(discordUserId)) return null;
@@ -63,13 +65,15 @@ export class PortalStore {
     const token = randomBytes(32).toString('hex');
     if (!record) {
       if (this.records.size >= this.limit) throw Object.assign(new Error(), { code:'CAPACITY', status:429 });
-      record = { id:randomBytes(16).toString('hex'), tokenHash:tokenHash(token), discordUserId, createdAt:new Date().toISOString(), flow:{} };
+      record = { id:randomBytes(16).toString('hex'), tokenHash:tokenHash(token), discordUserId, createdAt:new Date().toISOString(), sessionExpiresAt:expiresInThirtyDays(), flow:{} };
       this.records.set(record.id,record);
       try { await this.save(record); } catch(e) { this.records.delete(record.id); throw e; }
     } else {
       const previous = record.tokenHash;
+      const previousExpiry = record.sessionExpiresAt;
       record.tokenHash = tokenHash(token);
-      try { await this.save(record); } catch(e) { record.tokenHash = previous; throw e; }
+      record.sessionExpiresAt = expiresInThirtyDays();
+      try { await this.save(record); } catch(e) { record.tokenHash = previous; record.sessionExpiresAt = previousExpiry; throw e; }
     }
     return {token,record};
   }

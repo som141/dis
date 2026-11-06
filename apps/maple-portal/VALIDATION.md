@@ -49,7 +49,7 @@
 ### 발견·수정한 Windows 시작 오류
 
 - 시스템 Git의 `core.autocrlf=true`로 두 컨테이너 `.sh` 파일이 CRLF로 checkout됐다. 최초 이미지가 `/app/docker/entrypoint.sh: 2: set: Illegal option -`로 재시작하는 것을 재현했다. Node 24 기본 이미지에서 같은 파일을 `/bin/sh`로 실행해 같은 오류를 확인했다.
-- 루트 `.gitattributes`의 기존 `* text=auto`를 유지하면서 `tools/maple-local-prototype/docker/*.sh text eol=lf`를 추가하고 두 작업 파일을 LF로 정규화했다. 스크립트의 Git 내용 변경은 없다. 근거: [Git의 text/eol 속성](https://git-scm.com/docs/gitattributes).
+- 루트 `.gitattributes`의 기존 `* text=auto`를 유지하면서 `apps/maple-portal/docker/*.sh text eol=lf`를 추가하고 두 작업 파일을 LF로 정규화했다. 스크립트의 Git 내용 변경은 없다. 근거: [Git의 text/eol 속성](https://git-scm.com/docs/gitattributes).
 - 재빌드 후 컨테이너 `healthy`, `RestartCount=0`, 두 스크립트 `sh -n` 통과. `127.0.0.1:17900 → 7900`만 공개하며 앱의 8877·VNC/CDP 포트는 호스트에 공개하지 않았다.
 - `LOCAL_WORKFLOW.md`에 호스트 Node가 낮을 때의 Node 24 컨테이너 검사 명령을 추가했다. 실제로 실행한 명령이며 `node_modules`와 `dist`는 임시 볼륨으로 격리했다.
 

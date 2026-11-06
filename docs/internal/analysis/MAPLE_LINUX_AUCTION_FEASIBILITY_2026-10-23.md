@@ -111,9 +111,9 @@ Selenium Docker의 noVNC는 브라우저를 보거나 조작할 수 있는 기�
 
 ## 7. 현재 코드에서 추가할 부분
 
-[개인용 프로토타입](../../../tools/maple-local-prototype/README.md)은 Windows 확장 방식과 [Linux 도커 브라우저 방식](../../../tools/maple-local-prototype/DOCKER.md)을 지원한다. 도커의 headed Chromium·noVNC·검색 어댑터·계산·30분 감시를 실행했고, 모의 데이터로 전체 흐름을 검증했다. 실제 계정 인증은 아직 검증 전이다. 이 클라우드에서는 `signin.nexon.com/sdk/inface.js` 연결이 프록시 CONNECT 403으로 차단되어 있다.
+[개인용 프로토타입](../../../apps/maple-portal/README.md)은 Windows 확장 방식과 [Linux 도커 브라우저 방식](../../../apps/maple-portal/DOCKER.md)을 지원한다. 도커의 headed Chromium·noVNC·검색 어댑터·계산·30분 감시를 실행했고, 모의 데이터로 전체 흐름을 검증했다. 실제 계정 인증은 아직 검증 전이다. 이 클라우드에서는 `signin.nexon.com/sdk/inface.js` 연결이 프록시 CONNECT 403으로 차단되어 있다.
 
-서버 브라우저/원격 화면, 프로필 볼륨, 계정 변경·인증 만료 시 감시 무효화와 재인증 안내는 개인용 도커 구성에 추가했다. 남은 구현은 기존 Linux Discord 봇으로 결과 전달·DM, 감시/기준선의 DB 복원이다. 현재 프로토타입의 메모리 감시 상태는 재시작하면 사라지므로 이를 그대로 운영 서버 완료본으로 취급하지 않는다. 정확한 검증 범위는 [검증 기록](../../../tools/maple-local-prototype/VALIDATION.md)을 따른다.
+서버 브라우저/원격 화면, 프로필 볼륨, 계정 변경·인증 만료 시 감시 무효화와 재인증 안내는 개인용 도커 구성에 추가했다. 남은 구현은 기존 Linux Discord 봇으로 결과 전달·DM, 감시/기준선의 DB 복원이다. 현재 프로토타입의 메모리 감시 상태는 재시작하면 사라지므로 이를 그대로 운영 서버 완료본으로 취급하지 않는다. 정확한 검증 범위는 [검증 기록](../../../apps/maple-portal/VALIDATION.md)을 따른다.
 
 현재 연결기가 `127.0.0.1`로 제한된 것은 로컬 도구의 구현 선택이다. 경매장 API가 Windows를 본질적으로 요구해서 넣은 제한은 아니다. 그렇다고 브라우저 없이 서버 HTTP 호출로 바꾸면 된다는 뜻도 아니다.
 

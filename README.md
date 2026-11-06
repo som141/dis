@@ -1,10 +1,10 @@
-# DIS · 음악과 모의투자를 함께 쓰는 Discord 봇
+# DIS · 음악·모의투자·메이플 마켓 Discord 봇
 
-DIS는 음성 채널에서 음악을 재생하고, 채팅에서 주식 모의투자를 할 수 있는 봇이다. Discord 명령을 받는 Gateway와 음악·주식 worker를 분리하고, RabbitMQ로 명령과 결과를 전달한다.
+DIS는 음성 채널에서 음악을 재생하고, 채팅에서 주식 모의투자와 메이플 경매장 검색을 이용할 수 있는 봇이다. Discord 명령을 받는 Gateway와 음악·주식 worker, 사용자별 브라우저로 경매장을 조회하는 메이플 포털을 분리했다.
 
 [빠른 시작](#빠른-시작) · [명령어](#주요-명령어) · [아키텍처](#아키텍처) · [테스트](#테스트와-검증-범위) · [전체 문서](docs/README.md)
 
-메이플 개인용 프로토타입을 로컬 Codex에서 이어서 실행하려면 [NEXT PLAN](<NEXT PLAN/README.md>)의 현재 상태·실행 순서·GitHub 참고 자료·전달 프롬프트를 읽는다.
+메이플 기능은 [포털 안내](apps/maple-portal/README.md)와 [운영 가이드](docs/operations/MAPLE_DISCORD_SETUP.md)를 따른다. 이전 로컬 인수인계 기록은 [문서 보관함](docs/archive/maple-local-handoff-2026-10/README.md)에 남겼다.
 
 DIS 봇과 메이플 경매장을 연결하는 선택 기능은 [Spring Gateway 기반 통합 계획](docs/internal/analysis/MAPLE_DISCORD_INTEGRATION_PLAN.md)과 [운영 가이드](docs/operations/MAPLE_DISCORD_SETUP.md)에 정리했다.
 

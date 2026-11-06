@@ -9,6 +9,7 @@ COPY build.mjs ./
 COPY src ./src
 COPY vendor ./vendor
 COPY public ./public
+COPY scripts ./scripts
 COPY docker ./docker
 RUN npm run build && npm prune --omit=dev --ignore-scripts && chmod -R a+rX /app
 

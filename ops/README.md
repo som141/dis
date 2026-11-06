@@ -9,6 +9,7 @@
 | [cleanup-legacy-deploy.sh](cleanup-legacy-deploy.sh) | 레거시 컨테이너 정리 | 현재 Compose 정지·기존 고정 이름 컨테이너 제거·선택 image 삭제 |
 | [youtube-cipher/](youtube-cipher/README.md) | YouTube cipher 이미지·준비 상태 검사 | Compose의 내부 cipher 서비스 구성 |
 | [observability/](observability/README.md) | Prometheus·Loki·Alloy·Grafana | 메트릭·로그·대시보드·알림 설정 |
+| [maple-db/](maple-db/migrations/V1__portal_state.sql) | 메이플 스키마 준비·Flyway 이전 | 기존 PostgreSQL 인스턴스의 독립 `maple` 스키마 구성 |
 
 배포용 셸 스크립트는 기본 `/home/ubuntu/dis-bot/current`와 그 안의 `.env`를 사용한다. 다른 설치 경로는 `DEPLOY_DIR`, 프로젝트명은 `COMPOSE_PROJECT_NAME`으로 지정한다. 로컬 저장소 루트에서 전체 스택을 실행하는 명령과 서버 release용 스크립트를 구분한다.
 

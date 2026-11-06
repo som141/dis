@@ -21,7 +21,7 @@ flowchart LR
 Docker Engine과 Compose v2가 필요하다. 먼저 저장소의 아래 폴더에서 실행한다.
 
 ```bash
-cd tools/maple-local-prototype
+cd apps/maple-portal
 node docker/setup.mjs
 docker compose up -d --build
 docker compose ps

@@ -6,10 +6,10 @@
 
 | 하고 싶은 일 | 먼저 읽을 문서 |
 | --- | --- |
-| 메이플 작업을 로컬 Codex에 이어주기 | [NEXT PLAN](<../NEXT PLAN/README.md>) · Windows 실행 계획·현재 상태·GitHub 참고 자료·전달 프롬프트 |
+| 메이플 Discord 포털 사용·구현 | [메이플 포털](../apps/maple-portal/README.md) · [PostgreSQL 스키마](reference/MAPLE_PORTAL_SCHEMA.md) |
 | 로컬 실행·IntelliJ 설정·환경 변수 확인 | [로컬 개발 안내](operations/LOCAL_DEVELOPMENT.md) |
-| 본인 PC에서 메이플 매물 검색·장비 비교 체험 | [메이플 로컬 프로토타입](../tools/maple-local-prototype/README.md) · Windows/Chrome, 기존 Discord 봇과 독립 실행 |
-| Linux 도커의 브라우저로 메이플 체험 | [메이플 도커 실행](../tools/maple-local-prototype/DOCKER.md) · 원격 수동 로그인, 서버 검색·계산·30분 감시 |
+| 기존 개인용 Chrome 확장 실행 기록 | [개인용 실행 안내](../apps/maple-portal/LOCAL_LEGACY.md) · 운영 포털과 별도 |
+| Linux 도커의 브라우저로 메이플 체험 | [메이플 도커 실행](../apps/maple-portal/DOCKER.md) · 원격 수동 로그인, 서버 검색·계산·30분 감시 |
 | 앱과 저장소의 연결 이해 | [현재 아키텍처](reference/CURRENT_ARCHITECTURE.md) |
 | 수정할 모듈과 코드 진입점 찾기 | [모듈 구조](reference/MODULE_STRUCTURE.md), [앱 목록](../apps/README.md) |
 | 명령·결과 메시지와 큐 확인 | [이벤트 계약](reference/EVENT_CONTRACT.md) |
@@ -25,6 +25,7 @@
 - [reference/](reference/README.md): 현재 코드의 구조, 계약, 데이터 모델.
 - [operations/](operations/README.md): 로컬 개발, 테스트, 배포, 운영 절차.
 - [internal/](internal/README.md): 과거 분석, 계획, 작업 보고서. 작성 당시 상태를 보존한다.
+- [archive/](archive/maple-local-handoff-2026-10/README.md): 예전 로컬 인수인계 문서. 현재 운영 지침은 아니다.
 - [ops/](../ops/README.md): 실제 실행 스크립트와 설정 파일. 절차 문서에서 해당 파일로 연결한다.
 
 현재 동작은 같은 커밋의 소스·설정과 `reference/`, `operations/`를 함께 본다. 과거 보고서의 완료 표시는 현재 커밋의 테스트 실행 결과를 대신하지 않는다.

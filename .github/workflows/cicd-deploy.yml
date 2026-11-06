@@ -53,10 +53,10 @@ jobs:
         with:
           node-version: "24"
           cache: npm
-          cache-dependency-path: tools/maple-local-prototype/package-lock.json
+          cache-dependency-path: apps/maple-portal/package-lock.json
 
       - name: Test Maple portal
-        working-directory: tools/maple-local-prototype
+        working-directory: apps/maple-portal
         run: |
           npm ci --ignore-scripts
           npm test
@@ -70,7 +70,7 @@ jobs:
 
       - name: Build Maple portal image
         if: ${{ vars.MAPLE_DISCORD_ENABLED == 'true' }}
-        run: docker build -f tools/maple-local-prototype/Dockerfile --target portal -t "${MAPLE_PORTAL_IMAGE_NAME}:${GITHUB_SHA}" tools/maple-local-prototype
+        run: docker build -f apps/maple-portal/Dockerfile --target portal -t "${MAPLE_PORTAL_IMAGE_NAME}:${GITHUB_SHA}" apps/maple-portal
 
       - name: Save Docker images and checksums
         run: |

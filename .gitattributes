@@ -2,4 +2,4 @@
 * text=auto
 
 # Linux container entrypoints must remain executable by /bin/sh after Windows checkout.
-tools/maple-local-prototype/docker/*.sh text eol=lf
+apps/maple-portal/docker/*.sh text eol=lf

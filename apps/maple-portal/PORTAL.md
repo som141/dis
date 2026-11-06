@@ -1,4 +1,6 @@
-# 메이플 마켓 · 로컬 검색 / 감시 / 2주 시세
+# 메이플 마켓 · 검색 / 감시 / 2주 시세
+
+DIS의 정식 Discord 연결은 [메이플 운영 가이드](../../docs/operations/MAPLE_DISCORD_SETUP.md)를 따른다. 아래 `compose.portal.yaml`은 Discord와 PostgreSQL을 쓰지 않는 단독 로컬 체험 모드다. 운영 모드에서는 사용자별 검색·감시·알림 상태를 기존 PostgreSQL의 `maple` 스키마에 저장하고 Chromium 프로필만 볼륨에 둔다.
 
 ## 실행
 

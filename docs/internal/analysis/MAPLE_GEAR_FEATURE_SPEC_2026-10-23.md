@@ -2,7 +2,7 @@
 
 2026-10-23. **사용자 요구를 반영한 설계 확정본이며 봇 기능은 미구현이다.** 사진 입력 V1·개인 키 필수 등록 V2를 수정한다. 기본 검색은 서비스 API 키를 사용하고, 개인 계정 연결은 NEXON Open ID를 우선한다. [V1 보관본](MAPLE_GEAR_FEATURE_SPEC_V1_ARCHIVED_2026-10-23.md)은 현재 구현 기준으로 사용하지 않는다.
 
-후속 개인 검증용으로 Windows/Chrome에서 실행하는 [검색·장비 비교 프로토타입](../../../tools/maple-local-prototype/README.md)을 추가했다. 본인 웹 경매장 세션과 로컬 입력한 계산용 API 키를 사용하는 별도 도구이며, 아래 Discord·NEXON Open ID 서비스 흐름을 운영 구현한 것은 아니다.
+후속 개인 검증용으로 Windows/Chrome에서 실행하는 [검색·장비 비교 프로토타입](../../../apps/maple-portal/README.md)을 추가했다. 본인 웹 경매장 세션과 로컬 입력한 계산용 API 키를 사용하는 별도 도구이며, 아래 Discord·NEXON Open ID 서비스 흐름을 운영 구현한 것은 아니다.
 
 - [기술 명세·아키텍처](MAPLE_MARKET_TECH_SPEC_2026-10-23.md)
 - [넥슨 로그인·닉네임 조회 조사](MAPLE_OPENID_LOGIN_CHECK_2026-10-23.md)

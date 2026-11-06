@@ -2,7 +2,7 @@
 
 2026-10-24 기준. 아래 항목은 같은 브랜치의 소스와 함께 읽는다.
 
-로그인 이후 자동 실행을 위한 [로컬 서비스 포털](../tools/maple-local-prototype/PORTAL.md)을 추가했다. `http://127.0.0.1:18877/`에서 사용자별 공식 로그인 → 최고 레벨 본인 캐릭터·장비 자동 조회 → 장갑 검색·계산 → 30분 감시를 진행한다. 기존 17900 개인 도구와 별도 프로젝트·볼륨을 사용하며 일반 사용자 API 키 입력과 VNC 비밀번호가 없다. 실제 새 포털의 전체 계정 검증은 운영자 서비스 키·사용자 로그인 입력을 기다린다.
+로그인 이후 자동 실행을 위한 [로컬 서비스 포털](../../../apps/maple-portal/PORTAL.md)을 추가했다. `http://127.0.0.1:18877/`에서 사용자별 공식 로그인 → 최고 레벨 본인 캐릭터·장비 자동 조회 → 장갑 검색·계산 → 30분 감시를 진행한다. 기존 17900 개인 도구와 별도 프로젝트·볼륨을 사용하며 일반 사용자 API 키 입력과 VNC 비밀번호가 없다. 실제 새 포털의 전체 계정 검증은 운영자 서비스 키·사용자 로그인 입력을 기다린다.
 
 ## 실제 실행 구조
 
@@ -26,19 +26,19 @@ UI의 8877 포트는 컨테이너 내부에서만 사용한다. Windows 사용�
 
 | 파일 | 역할 |
 | --- | --- |
-| [compose.yaml](../tools/maple-local-prototype/compose.yaml) | 독립 Compose 프로젝트, localhost 원격 화면, 프로필/캐시 볼륨, CPU·메모리 설정 |
-| [Dockerfile](../tools/maple-local-prototype/Dockerfile) · [docker/](../tools/maple-local-prototype/docker/) | Node·Chromium·Xvfb·noVNC 실행, 비밀번호 파일, healthcheck, 프로필 잠금 |
-| [server.mjs](../tools/maple-local-prototype/src/server.mjs) | HTTP API, Host·Origin·CSRF 확인, 메모리 키 입력 |
-| [docker-server.mjs](../tools/maple-local-prototype/src/docker-server.mjs) | 도커 서버와 브라우저 시작 |
-| [auto-connect.mjs](../tools/maple-local-prototype/src/auto-connect.mjs) | 수동 로그인 후 세션 확인·본인 캐릭터 조회·에반이였솜 자동 선택. 조회만 수행하고 검색/감시는 시작하지 않음 |
-| [portal-server.mjs](../tools/maple-local-prototype/src/portal-server.mjs) · [portal-browser.mjs](../tools/maple-local-prototype/src/portal-browser.mjs) | 사용자별 전용 브라우저·연결 쿠키·CSRF·공식 로그인 화면/입력 전달 |
-| [portal-flow.mjs](../tools/maple-local-prototype/src/portal-flow.mjs) · [portal-store.mjs](../tools/maple-local-prototype/src/portal-store.mjs) | 로그인 이후 장비/검색/계산/감시 자동 실행·사용자별 체크포인트·계정 확인 후 복원 |
-| [browser-transport.mjs](../tools/maple-local-prototype/src/browser-transport.mjs) | 공식 탭 안에서 조회·검색, 관찰한 클라이언트 헤더, 계정 변경·401 처리 |
-| [domain.mjs](../tools/maple-local-prototype/src/domain.mjs) | 본인 캐릭터 선택, ±30% 가격, 점수/가성비, 한도, 감시·중복 억제 |
-| [bridge.mjs](../tools/maple-local-prototype/src/bridge.mjs) | 조회·검색 URL 허용 목록과 별도 Windows 확장 연결 |
-| [public/](../tools/maple-local-prototype/public/) | 검색·계산·감시 UI |
-| [vendor/UPSTREAM.md](../tools/maple-local-prototype/vendor/UPSTREAM.md) | MIT 공개 구현의 출처·고정 커밋·수정 사항 |
-| [test/](../tools/maple-local-prototype/test/) | 단위·통합 테스트, 가상 데이터 전용 브라우저 검증 |
+| [compose.yaml](../../../apps/maple-portal/compose.yaml) | 독립 Compose 프로젝트, localhost 원격 화면, 프로필/캐시 볼륨, CPU·메모리 설정 |
+| [Dockerfile](../../../apps/maple-portal/Dockerfile) · [docker/](../../../apps/maple-portal/docker/) | Node·Chromium·Xvfb·noVNC 실행, 비밀번호 파일, healthcheck, 프로필 잠금 |
+| [server.mjs](../../../apps/maple-portal/src/server.mjs) | HTTP API, Host·Origin·CSRF 확인, 메모리 키 입력 |
+| [docker-server.mjs](../../../apps/maple-portal/src/docker-server.mjs) | 도커 서버와 브라우저 시작 |
+| [auto-connect.mjs](../../../apps/maple-portal/src/auto-connect.mjs) | 수동 로그인 후 세션 확인·본인 캐릭터 조회·에반이였솜 자동 선택. 조회만 수행하고 검색/감시는 시작하지 않음 |
+| [portal-server.mjs](../../../apps/maple-portal/src/portal-server.mjs) · [portal-browser.mjs](../../../apps/maple-portal/src/portal-browser.mjs) | 사용자별 전용 브라우저·연결 쿠키·CSRF·공식 로그인 화면/입력 전달 |
+| [portal-flow.mjs](../../../apps/maple-portal/src/portal-flow.mjs) · [portal-store.mjs](../../../apps/maple-portal/src/portal-store.mjs) | 로그인 이후 장비/검색/계산/감시 자동 실행·사용자별 체크포인트·계정 확인 후 복원 |
+| [browser-transport.mjs](../../../apps/maple-portal/src/browser-transport.mjs) | 공식 탭 안에서 조회·검색, 관찰한 클라이언트 헤더, 계정 변경·401 처리 |
+| [domain.mjs](../../../apps/maple-portal/src/domain.mjs) | 본인 캐릭터 선택, ±30% 가격, 점수/가성비, 한도, 감시·중복 억제 |
+| [bridge.mjs](../../../apps/maple-portal/src/bridge.mjs) | 조회·검색 URL 허용 목록과 별도 Windows 확장 연결 |
+| [public/](../../../apps/maple-portal/public/) | 검색·계산·감시 UI |
+| [vendor/UPSTREAM.md](../../../apps/maple-portal/vendor/UPSTREAM.md) | MIT 공개 구현의 출처·고정 커밋·수정 사항 |
+| [test/](../../../apps/maple-portal/test/) | 단위·통합 테스트, 가상 데이터 전용 브라우저 검증 |
 
 ## 데이터와 인증
 
@@ -63,7 +63,7 @@ UI의 8877 포트는 컨테이너 내부에서만 사용한다. Windows 사용�
 
 | 항목 | 상태 |
 | --- | --- |
-| `npm test` | 31개 통과: 기존 24개와 포털 자동 실행·두 사용자 격리·재시작/재연결·검색 의도 기록·운영자 키 수명·접속 제한 7개 |
+| `npm test` | 32개 통과: 기존 24개와 포털 자동 실행·두 사용자 격리·재시작/재연결·검색 의도 기록·운영자 키 수명/형식 오류 격리·접속 제한 8개 |
 | 도커 빌드·실행·원격 화면·health | Codex Linux와 Windows Docker Desktop에서 확인 |
 | 실제 headed Chromium에서 캐릭터→계산→검색→감시 | API 응답을 가상 route로 대체하여 통과 |
 | 30분 감시·중복 억제 | 가상 시계로 확인. 실제 30분 운영 성공 기록은 아님 |
