@@ -57,4 +57,10 @@ jobs:
             flyway/flyway:13.12.0 migrate
       - run: npm test
         working-directory: apps/maple-portal
+      - name: Rehearse PostgreSQL backup and restore
+        run: |
+          docker run --rm --network host -e PGHOST=127.0.0.1 -e PGUSER=test -e PGPASSWORD=test \
+            -v "$RUNNER_TEMP:/backup" \
+            -v "$PWD/ops/maple-db/verify-backup-restore.sh:/verify-backup-restore.sh:ro" \
+            postgres:16-alpine sh /verify-backup-restore.sh
       - run: node ops/maple-db/check-doc-links.mjs
