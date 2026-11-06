@@ -211,7 +211,7 @@ if [[ -n "${PREVIOUS_RELEASE_DIR}" && -d "${PREVIOUS_RELEASE_DIR}" && "${PREVIOU
         exec -T postgres sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' \
         > "${RELEASE_DIR}/backup/postgres-before-maple.dump"
       chmod 600 "${RELEASE_DIR}/backup/postgres-before-maple.dump"
-      maple_volume="${COMPOSE_PROJECT_NAME}_maple-portal-data"
+      maple_volume="${PREVIOUS_PROJECT_NAME}_maple-portal-data"
       if docker volume inspect "${maple_volume}" >/dev/null 2>&1; then
         docker run --rm -v "${maple_volume}:/data:ro" -v "${RELEASE_DIR}/backup:/backup" postgres:16-alpine \
           sh -c 'cd /data; set -- *.json; if [ -e "$1" ]; then tar -czf /backup/maple-json-before-migration.tar.gz "$@"; fi'

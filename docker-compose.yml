@@ -86,9 +86,6 @@ services:
 
   maple-db-import:
     profiles: ["maple"]
-    build:
-      context: ./apps/maple-portal
-      target: portal
     image: ${MAPLE_PORTAL_IMAGE_NAME:-dis-maple-portal}:${MAPLE_PORTAL_IMAGE_TAG:-local}
     depends_on:
       maple-db-migrate:
