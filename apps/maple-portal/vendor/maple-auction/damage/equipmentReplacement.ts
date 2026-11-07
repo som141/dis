@@ -18,10 +18,6 @@ export function getStatsAfterEquipmentReplacement(
   replacement: EquipmentReplacement,
   definitions:Record<string,Record<number,StatBlock>>={}
 ): CharacterStats {
-  if (!current.장비?.[replacement.slot]) {
-    throw new Error(`교체할 장비 슬롯을 찾을 수 없습니다: ${replacement.slot}`);
-  }
-
   const 장비 = {
     ...current.장비,
     [replacement.slot]: {

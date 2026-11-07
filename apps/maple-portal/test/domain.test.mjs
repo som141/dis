@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseQuery, rankItems, PrototypeEngine, INTERVAL_MS } from '../src/domain.mjs';
+import { parseQuery, rankItems, topTenChanges, PrototypeEngine, INTERVAL_MS } from '../src/domain.mjs';
 import { getFinalDamageChangeRate, getDamageBreakdown, compareRingActivation, JOB_STAT } from '../dist/core.mjs';
 
 const query = { keyword:'아케인셰이드 메이지글러브', category:'ARMOR_ARMOR_GLOVE', budget:30 };
@@ -59,6 +59,16 @@ test('every ordinary job uses a finite fixed-crit ring comparison with its own s
     assert.ok(Math.abs(report.equipmentOff)<1e-9,job);
   }
 });
+test('ordinary jobs produce finite equipment gain for their own attack type',()=>{
+  for(const [job,main] of Object.entries(JOB_STAT)){
+    if(['xenon','deven'].includes(main))continue;
+    const useMagic=main==='INT',attack=useMagic?'마력':'공격력';
+    const stats={기본:{STR:1000,DEX:1000,INT:1000,LUK:1000,공격력:100,마력:100,방무:[100]},AP:{}};
+    const changed={...stats,장비:{장갑:{name:'후보',stat:{[attack]:10}}}};
+    const gain=getFinalDamageChangeRate({job,level:280,stats},changed);
+    assert.ok(Number.isFinite(gain)&&gain>0,`${job}: ${gain}`);
+  }
+});
 test('level-four ring activation compares both equipment states with one fixed character and ring', () => {
   const character={job:'에반',level:280,equipment:{item_equipment:[{item_equipment_slot:'무기',item_base_option:{attack_power:'200',magic_power:'300'}}]},
     stats:{기본:{마력:100,방무:[100]},AP:{INT:1000,LUK:100},장비:{장갑:{name:'현재 장갑',stat:{INT:100,마력:10}}},세트효과:{}}};
@@ -89,6 +99,28 @@ test('cost effectiveness uses incremental gain; unsupported is not zero', () => 
   assert.equal(result[0].id, 'better'); assert.equal(result[0].comparison.efficiency, .15);
   assert.equal(result[0].comparison.score, 103); assert.equal(result.at(-1).comparison, null);
 });
+test('maximum starforce is validated and filtered after a single provider search', async()=>{
+  assert.throws(()=>parseQuery({...query,starforceMin:17,starforceMax:16}),/최대 스타포스/);
+  assert.throws(()=>parseQuery({...query,starforceMax:31}),/최대 스타포스/);
+  const {engine,setItems,searches}=await setup();
+  setItems([{...item('under'),starforce:16},{...item('equal'),starforce:17},{...item('over'),starforce:18},{...item('unknown'),starforce:null}]);
+  const result=await engine.search({...query,compare:false,starforceMax:17});
+  assert.deepEqual(result.items.map(x=>x.id),['under','equal']);
+  assert.deepEqual(result.starforceFilter,{enabled:true,max:17,excluded:2});
+  assert.equal(searches(),1);
+});
+test('only changes within ranked top ten create alerts and an old watch is baselined',()=>{
+  const rows=Array.from({length:11},(_,i)=>({id:`item-${i}`,comparison:{gainPercent:2}}));
+  assert.equal(topTenChanges(undefined,rows).changes.length,0);
+  assert.equal(topTenChanges(rows.slice(0,10).map(x=>x.id),rows).changes.length,0);
+  const reordered=[rows[10],...rows.slice(0,10)];
+  const result=topTenChanges(rows.slice(0,10).map(x=>x.id),reordered);
+  assert.equal(result.changes[0].item.id,'item-10');
+  assert.equal(result.changes[0].rank,1);
+  assert.equal(result.changes[0].previousRank,null);
+  assert.equal(result.changes.length,10);
+  assert.equal(topTenChanges(rows.slice(0,10).map(x=>x.id),reordered,3).changes.length,0);
+});
 test('real auction adapter discovers owned character and fresh searches consume quota', async () => {
   const { engine, searches } = await setup();
   assert.equal(engine.character.name, '에반이였솜');
@@ -115,6 +147,19 @@ test('auction tooltip → actual Evan equipment replacement → gain and efficie
     const withRing=await engine.search({...query,ringChoice:'critical',ringLevel:4,ringBaselineOff:true});
     assert.equal(withRing.items[0].comparison.details.ring,undefined,'retired ring controls must not affect new searches');
   } finally { engine.destroy(); }
+});
+test('Evan document secondary equipment can be compared with an empty slot',async()=>{
+  const f=fixtureWire();
+  const e=new PrototypeEngine(f.wire,{loadSnapshot:async()=>({name:'에반이였솜',job:'에반',level:280,
+    equipment:{item_equipment:[]},stats:{기본:{마력:100,방무:[100]},AP:{INT:1000,LUK:100},장비:{},세트효과:{}}})});
+  e.setKey('fixture-key');
+  try{
+    await e.connect();await e.selectCharacter(222);
+    f.setItems([{...item('dragon-book'),itemName:'드래곤마스터의 유산',toolTip:{categories:['서적'],reqJob:'마법사',reqLevel:100,stat:{int:10,mad:21}}}]);
+    const result=await e.search({...query,keyword:'드래곤마스터의 유산',category:'WEAPON_SUB'});
+    assert.equal(result.items[0].comparison.slot,'보조무기');
+    assert.ok(result.items[0].comparison.gainPercent>0);
+  }finally{e.destroy();}
 });
 test('quota exhaustion and unknown quota prevent a search POST', async () => {
   const { engine, setQuota, searches } = await setup();
@@ -159,7 +204,7 @@ test('portal completes up to sixty results by GET and keeps watch baselines with
   assert.equal(result.query.priceMin,14000000000);assert.equal(result.query.priceMax,26000000000);
   engine.startWatch();assert.equal(engine.watch.seen.size,25);assert.equal(engine.notices.length,0);
   f.setItems(Array.from({length:26},(_,i)=>item(`item-${i}`)));clock.now+=INTERVAL_MS;await engine.tick();
-  assert.equal(f.searches(),2);assert.equal(gets,2);assert.equal(engine.notices.length,1);assert.equal(engine.notices[0].item.id,'item-25');
+  assert.equal(f.searches(),2);assert.equal(gets,2);assert.equal(engine.notices.length,0,'outside top ten does not notify');
   failPage=true;clock.now+=INTERVAL_MS;await engine.tick();
   assert.equal(f.searches(),3,'a failed GET must not recreate the charged search');
   await engine.tick();assert.equal(f.searches(),3,'no immediate POST retry after failure');

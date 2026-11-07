@@ -124,7 +124,7 @@ public class MapleDiscordService {
 
     public String noticeMessage(Notice notice) {
         String price=notice.price()==null?"가격 확인 필요":String.format("%,d 메소",notice.price());
-        return "메이플 경매장 새 매물 · "+notice.name()+"\n"+price+" · 작업 `"+safe(notice.jobId())+"`\n"+publicBaseUrl()+"/";
+        return "메이플 경매장 상위 10위 변동 · "+notice.name()+"\n"+price+" · 작업 `"+safe(notice.jobId())+"`\n"+publicBaseUrl()+"/";
     }
 
     private MapleTicketSigner signer(){return new MapleTicketSigner(settings.getSigningKey(),clock);}
@@ -135,6 +135,8 @@ public class MapleDiscordService {
     private JsonNode send(HttpRequest request){
         try{
             HttpResponse<String> response=http.send(request,HttpResponse.BodyHandlers.ofString());
+            if(response.statusCode()==429 && request.uri().getPath().equals("/internal/discord/session"))
+                throw new MapleCapacityException();
             if(response.statusCode()<200||response.statusCode()>=300)throw new IllegalStateException("메이플 연결을 처리하지 못했습니다. 로그인 또는 작업 상태를 확인하세요.");
             return json.readTree(response.body());
         }catch(InterruptedException error){Thread.currentThread().interrupt();throw new IllegalStateException("메이플 연결이 중단됐습니다.");}
@@ -143,4 +145,7 @@ public class MapleDiscordService {
     private static String safe(String value){return value.replace('@','＠').replace('\n',' ').replace('\r',' ').replace('`','\'');}
     private static String base(String value){return value.replaceAll("/+$","");}
     private static String encode(String value){return URLEncoder.encode(value,StandardCharsets.UTF_8);}
+    static final class MapleCapacityException extends IllegalStateException {
+        MapleCapacityException(){super("메이플 포털 접속 인원이 가득 찼습니다.");}
+    }
 }

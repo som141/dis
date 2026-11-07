@@ -1,5 +1,6 @@
 #!/bin/sh
 set -eu
+rm -f /tmp/.X99-lock /tmp/.X11-unix/X99
 Xvfb :99 -screen 0 1280x900x24 -nolisten tcp -ac >/dev/null 2>&1 &
 display_pid=$!
 until xdpyinfo -display :99 >/dev/null 2>&1; do sleep 0.1; done

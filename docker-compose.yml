@@ -92,7 +92,7 @@ services:
         condition: service_completed_successfully
     environment:
       MAPLE_PORTAL_DATA: /home/node/portal-data
-      MAPLE_PORTAL_USERS: ${MAPLE_PORTAL_USERS:-2}
+      MAPLE_PORTAL_USERS: ${MAPLE_PORTAL_USERS:-4}
       MAPLE_POSTGRES_HOST: postgres
       MAPLE_POSTGRES_PORT: 5432
       MAPLE_POSTGRES_DB: ${POSTGRES_DB:-stock}
@@ -175,7 +175,7 @@ services:
       MAPLE_PORTAL_ORIGIN: ${MAPLE_PUBLIC_BASE_URL:-http://127.0.0.1:18877}
       MAPLE_PORTAL_DATA: /home/node/portal-data
       MAPLE_SERVICE_KEY_FILE: /run/secrets/maple_nexon_service_key
-      MAPLE_PORTAL_USERS: ${MAPLE_PORTAL_USERS:-2}
+      MAPLE_PORTAL_USERS: ${MAPLE_PORTAL_USERS:-4}
       MAPLE_DISCORD_MODE: "true"
       MAPLE_DISCORD_INTERNAL_KEY: ${MAPLE_DISCORD_INTERNAL_KEY:-}
       MAPLE_REQUIRE_POSTGRES: "true"
@@ -190,8 +190,8 @@ services:
       - maple-portal-data:/home/node/portal-data
       - maple-portal-cache:/home/node/maple-data
     shm_size: 1gb
-    mem_limit: 3g
-    cpus: 2
+    mem_limit: 7g
+    cpus: 4
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true

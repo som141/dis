@@ -15,6 +15,9 @@ const EQUIPMENT_SLOT_MAP: Partial<Record<string, EquipmentSlot>> = {
   망토: '망토',
   무기: '무기',
   보조무기: '보조무기',
+  // Some auction tooltips expose only the secondary-weapon subtype.
+  서적: '보조무기',
+  문서: '보조무기',
   엠블렘: '엠블렘',
   반지1: '반지1',
   반지2: '반지2',

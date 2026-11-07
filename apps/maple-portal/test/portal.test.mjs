@@ -191,6 +191,18 @@ test('Discord watch notices remain private and durable until delivery acknowledg
     const loaded=new PortalStore(dir,{limit:2});await loaded.init();assert.equal(loaded.pendingDiscordNotices().length,0);
   }finally{await rm(dir,{recursive:true,force:true});}
 });
+test('ranking notice includes position, starforce and modeled gain without another outbox row',async()=>{
+  const dir=await mkdtemp(join(tmpdir(),'maple-ranking-notice-'));
+  try{
+    const store=new PortalStore(dir,{limit:2});await store.init();
+    const {record}=await store.issueDiscordSession('101');
+    const flow={jobs:[{id:'glove-live',notices:[{rank:3,previousRank:8,foundAt:'2026-11-05T01:00:00Z',
+      item:{id:'auction-1',name:'테스트 장갑',starforce:17,price:123456789,comparison:{gainPercent:2.75}}}]}]};
+    store.captureDiscordNotices(record,flow);store.captureDiscordNotices(record,flow);
+    assert.equal(store.pendingDiscordNotices().length,1);
+    assert.match(store.pendingDiscordNotices()[0].name,/8→3위 · 테스트 장갑 · 17성 · 예상 피해 \+2.75%/);
+  }finally{await rm(dir,{recursive:true,force:true});}
+});
 test('login viewing excludes unrelated sites and API-key management pages',() => {
   assert.equal(isLoginSurface('https://nxlogin.nexon.com/'),true);
   assert.equal(isLoginSurface('https://auction.maplestory.nexon.com/'),true);
