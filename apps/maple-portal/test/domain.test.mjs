@@ -161,6 +161,32 @@ test('Evan document secondary equipment can be compared with an empty slot',asyn
     assert.ok(result.items[0].comparison.gainPercent>0);
   }finally{e.destroy();}
 });
+test('Angelic Buster emblem uses the emblem slot despite a power-source tooltip',async()=>{
+  const f=fixtureWire();
+  const e=new PrototypeEngine(f.wire,{loadSnapshot:async()=>({name:'테스트캐릭터',job:'엔젤릭버스터',level:280,
+    equipment:{item_equipment:[]},stats:{기본:{공격력:100,방무:[100]},AP:{DEX:1000,STR:100},장비:{},세트효과:{}}})});
+  e.setKey('fixture-key');
+  try{
+    await e.connect();await e.selectCharacter(222);
+    f.setItems([{...item('angel-emblem'),itemName:'엔젤 엠블렘',toolTip:{categories:['파워소스'],reqJob:'해적',reqLevel:100,stat:{dex:10,pad:21}}}]);
+    const result=await e.search({...query,keyword:'엔젤 엠블렘',category:'ARMOR_ACCESSORY_EMBLEM'});
+    assert.equal(result.items[0].comparison.slot,'엠블렘');
+    assert.ok(result.items[0].comparison.gainPercent>0);
+  }finally{e.destroy();}
+});
+test('Zero Astra Hourglass does not report a false generic secondary gain',async()=>{
+  const f=fixtureWire();
+  const e=new PrototypeEngine(f.wire,{loadSnapshot:async()=>({name:'제로캐릭터',job:'제로',level:280,
+    equipment:{item_equipment:[]},stats:{기본:{공격력:100,방무:[100]},AP:{STR:1000,DEX:100},장비:{},세트효과:{}}})});
+  e.setKey('fixture-key');
+  try{
+    await e.connect();await e.selectCharacter(222);
+    f.setItems([{...item('zero-hourglass'),itemName:'아스트라 아워글라스',toolTip:{categories:['보조무기'],reqJob:'전체',reqLevel:200,stat:{str:10,pad:21}}}]);
+    const result=await e.search({...query,keyword:'아스트라 아워글라스',category:'WEAPON_SUB'});
+    assert.equal(result.items[0].comparison,null);
+    assert.match(JSON.stringify(result.items[0].comparisonErrors),/대검·태도/);
+  }finally{e.destroy();}
+});
 test('quota exhaustion and unknown quota prevent a search POST', async () => {
   const { engine, setQuota, searches } = await setup();
   setQuota(0); await assert.rejects(() => engine.search(query), e => e.code === 'QUOTA_EXHAUSTED');
