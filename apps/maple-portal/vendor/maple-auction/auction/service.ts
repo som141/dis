@@ -131,8 +131,13 @@ export class AuctionService {
     if (!compare) return summary;
     // 부위는 매물 JSON만으로 정한다 — 검색 조건을 보면 이름만으로 검색했을 때 슬롯을 잃는다.
     const rawItems = data.items ?? [];
+    if (!rawItems.length) return summary;
     const slotsByItem = rawItems.map(getAuctionEquipmentSlots);
-    if (!slotsByItem.some((slots) => slots?.length)) return summary;
+    if (!slotsByItem.some((slots) => slots?.length)) return {
+      ...summary,
+      items:summary.items.map(item=>({...item,comparisonErrors:{item:'매물의 장비 부위를 식별하지 못해 비교할 수 없습니다.'}})),
+      finalDamageNote:'경매장 매물의 장비 부위를 식별하지 못했습니다. 상세 정보의 부위 분류를 확인해 주세요.',
+    };
 
     const characterName = this.identity?.characterName;
     if (!characterName) {
@@ -147,7 +152,7 @@ export class AuctionService {
       const items = summary.items.map((item, index) => {
         try{
         const slots = slotsByItem[index];
-        if (!slots?.length) return item;
+        if (!slots?.length) return {...item,comparisonErrors:{item:'매물의 장비 부위를 식별하지 못해 비교할 수 없습니다.'}};
         const raw = rawItems[index];
         // 못 입는 장비의 증감률은 의미가 없다 — 카데나에게 마법사 스태프가 +26%로 뜨던 버그.
         if (!raw || !isAuctionItemWearable(raw, character.job)) return {...item,comparisonErrors:{item:'현재 캐릭터가 착용할 수 없는 장비입니다.'}};
@@ -157,10 +162,9 @@ export class AuctionService {
         const finalDamageChangeRate: Partial<Record<EquipmentSlot, number>> = {};
         const comparisonDetails:Record<string,unknown>={},comparisonErrors:Record<string,string>={};
         for (const slot of slots) {
-          if (!character.stats.장비?.[slot]) continue;
           try{
-            const old=character.stats.장비[slot]!;
-            if((old.stat.쿨감??0)!==(stat.쿨감??0))throw new Error('쿨감 변화는 스킬별 사용 주기를 계산해야 합니다.');
+            const old=character.stats.장비?.[slot];
+            if((old?.stat.쿨감??0)!==(stat.쿨감??0))throw new Error('쿨감 변화는 스킬별 사용 주기를 계산해야 합니다.');
             const currentItem=character.equipment.item_equipment.find(e=>getEquipmentSlot(e.item_equipment_slot)===slot);
             if((raw.seedRingLevel??0)>0||(currentItem?.special_ring_level??0)>0)throw new Error('특수 반지 효과는 발동 조건·유지 시간의 별도 모델이 필요합니다.');
             const beforeSkills = classifySkillPotentials(currentItem ? [

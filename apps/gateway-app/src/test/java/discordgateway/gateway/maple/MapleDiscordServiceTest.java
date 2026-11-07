@@ -68,4 +68,19 @@ class MapleDiscordServiceTest {
             assertThat(acknowledgements).hasValue(1);
         }finally{server.stop(0);}
     }
+
+    @Test
+    void sessionCapacityErrorIsDistinguishedFromOtherOAuthFailures() throws Exception {
+        HttpServer server=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);
+        server.createContext("/oauth2/token",ex->{byte[] out="{\"access_token\":\"fixture-access\"}".getBytes();ex.sendResponseHeaders(200,out.length);try(var body=ex.getResponseBody()){body.write(out);}});
+        server.createContext("/users/@me",ex->{byte[] out="{\"id\":\"222\"}".getBytes();ex.sendResponseHeaders(200,out.length);try(var body=ex.getResponseBody()){body.write(out);}});
+        server.createContext("/internal/discord/session",ex->{byte[] out="{\"error\":\"CAPACITY\"}".getBytes();ex.sendResponseHeaders(429,out.length);try(var body=ex.getResponseBody()){body.write(out);}});
+        server.start();
+        try{
+            String url="http://127.0.0.1:"+server.getAddress().getPort();
+            MapleDiscordService service=new MapleDiscordService(settings(url),new ObjectMapper(),HttpClient.newHttpClient(),NOW,url);
+            String ticket=service.linkFor(222L).split("ticket=")[1];
+            assertThatThrownBy(()->service.complete("code",ticket)).isInstanceOf(MapleDiscordService.MapleCapacityException.class);
+        }finally{server.stop(0);}
+    }
 }

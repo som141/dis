@@ -37,6 +37,8 @@ export function parseQuery(input) {
   if(input.bossDefenseRate!=null&&(!Number.isFinite(Number(input.bossDefenseRate))||Number(input.bossDefenseRate)<0||Number(input.bossDefenseRate)>1000))throw new AppError('대상 방어율은 0~1000%로 입력하세요.');
   const star = Number(input.starforceMin ?? 0), grade = Number(input.potentialGrade ?? 0);
   if (!Number.isInteger(star) || star < 0 || star > 30 || !Number.isInteger(grade) || grade < 0 || grade > 4) throw new AppError('스타포스·잠재 등급을 확인하세요.');
+  const starMax = input.starforceMax === '' || input.starforceMax == null ? null : Number(input.starforceMax);
+  if (starMax !== null && (!Number.isInteger(starMax) || starMax < star || starMax > 30)) throw new AppError('최대 스타포스는 최소 스타포스 이상, 30성 이하로 입력하세요.');
   const potentials=normalizeOptionRows(input.potentialOptions,input.option,input.optionMin),additionals=normalizeOptionRows(input.additionalPotentialOptions,input.additionalOption,input.additionalMin);
   parseMaximums(input,potentials,additionals);
   if(input.jobClass&&!['ALL','WARRIOR','MAGE','ARCHER','THIEF','PIRATE'].includes(input.jobClass))throw new AppError('직업군을 확인하세요.');
@@ -123,6 +125,20 @@ export function rankItems(items = []) {
   });
 }
 
+export function topTenChanges(previousIds, rankedItems, minGain = 0) {
+  const current = rankedItems.slice(0, 10);
+  const next = current.map(item => item.id);
+  if (!Array.isArray(previousIds)) return { next, changes: [] };
+  const before = new Map(previousIds.map((id, index) => [id, index + 1]));
+  const changes = current.flatMap((item, index) => {
+    const previousRank = before.get(item.id) ?? null;
+    const rank = index + 1;
+    if (previousRank === rank || (minGain > 0 && !(item.comparison?.gainPercent >= minGain))) return [];
+    return [{ item, rank, previousRank }];
+  });
+  return { next, changes };
+}
+
 export class PrototypeEngine {
   constructor(wire, { now = Date.now, loadSnapshot = loadCharacterSnapshot, refreshSnapshot = refreshCharacterSnapshot, manageKeyEnvironment = true, completePageLimit = 0 } = {}) {
     this.wire = wire; this.now = now; this.loadSnapshot = loadSnapshot; this.refreshSnapshot = refreshSnapshot;
@@ -207,7 +223,7 @@ export class PrototypeEngine {
     const quota = await this.quota(); this.guard(epoch);
     if(this.cancelRequested)throw new AppError('조회가 중지되었습니다.',409,'CANCELLED');
     if (quota.remaining <= 0) throw new AppError('오늘 검색 한도를 모두 사용했습니다. 초기화 후 다시 시도하세요.', 429, 'QUOTA_EXHAUSTED');
-    svc.setComparisonContext?.({bossDefenseRate:Number(input.bossDefenseRate??380),statusDamageUptime:input.targetStatus===true?1:0,ringChoice:'none'});
+    svc.setComparisonContext?.({bossDefenseRate:Number(input.bossDefenseRate??380),statusDamageUptime:1,ringChoice:'none'});
     svc.clearSearchCache(); // Fresh POST: never assume old handles include new listings.
     const sold = input.sold === true;
     const compare = input.compare !== false && !sold;
@@ -239,10 +255,12 @@ export class PrototypeEngine {
     } catch(e) {failed=e;}
     this.collection={...this.collection,status:failed ? 'incomplete' : 'complete',loaded:seen.size,complete:!failed && seen.size>=Math.min(summary.total,10000),error:failed?.code||null};
     const filtered=applyPotentialMaximums([...seen.values()],maximums.potentialMaximums,maximums.additionalPotentialMaximums);
-    const allItems=filtered.items;
+    const starMax=input.starforceMax===''||input.starforceMax==null?null:Number(input.starforceMax);
+    const allItems=starMax===null?filtered.items:filtered.items.filter(item=>item.starforce!=null&&item.starforce!==''&&Number.isInteger(Number(item.starforce))&&Number(item.starforce)<=starMax);
+    const starforceFilter={enabled:starMax!==null,max:starMax,excluded:filtered.items.length-allItems.length};
     const market = sold ? marketHistory(allItems, {now:this.now(), coverage:this.collection}) : null;
     const marketItems=sold ? allItems.filter(item=>{const stamp=tradeTimestamp(item.tradeDate);return item.status==='SOLD' && Number.isFinite(Number(item.price)) && Number(item.price)>0 && Number.isFinite(stamp) && stamp<=this.now() && market.from<=new Date(stamp+9*3600000).toISOString().slice(0,10) && new Date(stamp+9*3600000).toISOString().slice(0,10)<=market.to;}) : allItems;
-    const result = { ...summary, items:sold ? marketItems.sort((a,b)=>tradeTimestamp(b.tradeDate)-tradeTimestamp(a.tradeDate)) : rankItems(allItems),query,collection:this.collection,market,localFilter:filtered.summary,
+    const result = { ...summary, items:sold ? marketItems.sort((a,b)=>tradeTimestamp(b.tradeDate)-tradeTimestamp(a.tradeDate)) : rankItems(allItems),query,collection:this.collection,market,localFilter:filtered.summary,starforceFilter,
       character: this.character.name, characterId: this.character.characterId, sold: input.sold === true,
       fetchedAt: new Date(this.now()).toISOString(), model: '독립 장비 교체 모델 · 환산주스탯 수치 아님',
       coverage:(this.collection.capped ? '제공자 조회 상한인 10,000건 범위입니다. 전체 결과를 포함하지 않습니다.' : failed ? '페이지 조회가 완료되지 않은 부분 결과입니다.' : '검색 결과 페이지를 모두 조회했습니다.') };
@@ -272,7 +290,7 @@ export class PrototypeEngine {
     const intervalMs=Number(intervalMinutes)*60000;
     this.watch = { status:'감시 중',intervalMs,startedAt:this.now(),expiresAt:Number(days)===0 ? null : this.now()+Number(days)*86400000,
       nextPollAt:this.now()+intervalMs,lastCheckedAt:this.result.fetchedAt,characterId:this.character.characterId,
-      input: { ...this.lastInput }, minGain: Number(minGain), seen: new Set(this.result.items.map(i => i.id)), error: null };
+      input: { ...this.lastInput }, minGain: Number(minGain), seen: new Set(this.result.items.map(i => i.id)), top10:this.result.items.slice(0,10).map(i=>i.id), error: null };
     return this.watchView();
   }
   stopWatch() { if (this.watch) this.watch.status = '종료'; return this.watchView(); }
@@ -288,12 +306,10 @@ export class PrototypeEngine {
         const result = await this.search(w.input, { fromWatch: true });
         if (this.watch !== w || w.status !== '감시 중' || (w.expiresAt!=null && this.now() >= w.expiresAt)) return;
         if (result.total>result.items.length && !result.collection?.complete) { w.status='일부 결과 누락 · 재확인 필요';return; }
-        for (const item of result.items) {
-          if (!w.seen.has(item.id) && (w.minGain === 0 || item.comparison?.gainPercent >= w.minGain)) {
-            this.notices.unshift({ item, foundAt: new Date(this.now()).toISOString(), character: result.character });
-          }
-          w.seen.add(item.id);
-        }
+        const ranking=topTenChanges(w.top10,result.items,w.minGain);
+        for (const change of ranking.changes) this.notices.unshift({ ...change, foundAt:new Date(this.now()).toISOString(), character:result.character });
+        w.top10=ranking.next;
+        for (const item of result.items) w.seen.add(item.id);
         this.notices = this.notices.slice(0, 100);
         w.lastCheckedAt = result.fetchedAt; w.error = null;
       } catch (e) {

@@ -15,7 +15,6 @@ export function enhanceEquipment(row,config,api,onDirty,onWatchOff=async()=>{}){
     const l=make('label',label),input=make('input');input.type='number';input.min=0;input.step='0.0001';input.dataset.field=key;input.value=value;l.append(input);row.querySelector('.query-main').append(l);
   }
   const defenseLabel=make('label','대상 보스 방어율 · %'),defense=make('input');defense.type='number';defense.min=0;defense.max=1000;defense.value=config.bossDefenseRate??380;defense.dataset.field='bossDefenseRate';defenseLabel.append(defense);row.querySelector('.filter-grid').append(defenseLabel);
-  const statusLabel=make('label','대상 상태이상 추가 데미지 적용'),statusInput=make('input');statusInput.type='checkbox';statusInput.dataset.field='targetStatus';statusInput.checked=config.targetStatus===true;statusLabel.prepend(statusInput);row.querySelector('.filter-checks').append(statusLabel);
   const custom=make('option','최소~최대 직접 지정');custom.value='custom';f('budgetMode').append(custom);f('budgetMode').value=config.budgetMode||'max';
   for(const key of ['budgetMin','budgetMax']){const range=make('input');range.type='range';range.min=0;range.max=Math.max(400,Number(f(key).value)||0);range.step=1;range.value=Number(f(key).value)||0;range.setAttribute('aria-label',key==='budgetMin'?'최소 예산 슬라이더':'최대 예산 슬라이더');f(key).parentElement.append(range);range.oninput=()=>{f(key).value=range.value;f('budgetMode').value='custom';onDirty();};f(key).addEventListener('input',()=>{range.max=Math.max(400,Number(f(key).value)||0);range.value=f(key).value;});}
   let offset=0,generation=0,timer;

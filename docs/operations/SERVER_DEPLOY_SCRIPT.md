@@ -64,8 +64,9 @@
 - 새 release 디렉터리 생성
 - compose, env, image archive, `ops/` 복사
 - `docker compose config --quiet`로 새 설정 검증
-- 사용하지 않는 DIS 이미지 정리를 시도한 뒤 새 이미지를 적재. 실행 중 컨테이너가 참조하는 이미지는 제거되지 않음
-- `docker load`로 네 image 적재
+- 사용하지 않는 DIS 이미지(메이플 포털 포함) 정리를 시도한 뒤 새 이미지를 적재. 실행 중 컨테이너가 참조하는 이미지는 제거되지 않음
+- `docker load`로 기본 네 image와 메이플 활성화 시 포털 image 적재
+- 메이플 활성화 시 Flyway 이미지를 이전 release 정지 전에 받아 디스크 부족·레지스트리 오류를 서비스 정지 전에 발견
 - 이전 release가 있으면 `docker compose down --remove-orphans`
 - `current` symlink 교체
 - 새 release에서 `docker compose up -d --no-build --remove-orphans --wait --wait-timeout 180`

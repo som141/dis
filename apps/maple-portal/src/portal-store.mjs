@@ -87,8 +87,10 @@ export class PortalStore {
       const id=createHash('sha256').update([record.id,job.id,item.id,notice.foundAt].join('|')).digest('hex');
       if(known.has(id))continue;
       known.add(id);
+      const detail=[item.name||'매물',Number.isInteger(Number(item.starforce))&&item.starforce!=null?`${item.starforce}성`:null,
+        Number.isFinite(item.comparison?.gainPercent)?`예상 피해 ${item.comparison.gainPercent>=0?'+':''}${item.comparison.gainPercent.toFixed(2)}%`:null].filter(Boolean).join(' · ');
       outbox.push({id,discordUserId:record.discordUserId,jobId:job.id,itemId:item.id,
-        name:String(item.name||'매물').slice(0,100),price:Number.isFinite(Number(item.price))?Number(item.price):null,
+        name:String(Number.isInteger(notice.rank)?`상위 10위 ${notice.previousRank?`${notice.previousRank}→${notice.rank}위`:`신규 ${notice.rank}위`} · ${detail}`:detail).slice(0,100),price:Number.isFinite(Number(item.price))?Number(item.price):null,
         foundAt:notice.foundAt,status:'pending'});
     }
     // Keep pending notices across job deletion; old completed entries can be pruned.

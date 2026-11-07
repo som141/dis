@@ -80,7 +80,7 @@ prune_unused_dis_images() {
   echo "pruning unused DIS docker images before loading release"
   docker image prune -f || true
   docker images --format '{{.Repository}} {{.ID}}' \
-    | awk '$1 == "discord-gateway" || $1 == "discord-audio-node" || $1 == "discord-stock-node" || $1 == "discord-youtube-cipher" { print $2 }' \
+    | awk '$1 == "discord-gateway" || $1 == "discord-audio-node" || $1 == "discord-stock-node" || $1 == "discord-youtube-cipher" || $1 == "dis-maple-portal" { print $2 }' \
     | sort -u \
     | xargs -r docker image rm || true
 }
@@ -195,6 +195,8 @@ gzip -dc "${RELEASE_DIR}/discord-youtube-cipher.tar.gz" | docker load
 if [[ "${MAPLE_ENABLED,,}" == "true" ]]; then
   echo "loading Maple portal image archive"
   gzip -dc "${RELEASE_DIR}/dis-maple-portal.tar.gz" | docker load
+  echo "pulling Maple migration image before stopping previous release"
+  compose_in_dir "${RELEASE_DIR}" "${COMPOSE_PROJECT_NAME}" "${RELEASE_OBSERVABILITY_ENABLED}" pull --ignore-buildable --policy missing maple-db-migrate
 fi
 
 echo "removing legacy fixed-name containers if present"
