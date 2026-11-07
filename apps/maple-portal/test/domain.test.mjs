@@ -155,7 +155,7 @@ test('Evan document secondary equipment can be compared with an empty slot',asyn
   e.setKey('fixture-key');
   try{
     await e.connect();await e.selectCharacter(222);
-    f.setItems([{...item('dragon-book'),itemName:'드래곤마스터의 유산',toolTip:{categories:['서적'],reqJob:'마법사',reqLevel:100,stat:{int:10,mad:21}}}]);
+    f.setItems([{...item('dragon-book'),itemName:'드래곤마스터의 유산',toolTip:{categories:['서적'],reqJob:'에반',reqLevel:100,stat:{int:10,mad:21}}}]);
     const result=await e.search({...query,keyword:'드래곤마스터의 유산',category:'WEAPON_SUB'});
     assert.equal(result.items[0].comparison.slot,'보조무기');
     assert.ok(result.items[0].comparison.gainPercent>0);

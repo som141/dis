@@ -59,7 +59,7 @@ export interface AuctionToolTip {
   itemName?: string; // 매물의 itemName과 같은 값이 툴팁에도 온다
   categories?: string[] | null; // 부위 판단 근거. 예: ["무기","한손","스태프"], ["장신구","반지"], ["어깨장식"]
   reqLevel?: number;
-  reqJob?: string | null; // 직업군까지만 말한다. 예: "마법사". 직업 제한이 없으면 null
+  reqJob?: string | null; // 직업군·개별 직업·전체 표기가 가능하다. 제한이 없으면 null
   unwearableJobNames?: string[] | null; // 같은 직업군 안의 예외. 예: ["키네시스","일리움","라라","레테"]
   stat?: AuctionItemStat;
   upgradeInfo?: {

@@ -20,7 +20,7 @@ import { summarizeSearch, summarizeItem, summarizeNexonEquip, type SearchSummary
 import { listCharacters as listAccountCharacters, discoverIdentity, type CharacterInfo } from './characters.js';
 import { getAuctionEquipmentSlots } from '../damage/auctionEquipmentSlot.js';
 import type { AuctionItem, AuctionSearchResponse } from './item.js';
-import { isAuctionItemWearable } from '../damage/auctionWearable.js';
+import { auctionWearabilityError } from '../damage/auctionWearable.js';
 import { getStatsAfterEquipmentReplacement } from '../damage/equipmentReplacement.js';
 import { getFinalDamageChangeRate, getDamageBreakdown, getAnchoredDamageBreakdown, auditDamageBaseline } from '../damage/finalDamage.js';
 import { compareRingActivation, type RingChoice } from '../damage/ringEfficiency.js';
@@ -155,7 +155,9 @@ export class AuctionService {
         if (!slots?.length) return {...item,comparisonErrors:{item:'매물의 장비 부위를 식별하지 못해 비교할 수 없습니다.'}};
         const raw = rawItems[index];
         // 못 입는 장비의 증감률은 의미가 없다 — 카데나에게 마법사 스태프가 +26%로 뜨던 버그.
-        if (!raw || !isAuctionItemWearable(raw, character.job)) return {...item,comparisonErrors:{item:'현재 캐릭터가 착용할 수 없는 장비입니다.'}};
+        if(!raw)return {...item,comparisonErrors:{item:'매물 상세 정보가 없습니다.'}};
+        const wearabilityError=auctionWearabilityError(raw,character.job);
+        if (wearabilityError) return {...item,comparisonErrors:{item:wearabilityError}};
         if(!raw.toolTip?.stat)throw new Error('매물 상세 스탯이 없습니다.');
         if((raw.toolTip.reqLevel??0)>character.level)return {...item,comparisonErrors:{item:'현재 캐릭터의 레벨로 착용할 수 없는 장비입니다.'}};
         const stat = getAuctionItemStats(raw, character.level);

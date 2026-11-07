@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {summarizeItem,isAuctionItemWearable,setOfItem} from '../dist/core.mjs';
+import {summarizeItem,isAuctionItemWearable,auctionWearabilityError,setOfItem} from '../dist/core.mjs';
 
 test('actual Dawn accessory names retain their set while Guardian ring conversion remains explicit',()=>{
  for(const name of ['에스텔라 이어링','트와일라이트 마크','데이브레이크 펜던트','여명의 가디언 엔젤 링'])assert.equal(setOfItem(name),'여명의 보스');
@@ -8,9 +8,18 @@ test('actual Dawn accessory names retain their set while Guardian ring conversio
 });
 
 test('public accessory job label is wearable while actual job and explicit exclusions still apply',()=>{
- for(const reqJob of ['공용',null,undefined,'마법사'])assert.equal(isAuctionItemWearable({toolTip:{reqJob}},'에반'),true);
+ for(const reqJob of ['공용','전체','전직업',null,undefined,'마법사','에반','에반 전용'])assert.equal(isAuctionItemWearable({toolTip:{reqJob}},'에반'),true);
  assert.equal(isAuctionItemWearable({toolTip:{reqJob:'전사'}},'에반'),false);
+ assert.equal(isAuctionItemWearable({toolTip:{reqJob:'에반'}},'비숍'),false);
  assert.equal(isAuctionItemWearable({toolTip:{reqJob:'공용',unwearableJobNames:['에반']}},'에반'),false);
+ assert.match(auctionWearabilityError({toolTip:{reqJob:'전사'}},'에반'),/요구 직업 전사/);
+});
+test('official Evan document secondary weapons are not rejected by broad auction job labels',()=>{
+ for(const itemName of ['드래곤마스터의 유산','이볼빙 드래곤마스터의 유산','블랙 드래곤마스터의 유산','메이플 트레져의 유산']){
+  assert.equal(isAuctionItemWearable({itemName,toolTip:{reqJob:'전체'}},'에반'),true,itemName);
+  assert.equal(isAuctionItemWearable({itemName,toolTip:{reqJob:'마법사'}},'비숍'),false,itemName);
+  assert.match(auctionWearabilityError({itemName,toolTip:{reqJob:'마법사'}},'비숍'),/에반 전용/);
+ }
 });
 const raw=()=>({_id:'fixture:1',itemName:'에테르넬 메이지글러브',pricePerItem:'20000000000',quantity:1,starforce:17,status:'ON_SALE',endDate:'2026-11-05T00:00:00Z',wishlistCount:0,itemCode:'private-item-payload',toolTip:{itemIcon:{fallBackUrl:'https://avatar.maplestory.nexon.com/ItemIcon/TEST.png'},reqLevel:250,reqJob:'마법사',categories:['방어구','장갑'],stat:{int:120,mad:90},baseStat:{int:40,mad:80},starforceStat:{int:25,mad:10},upgradeStat:{int:20},exOptionStat:{int:35},upgradeInfo:{scroll:{current:8,remaining:0,failure:0,max:8},potential:{grade:4,description:'잠재능력 : 레전드리',entries:[{grade:4,text:'크리티컬 데미지 +8%'},{grade:4,text:'크리티컬 데미지 +8%'},{grade:3,text:'최대 HP +10%'}]},additionalPotential:{grade:3,description:'에디셔널 잠재능력 : 유니크',entries:[{grade:3,text:'INT +6%'},{grade:2,text:'INT +15'}]}},tradeDesc:['1회 교환 가능','가위 사용 잔여 횟수 : 8 / 10'],session:'not-for-client'}});
 test('listing summary stays concise while tooltip preserves separate actual enhancement and potential fields',()=>{
