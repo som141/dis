@@ -5,10 +5,11 @@ export { clearNexonResponseCache } from '../vendor/maple-auction/nexon/responseC
 export { ARMOR_CATEGORY_LABELS, WEAPON_CATEGORY_LABELS, POTENTIAL_OPTION_LABELS } from '../vendor/maple-auction/auction/constants.js';
 export { getFinalDamageChangeRate, getDamageBreakdown, getAnchoredDamageBreakdown, auditDamageBaseline } from '../vendor/maple-auction/damage/finalDamage.js';
 export { compareRingActivation } from '../vendor/maple-auction/damage/ringEfficiency.js';
-export { JOB_STAT } from '../vendor/maple-auction/damage/stat/job.js';
+export { JOB_STAT,getJobClass } from '../vendor/maple-auction/damage/stat/job.js';
 export {getStatsAfterEquipmentReplacement} from '../vendor/maple-auction/damage/equipmentReplacement.js';
 export {buildCreateBody} from '../vendor/maple-auction/auction/mapping.js';
 export {responseCacheFresh, RESPONSE_CACHE_TTL_MS, readCachedResponse, writeCachedResponse} from '../vendor/maple-auction/nexon/responseCache.js';
 export {summarizeItem} from '../vendor/maple-auction/auction/summarize.js';
-export {isAuctionItemWearable,auctionWearabilityError} from '../vendor/maple-auction/damage/auctionWearable.js';
+export {isAuctionItemWearable,auctionWearabilityError,secondaryWeaponJobs,emblemJobs} from '../vendor/maple-auction/damage/auctionWearable.js';
+export {getAuctionEquipmentSlots} from '../vendor/maple-auction/damage/auctionEquipmentSlot.js';
 export {setOfItem} from '../vendor/maple-auction/damage/setSimulation.js';

@@ -168,6 +168,9 @@ export class AuctionService {
             const old=character.stats.장비?.[slot];
             if((old?.stat.쿨감??0)!==(stat.쿨감??0))throw new Error('쿨감 변화는 스킬별 사용 주기를 계산해야 합니다.');
             const currentItem=character.equipment.item_equipment.find(e=>getEquipmentSlot(e.item_equipment_slot)===slot);
+            if (character.job==='제로'&&slot==='보조무기'&&(item.name==='아스트라 아워글라스'||currentItem?.item_name==='아스트라 아워글라스')) {
+              throw new Error('제로의 아스트라 아워글라스는 대검·태도의 잠재와 기본 보스 데미지·방무를 대체하므로 별도 계산이 필요합니다.');
+            }
             if((raw.seedRingLevel??0)>0||(currentItem?.special_ring_level??0)>0)throw new Error('특수 반지 효과는 발동 조건·유지 시간의 별도 모델이 필요합니다.');
             const beforeSkills = classifySkillPotentials(currentItem ? [
               currentItem.potential_option_1, currentItem.potential_option_2, currentItem.potential_option_3,

@@ -3,6 +3,13 @@ import {fileURLToPath} from 'node:url';
 import {readFile,mkdir,writeFile} from 'node:fs/promises';
 const dataRoot=new URL('../public/data/',import.meta.url);
 export const catalog=JSON.parse(await readFile(new URL('equipment.json',dataRoot),'utf8'));
+// Older metadata classifies several job-specific secondary shields and medals
+// as armor/accessories. The exact names are cross-checked against Nexon's
+// secondary-weapon table; ordinary shared shields keep their original class.
+const secondaryRules=JSON.parse(await readFile(new URL('../vendor/maple-auction/damage/secondaryWeaponRules.json',import.meta.url),'utf8')).jobsByName;
+for(const item of catalog.items){
+  if(Object.hasOwn(secondaryRules,item.name)&&['ARMOR_ARMOR_SHIELD','ARMOR_ACCESSORY_MEDAL'].includes(item.category))item.category='WEAPON_SUB';
+}
 const initials='ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
 const initial=s=>[...s].map(c=>{const n=c.charCodeAt(0)-44032;return n>=0&&n<11172?initials[Math.floor(n/588)]:c;}).join('');
 export function findEquipment({category='ALL',job='ALL',q='',offset=0}={}){
@@ -14,7 +21,7 @@ const parts={WEAPON:1,WEAPON_SUB:3,ARMOR_ACCESSORY_EMBLEM:2,ARMOR_ARMOR_SHIELD:5
 const requests=new Map();
 const cacheRoot=process.env.MAPLE_PORTAL_DATA?join(process.env.MAPLE_PORTAL_DATA,'rules-cache'):fileURLToPath(new URL('rules/',dataRoot));
 export async function potentialRules({category,grade,level,system,subtype}){
-  const part=['Soul Ring','Force Shield'].includes(subtype)?4:parts[category]??(category?.startsWith('WEAPON_')?1:null);
+  const part=['Soul Ring','Force Shield'].includes(subtype)?4:subtype==='Shield'?5:parts[category]??(category?.startsWith('WEAPON_')?1:null);
   if(!part||![1,2,3,4].includes(Number(grade))||!Number.isInteger(Number(level))||level<0||level>250||!['main','additional'].includes(system)) throw new Error('부위·등급·장비 레벨(0~250)을 선택하세요.');
   const id=`${system}-${part}-${grade}-${level}`;
   if(requests.has(id))return requests.get(id);

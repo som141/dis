@@ -15,10 +15,12 @@ const EQUIPMENT_SLOT_MAP: Partial<Record<string, EquipmentSlot>> = {
   망토: '망토',
   무기: '무기',
   보조무기: '보조무기',
+  방패: '보조무기',
   // Some auction tooltips expose only the secondary-weapon subtype.
   서적: '보조무기',
   문서: '보조무기',
   엠블렘: '엠블렘',
+  파워소스: '엠블렘',
   반지1: '반지1',
   반지2: '반지2',
   반지3: '반지3',
@@ -34,5 +36,5 @@ const EQUIPMENT_SLOT_MAP: Partial<Record<string, EquipmentSlot>> = {
 };
 
 export function getEquipmentSlot(slot: string): EquipmentSlot | null {
-  return EQUIPMENT_SLOT_MAP[slot] ?? null;
+  return Object.hasOwn(EQUIPMENT_SLOT_MAP, slot) ? EQUIPMENT_SLOT_MAP[slot] ?? null : null;
 }

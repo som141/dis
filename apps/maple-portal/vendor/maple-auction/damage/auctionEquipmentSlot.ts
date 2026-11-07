@@ -1,5 +1,6 @@
 import type { AuctionItem } from '../auction/item.js';
 import { getEquipmentSlot, type EquipmentSlot } from './equipmentSlot.js';
+import { secondaryWeaponJobs, emblemJobs } from './auctionWearable.js';
 
 // 한 매물이 여러 슬롯 후보를 갖는 부위. categories는 "반지"까지만 알려주고
 // 그게 반지 몇 번 칸인지는 매물 자신도 모른다 → 후보를 모두 넘겨 호출부가 비교한다.
@@ -16,9 +17,13 @@ const MULTI_SLOTS: Partial<Record<string, EquipmentSlot[]>> = {
 //   방패     ["보조무기","방패"]           망토     ["방어구","망토"]
 //   어깨장식 ["어깨장식"]                  반지     ["장신구","반지"]
 // 대분류("방어구"·"장신구")와 중분류("한손")는 슬롯명이 아니라 그냥 안 걸린다.
-export function getAuctionEquipmentSlots(item: Pick<AuctionItem, 'toolTip'>): EquipmentSlot[] | null {
+export function getAuctionEquipmentSlots(item: Pick<AuctionItem, 'toolTip'> & Partial<Pick<AuctionItem, 'itemName'>>): EquipmentSlot[] | null {
+  // A subtype-only tooltip may omit "보조무기". Exact catalog/official names
+  // are more reliable than a broad "무기" category for these items.
+  if (secondaryWeaponJobs(item.itemName ?? item.toolTip?.itemName ?? '')) return ['보조무기'];
+  if (emblemJobs(item.itemName ?? item.toolTip?.itemName ?? '')) return ['엠블렘'];
   for (const name of item.toolTip?.categories ?? []) {
-    const multi = MULTI_SLOTS[name];
+    const multi = Object.hasOwn(MULTI_SLOTS, name) ? MULTI_SLOTS[name] : undefined;
     if (multi) return [...multi];
     const slot = getEquipmentSlot(name);
     if (slot) return [slot];
