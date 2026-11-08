@@ -1,0 +1,11 @@
+{
+  "source": "https://maplestory.nexon.com/News/Update/614",
+  "iconSource": "https://mskr-web.dn.nexoncdn.co.kr/autocomplete/snippets.json",
+  "items": [
+    {"id":"official-3aeca7b1921c13bb0cb8f5b1fa477249","name":"미트라의 분노 : 전사","icon":"https://avatar.maplestory.nexon.com/ItemIcon/KEOLLCLE.png","encryptedItemId":"3aeca7b1921c13bb0cb8f5b1fa477249","category":"ARMOR_ACCESSORY_EMBLEM","level":200,"jobs":["WARRIOR"],"subtype":"Emblem"},
+    {"id":"official-eafa616bfb0ee4293b3ad2abce744f4c","name":"미트라의 분노 : 마법사","icon":"https://avatar.maplestory.nexon.com/ItemIcon/KEOLLCLG.png","encryptedItemId":"eafa616bfb0ee4293b3ad2abce744f4c","category":"ARMOR_ACCESSORY_EMBLEM","level":200,"jobs":["MAGE"],"subtype":"Emblem"},
+    {"id":"official-633d7b7ec4024105f5babf3f5ba6960f","name":"미트라의 분노 : 궁수","icon":"https://avatar.maplestory.nexon.com/ItemIcon/KEOLLCLH.png","encryptedItemId":"633d7b7ec4024105f5babf3f5ba6960f","category":"ARMOR_ACCESSORY_EMBLEM","level":200,"jobs":["ARCHER"],"subtype":"Emblem"},
+    {"id":"official-a095956feffc6a9b0d455217f0dc3c91","name":"미트라의 분노 : 도적","icon":"https://avatar.maplestory.nexon.com/ItemIcon/KEOLLCLJ.png","encryptedItemId":"a095956feffc6a9b0d455217f0dc3c91","category":"ARMOR_ACCESSORY_EMBLEM","level":200,"jobs":["THIEF"],"subtype":"Emblem"},
+    {"id":"official-f33a3c818d4898e5b5e4793ca6256b4b","name":"미트라의 분노 : 해적","icon":"https://avatar.maplestory.nexon.com/ItemIcon/KEOLLCLI.png","encryptedItemId":"f33a3c818d4898e5b5e4793ca6256b4b","category":"ARMOR_ACCESSORY_EMBLEM","level":200,"jobs":["PIRATE"],"subtype":"Emblem"}
+  ]
+}

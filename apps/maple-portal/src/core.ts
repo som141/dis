@@ -10,6 +10,6 @@ export {getStatsAfterEquipmentReplacement} from '../vendor/maple-auction/damage/
 export {buildCreateBody} from '../vendor/maple-auction/auction/mapping.js';
 export {responseCacheFresh, RESPONSE_CACHE_TTL_MS, readCachedResponse, writeCachedResponse} from '../vendor/maple-auction/nexon/responseCache.js';
 export {summarizeItem} from '../vendor/maple-auction/auction/summarize.js';
-export {isAuctionItemWearable,auctionWearabilityError,secondaryWeaponJobs,emblemJobs} from '../vendor/maple-auction/damage/auctionWearable.js';
+export {isAuctionItemWearable,auctionWearabilityError,secondaryWeaponJobs,emblemJobs,mitraEmblemClass} from '../vendor/maple-auction/damage/auctionWearable.js';
 export {getAuctionEquipmentSlots} from '../vendor/maple-auction/damage/auctionEquipmentSlot.js';
 export {setOfItem} from '../vendor/maple-auction/damage/setSimulation.js';

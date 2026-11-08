@@ -1,8 +1,39 @@
 import {buildCreateBody} from '../dist/core.mjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {findEquipment,catalog} from '../src/equipment-data.mjs';
 import {parseQuery,normalizeOptionRows} from '../src/domain.mjs';
+import {officialItemIdFromIcon} from '../src/official-item-icon.mjs';
+import {auctionWearabilityError,getAuctionEquipmentSlots,mitraEmblemClass} from '../dist/core.mjs';
+
+test('all five official Mitra emblems are searchable in their class and compare as emblems',()=>{
+  const cases=[['전사','WARRIOR','히어로'],['마법사','MAGE','에반'],['궁수','ARCHER','보우마스터'],['도적','THIEF','나이트로드'],['해적','PIRATE','바이퍼']];
+  const official=JSON.parse(readFileSync(new URL('../public/data/mitra-emblems.json',import.meta.url),'utf8'));
+  for(const [name,job,character] of cases){
+    const expected=`미트라의 분노 : ${name}`;
+    const rows=findEquipment({category:'ARMOR_ACCESSORY_EMBLEM',job,q:'미트라'}).items;
+    const found=rows.filter(item=>item.name===expected);
+    assert.equal(found.length,1,expected);
+    assert.equal(found[0].level,200);
+    assert.ok(official.items.some(item=>item.name===expected&&item.icon===found[0].icon));
+    assert.equal(mitraEmblemClass(expected),name);
+    const listing={itemName:expected,toolTip:{categories:['기타'],reqJob:'전체'}};
+    assert.deepEqual(getAuctionEquipmentSlots(listing),['엠블렘']);
+    assert.equal(auctionWearabilityError(listing,character),null);
+    assert.match(auctionWearabilityError(listing,name==='마법사'?'히어로':'에반'),/전용 엠블렘/);
+  }
+  assert.equal(findEquipment({category:'ARMOR_ACCESSORY_EMBLEM',q:'미트라'}).total,5);
+});
+
+test('official icon decoding identifies current name-only equipment without inventing metadata',()=>{
+  assert.equal(officialItemIdFromIcon('https://avatar.maplestory.nexon.com/ItemIcon/KEPCOOGB.png'),1005980);
+  assert.equal(officialItemIdFromIcon('https://open.api.nexon.com/static/maplestory/ItemIcon/KEHCJAIG.png'),1802767);
+  assert.equal(officialItemIdFromIcon('https://example.org/not-an-icon.png'),null);
+  const search=findEquipment({category:'ARMOR_ARMOR_CAP',job:'MAGE',q:'넥슨 히어로 머리띠'});
+  assert.ok(search.items.some(item=>item.metadataStatus==='name-only'&&item.level===null&&item.jobs.length===0));
+  assert.equal(findEquipment({category:'ARMOR_ARMOR_CAP',job:'MAGE'}).items.some(item=>item.metadataStatus==='name-only'),false);
+});
 test('mage hats include the requested Ethernel hat and exclude warrior-only hats',()=>{
   const result=findEquipment({category:'ARMOR_ARMOR_CAP',job:'MAGE',q:'에테르넬'});
   assert.ok(result.items.some(x=>x.name==='에테르넬 메이지햇'&&x.level===250));

@@ -1,5 +1,5 @@
 import type { AuctionItem } from '../auction/item.js';
-import { getJobClass } from './stat/job.js';
+import { getJobClass, type JobClass } from './stat/job.js';
 import secondaryRules from './secondaryWeaponRules.json';
 
 // Exact secondary-weapon names come from the equipment catalog and Nexon's
@@ -37,6 +37,13 @@ export function emblemJobs(itemName: string): readonly string[] | null {
   return Object.hasOwn(EMBLEM_JOBS, name) ? EMBLEM_JOBS[name] : null;
 }
 
+// Nexon update 614 names all five level-200 Mitra variants by job class.
+// https://maplestory.nexon.com/News/Update/614
+export function mitraEmblemClass(itemName: string): JobClass | null {
+  const match = /^미트라의 분노\s*:\s*(전사|마법사|궁수|도적|해적)$/.exec(itemName.trim().normalize('NFC'));
+  return match ? match[1] as JobClass : null;
+}
+
 export function auctionWearabilityError(item: Pick<AuctionItem, 'toolTip'> & Partial<Pick<AuctionItem, 'itemName'>>, job: string): string | null {
   const normalizedJob = normalize(job);
   const knownSecondaryJobs = secondaryWeaponJobs(item.itemName ?? item.toolTip?.itemName ?? '');
@@ -46,6 +53,12 @@ export function auctionWearabilityError(item: Pick<AuctionItem, 'toolTip'> & Par
   const knownEmblemJobs = emblemJobs(item.itemName ?? item.toolTip?.itemName ?? '');
   if (knownEmblemJobs) {
     return knownEmblemJobs.includes(normalizedJob) ? null : `${knownEmblemJobs.join('·')} 전용 엠블렘입니다.`;
+  }
+  const mitraClass = mitraEmblemClass(item.itemName ?? item.toolTip?.itemName ?? '');
+  if (mitraClass) {
+    const actualClass = getJobClass(normalizedJob);
+    const xenonHybrid = normalizedJob === '제논' && (mitraClass === '도적' || mitraClass === '해적');
+    return actualClass === mitraClass || xenonHybrid ? null : `${mitraClass} 직업군 전용 엠블렘입니다.`;
   }
   const reqJob = item.toolTip?.reqJob?.trim();
   if (reqJob && !ALL_JOBS.has(reqJob.replace(/\s/g, ''))) {

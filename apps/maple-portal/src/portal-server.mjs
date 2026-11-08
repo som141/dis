@@ -163,6 +163,7 @@ export async function createPortal({ port = 8878, host = '127.0.0.1', origin, da
           if(!job||typeof job!=='object'||Array.isArray(job))throw new AppError('검색 조건 형식이 잘못되었습니다.');
           if(job.enabled===false)continue;
           if(job.itemId){const item=catalog.items.find(x=>x.id===job.itemId);if(!item||item.name!==job.keyword||item.category!==job.category)throw new AppError('아이템과 부위를 다시 선택하세요.');if(job.jobClass&&job.jobClass!=='ALL'&&!item.jobs.includes('ALL')&&!item.jobs.includes(job.jobClass))throw new AppError('직업군과 아이템이 맞지 않습니다.');job.equipmentLevel=item.level;}
+          else if(job.equipmentLevel!=null&&(job.equipmentLevel===''||!Number.isInteger(Number(job.equipmentLevel))||Number(job.equipmentLevel)<0||Number(job.equipmentLevel)>250))throw new AppError('장비 요구 레벨을 0~250으로 확인해 입력하세요.');
 
         }await s.flow.configure(data.jobs);await store.audit?.(record,'search_configured',{count:data.jobs.length});return json(202,{ok:true}); }
         const jobRoute=/^\/api\/jobs\/([a-zA-Z0-9_-]{1,70})\/(items|item|csv|stop|retry|delete)$/.exec(url.pathname);
