@@ -30,7 +30,8 @@ const safeErrors = {
   CAPACITY:'현재 연결 가능한 사용자 수가 가득 찼습니다.', UNAUTHENTICATED:'계정을 연결해 주세요.',
   FORBIDDEN:'이 화면을 새로고침한 뒤 다시 시도해 주세요.', BUSY:'이전 작업을 처리하고 있습니다.',
   LOGIN_SURFACE_UNAVAILABLE:'공식 로그인 화면을 준비하고 있습니다.',
-  LOGIN_FRAME_UNAVAILABLE:'로그인 화면을 불러오지 못했습니다. 잠시 후 다시 연결합니다.',
+  LOGIN_FRAME_UNAVAILABLE:'로그인 화면을 불러오지 못했습니다. 계속되면 브라우저 다시 시작을 눌러 주세요.',
+  BROWSER_RESTART_FAILED:'개인 브라우저를 다시 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.',
   LOGIN_FINISHED:'로그인이 완료되어 자동 작업을 진행하고 있습니다.',
   ACCOUNT_CHANGED:'계정이 변경되어 이전 작업을 중지했습니다.',
 };
@@ -54,7 +55,7 @@ export async function createPortal({ port = 8878, host = '127.0.0.1', origin, da
         return true;
       } });
     wire.onChange = () => { engine.connectionChanged();flow.connectionChanged(); };
-    const session = { wire, engine, flow, csrf:randomBytes(32).toString('hex'), starting:true, failed:false };
+    const session = { wire, engine, flow, csrf:randomBytes(32).toString('hex'), starting:true, failed:false, restartPromise:null };
     sessions.set(record.id,session);
     session.ready = wire.start(join(dataDir,'profiles',record.id)).then(() => { session.starting = false; }).catch(() => { session.starting = false; session.failed = true; });
     return session;
@@ -158,6 +159,19 @@ export async function createPortal({ port = 8878, host = '127.0.0.1', origin, da
           res.writeHead(200,{ 'Content-Type':'image/jpeg' }); res.end(frame); return;
         }
         if (url.pathname === '/api/login/reload' && req.method === 'POST') { await s.ready; await s.wire.reloadLogin(); return json(200,{ ok:true }); }
+        if (url.pathname === '/api/login/restart' && req.method === 'POST') {
+          if(s.restartPromise)throw Object.assign(new Error(),{code:'BUSY',status:409});
+          s.starting=true;
+          s.restartPromise=(async()=>{
+            await s.ready;
+            await s.wire.restart();
+            s.failed=false;
+            await store.audit?.(record,'login_browser_restarted');
+          })();
+          try{await s.restartPromise;return json(200,{ok:true});}
+          catch{ s.failed=true;throw Object.assign(new Error(),{code:'BROWSER_RESTART_FAILED',status:503}); }
+          finally{s.starting=false;s.restartPromise=null;}
+        }
         if (url.pathname === '/api/login/input' && req.method === 'POST') { await s.wire.input(await body(req)); return json(200,{ ok:true }); }
         if (url.pathname === '/api/jobs' && req.method === 'POST') { const data=await body(req);if(!Array.isArray(data.jobs))throw new AppError('검색 조건 목록을 확인하세요.');for(const job of data.jobs||[]){
           if(!job||typeof job!=='object'||Array.isArray(job))throw new AppError('검색 조건 형식이 잘못되었습니다.');

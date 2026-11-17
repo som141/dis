@@ -148,6 +148,20 @@ test('auction tooltip → actual Evan equipment replacement → gain and efficie
     assert.equal(withRing.items[0].comparison.details.ring,undefined,'retired ring controls must not affect new searches');
   } finally { engine.destroy(); }
 });
+test('Arcane Shade shoulder listing compares despite an unrelated unsupported active set',async()=>{
+  const f=fixtureWire();
+  const e=new PrototypeEngine(f.wire,{loadSnapshot:async()=>({name:'도적캐릭터',job:'나이트로드',level:280,
+    equipment:{item_equipment:[{item_equipment_slot:'어깨장식',item_name:'아케인셰이드 시프숄더'}]},
+    stats:{기본:{공격력:100,방무:[100]},AP:{LUK:1000,DEX:100},장비:{어깨장식:{name:'아케인셰이드 시프숄더',stat:{LUK:100}},모자:{name:'기타 세트 모자',stat:{}}},세트효과:{'아케인셰이드 세트(도적)':{공격력:30},'기타 세트':{LUK:50}}},
+    setDefinitions:{아케인셰이드:{2:{공격력:30}}}})});
+  e.setKey('fixture-key');
+  try{
+    await e.connect();await e.selectCharacter(222);
+    f.setItems([{...item('shoulder'),itemName:'아케인셰이드 시프숄더',toolTip:{categories:['어깨장식'],reqJob:'도적',reqLevel:200,stat:{luk:200,pad:10}}}]);
+    const result=await e.search({...query,keyword:'아케인셰이드 시프숄더',category:'ARMOR_ACCESSORY_SHOULDER'});
+    assert.ok(result.items[0].comparison?.gainPercent>0,JSON.stringify(result.items[0].comparisonErrors));
+  }finally{e.destroy();}
+});
 test('Evan document secondary equipment can be compared with an empty slot',async()=>{
   const f=fixtureWire();
   const e=new PrototypeEngine(f.wire,{loadSnapshot:async()=>({name:'에반이였솜',job:'에반',level:280,

@@ -2,7 +2,7 @@ import {buildCreateBody} from '../dist/core.mjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {findEquipment,catalog} from '../src/equipment-data.mjs';
+import {findEquipment,catalog,auditEquipmentCatalog} from '../src/equipment-data.mjs';
 import {parseQuery,normalizeOptionRows} from '../src/domain.mjs';
 import {officialItemIdFromIcon} from '../src/official-item-icon.mjs';
 import {auctionWearabilityError,getAuctionEquipmentSlots,mitraEmblemClass} from '../dist/core.mjs';
@@ -59,6 +59,21 @@ test('official Ethernel names are never lost by the historical metadata join',as
   assert.equal(new Set(catalog.items.map(x=>x.id)).size,catalog.items.length);
   const all=[];let offset=0;for(;;){const page=findEquipment({category:'ARMOR_ARMOR_CAP',offset});all.push(...page.items);offset+=page.items.length;if(offset>=page.total)break;assert.ok(page.items.length);}
   assert.equal(all.length,findEquipment({category:'ARMOR_ARMOR_CAP'}).total);assert.equal(new Set(all.map(x=>x.id)).size,all.length);
+});
+test('official weapon families missing from old metadata remain searchable as unverified candidates',()=>{
+  for(const [name,category,job] of [
+    ['드래곤 스크립툼','WEAPON_ONE_HANDED_SCROLL','MAGE'],
+    ['드래고닉 용연도','WEAPON_SUB','THIEF'],
+    ['노블 브레이슬릿','WEAPON_SUB','PIRATE'],
+  ]){
+    const rows=findEquipment({category,job,q:name}).items;
+    assert.ok(rows.some(item=>item.name===name&&item.metadataStatus==='name-only'&&item.level===null),name);
+  }
+  for(const item of catalog.items){
+    assert.ok(item.category&&item.icon&&item.name&&item.id,item.id);
+    assert.equal(item.level==null||!item.jobs?.length,item.metadataStatus==='partial',item.name);
+  }
+  assert.deepEqual(auditEquipmentCatalog().missing,[]);
 });
 test('multiple minimums canonicalize duplicates, reject invalid input, and keep main/additional independent',()=>{
  const q=parseQuery({keyword:'장갑',category:'ARMOR_ARMOR_GLOVE',budget:200,potentialOptions:[{option:'criticalDamagePercent',minValue:15},{option:'intPercent',minValue:10}],additionalPotentialOptions:[{option:'intPercent',minValue:4},{option:'magicAttack',minValue:11}]});

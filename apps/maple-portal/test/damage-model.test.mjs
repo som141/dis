@@ -37,6 +37,15 @@ test('unchanged set counts preserve actual API effects instead of replacing them
  const changed=getStatsAfterEquipmentReplacement(c.stats,{slot:'장갑',name:'아케인셰이드 메이지글러브',stat:c.stats.장비.장갑.stat});
  assert.deepEqual(changed.세트효과,c.stats.세트효과);assert.equal(getFinalDamageChangeRate(c,changed),0);
 });
+test('an unrelated unknown active set does not block same-set shoulder replacement',()=>{
+ const c=context();c.stats.장비={어깨장식:{name:'아케인셰이드 시프숄더',stat:{LUK:100}},모자:{name:'기타 세트 모자',stat:{}}};
+ c.stats.세트효과={'아케인셰이드 세트(도적)':{공격력:30},'기타 세트':{LUK:50}};
+ const next=getStatsAfterEquipmentReplacement(c.stats,{slot:'어깨장식',name:'아케인셰이드 시프숄더',stat:{LUK:200}},
+   {아케인셰이드:{2:{공격력:30}}});
+ assert.deepEqual(next.세트효과,c.stats.세트효과);
+ assert.ok(getFinalDamageChangeRate({...c,job:'나이트로드'},next)>0);
+ assert.throws(()=>getStatsAfterEquipmentReplacement(c.stats,{slot:'모자',name:'다른 모자',stat:{LUK:100}}),/소속된 세트/);
+});
 test('missing/nonfinite baselines and special job formulae cannot produce plausible bogus numbers',()=>{
  const c=context();c.observedFinalStats.INT=NaN;assert.throws(()=>getAnchoredDamageBreakdown(c,c.stats));
  c.observedFinalStats.INT=5000;c.job='데몬어벤져';assert.throws(()=>getAnchoredDamageBreakdown(c,c.stats),/특수 스탯/);

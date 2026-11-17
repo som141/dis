@@ -4,12 +4,12 @@ import {renderMarketChart,formatPrice} from './market-chart.js';
 const $=id=>document.getElementById(id),show=(id,yes)=>{$(id).hidden=!yes;};
 const time=value=>value==null?'—':new Date(value).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'});
 const el=(tag,text,className)=>{const node=document.createElement(tag);if(text!=null)node.textContent=text;if(className)node.className=className;return node;};
-let csrf,state,syncing=false,framing=false,inputQueue=Promise.resolve(),frameTimer,frameGeneration=0,frameFailures=0,reloadPending=false,wheelDelta=0,wheelTimer;
+let csrf,state,syncing=false,framing=false,inputQueue=Promise.resolve(),inputGeneration=0,frameTimer,frameGeneration=0,frameFailures=0,reloadPending=false,wheelDelta=0,wheelTimer;
 let categories={},draftHydrated=false,draftDirty=false,selectedJob=null,listPage=1,listPages=0,detailKey='',cardsKey='',itemsLoading=false,itemsReloadPending=false;
 const phases={queued:'조회 대기',login:'로그인 대기',ready:'조건을 선택해 주세요',equipment:'장비 조회 중',searching:'매물 수집 중',complete:'조회 완료','market-ready':'시세 조회 완료',watching:'자동 감시 중',paused:'중지됨',stopping:'중지 중',expired:'감시 기간 종료','watch-paused':'감시 확인 필요','check-required':'조회 확인 필요','operator-setup':'성능 비교 설정 필요','account-changed':'연결 계정 확인 필요','character-unavailable':'캐릭터를 선택해 주세요','provider-update':'연결 모듈 점검 필요'};
 function message(text){$('message').textContent=text;show('message',!!text);}
 async function api(path,data){
-  const response=await fetch(path,{method:data===undefined?'GET':'POST',headers:{...(csrf?{'x-portal-token':csrf}:{}),...(data!==undefined?{'content-type':'application/json'}:{})},...(data!==undefined?{body:JSON.stringify(data)}:{}),signal:AbortSignal.timeout(40000)});
+  const response=await fetch(path,{method:data===undefined?'GET':'POST',headers:{...(csrf?{'x-portal-token':csrf}:{}),...(data!==undefined?{'content-type':'application/json'}:{})},...(data!==undefined?{body:JSON.stringify(data)}:{}),signal:AbortSignal.timeout(path==='/api/login/restart'?90000:40000)});
   const result=await response.json();if(!response.ok){const error=new Error(result.error||'요청에 실패했습니다.');error.code=result.code;throw error;}return result;
 }
 function field(row,key){return row.querySelector(`[data-field="${key}"]`);}
@@ -95,7 +95,7 @@ function render(s){
   $('character').textContent=s.character?`${s.character.name} · ${s.character.world} · Lv.${s.character.level}`:'연결할 계정을 선택하세요';
   $('connectionBadge').textContent=s.character?'캐릭터 연결됨':'로그인 대기';$('connectionBadge').classList.toggle('connected',!!s.character);
   $('statusTitle').textContent=s.starting?'개인 브라우저 준비 중':s.browserFailed?'브라우저 연결 확인 필요':phases[s.phase]||'연결 확인 중';
-  $('statusDetail').textContent=s.browserFailed?'로그인 화면 다시 열기를 눌러 연결 상태를 확인하세요.':s.character?'검색 조건을 고른 뒤 실행하세요. 이미 실행한 감시는 포털 탭을 닫아도 이어집니다.':characters.length?'조회할 캐릭터를 목록에서 선택해 주세요.':'공식 화면에서 로그인과 추가 인증을 완료해 주세요.';
+  $('statusDetail').textContent=s.browserFailed?'브라우저 다시 시작을 눌러 개인 로그인 화면을 복구하세요.':s.character?'검색 조건을 고른 뒤 실행하세요. 이미 실행한 감시는 포털 탭을 닫아도 이어집니다.':characters.length?'조회할 캐릭터를 목록에서 선택해 주세요.':'공식 화면에서 로그인과 추가 인증을 완료해 주세요.';
   show('reconnect',!!s.character||s.jobs.some(j=>j.error));
   $('begin').disabled=!!s.character||characters.length>0;$('begin').textContent=s.character?'연결됨':characters.length?'캐릭터 선택 중':'넥슨 계정 연결';
   show('login',!!s.login&&!characters.length);$('officialOrigin').textContent=s.login?.origin||'';$('loginTitle').textContent=s.login?.origin==='https://nid.naver.com'?'네이버 공식 로그인':'넥슨 공식 로그인';
@@ -153,18 +153,20 @@ function resetFrame(){++frameGeneration;frameFailures=0;$('screen').hidden=true;
 async function frame(){
   if(framing)return;if(!state?.login||state.characters?.length||!csrf||document.hidden||state.login.dialog||reloadPending){scheduleFrame(800);return;}framing=true;const generation=frameGeneration;
   try{const response=await fetch('/api/login/frame',{headers:{'x-portal-token':csrf},signal:AbortSignal.timeout(4500)});if(!response.ok)throw new Error();const bitmap=await createImageBitmap(await response.blob());try{if(generation!==frameGeneration||!state?.login)return;$('screen').getContext('2d').drawImage(bitmap,0,0,1280,900);$('screen').hidden=false;$('screenPlaceholder').hidden=true;$('loginLoading').textContent='로그인 화면 연결됨';frameFailures=0;}finally{bitmap.close();}}
-  catch{if(generation===frameGeneration&&state?.login){++frameFailures;$('loginLoading').textContent='로그인 화면 연결이 지연되고 있습니다. 다시 연결하고 있습니다…';if(frameFailures>=3||$('screen').hidden){$('screen').hidden=true;$('screenPlaceholder').hidden=false;$('screenPlaceholder').textContent='화면을 불러오지 못했습니다. 계속되면 “로그인 화면 다시 열기”를 눌러 주세요.';}}}
+  catch{if(generation===frameGeneration&&state?.login){++frameFailures;$('loginLoading').textContent='로그인 화면 연결이 지연되고 있습니다. 다시 연결하고 있습니다…';if(frameFailures>=3||$('screen').hidden){$('screen').hidden=true;$('screenPlaceholder').hidden=false;$('screenPlaceholder').textContent='화면을 불러오지 못했습니다. 계속되면 “브라우저 다시 시작”을 눌러 주세요.';}}}
   finally{framing=false;scheduleFrame(frameFailures?Math.min(2000,frameFailures*400):150);}
 }
 function scheduleFrame(delay=150){clearTimeout(frameTimer);frameTimer=setTimeout(frame,delay);}
-function send(input){inputQueue=inputQueue.then(async()=>{await api('/api/login/input',input);scheduleFrame(0);}).catch(error=>message(error.message));}
+function send(input){if(reloadPending)return;const generation=inputGeneration;inputQueue=inputQueue.then(async()=>{if(generation!==inputGeneration)return;await api('/api/login/input',input);scheduleFrame(0);}).catch(error=>{if(generation===inputGeneration)message(error.message);});}
 $('screen').addEventListener('click',event=>{const r=$('screen').getBoundingClientRect();send({type:'click',x:(event.clientX-r.left)*1280/r.width,y:(event.clientY-r.top)*900/r.height});$('keyboard').focus({preventScroll:true});});
 $('screen').addEventListener('wheel',event=>{event.preventDefault();wheelDelta=Math.max(-1500,Math.min(1500,wheelDelta+event.deltaY));if(!wheelTimer)wheelTimer=setTimeout(()=>{const dy=wheelDelta;wheelDelta=0;wheelTimer=null;if(dy)send({type:'wheel',dy});},40);},{passive:false});
 $('keyboard').addEventListener('keydown',event=>{if(event.isComposing)return;if(event.ctrlKey&&event.key.toLowerCase()==='a'){event.preventDefault();send({type:'key',key:'Control+a'});return;}if(['Tab','Enter','Backspace','Delete','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End','Escape'].includes(event.key)){event.preventDefault();send({type:'key',key:event.shiftKey&&event.key==='Tab'?'Shift+Tab':event.key});}});
 function flush(){const value=$('keyboard').value;$('keyboard').value='';if(value)send({type:'text',text:value});}
 $('keyboard').addEventListener('input',event=>{if(!event.isComposing)flush();});$('keyboard').addEventListener('compositionend',flush);$('keyboard').addEventListener('paste',event=>{event.preventDefault();const text=event.clipboardData.getData('text');if(text)send({type:'text',text:text.slice(0,1024)});});
 $('dialogAccept').onclick=()=>send({type:'dialog',accept:true});$('dialogDismiss').onclick=()=>send({type:'dialog',accept:false});
-$('reloadLogin').onclick=async()=>{if(reloadPending)return;reloadPending=true;$('reloadLogin').disabled=true;resetFrame();try{await inputQueue;await api('/api/login/reload',{});await sync();}catch(error){message(error.message);}finally{reloadPending=false;$('reloadLogin').disabled=false;scheduleFrame(0);}};
+async function recoverLogin(path){if(reloadPending)return;reloadPending=true;for(const id of ['reloadLogin','restartBrowser'])$(id).disabled=true;resetFrame();try{if(path==='/api/login/restart'){++inputGeneration;inputQueue=Promise.resolve();}else await inputQueue;await api(path,{});await sync();}catch(error){message(error.message);}finally{reloadPending=false;for(const id of ['reloadLogin','restartBrowser'])$(id).disabled=false;scheduleFrame(0);}}
+$('reloadLogin').onclick=()=>recoverLogin('/api/login/reload');
+$('restartBrowser').onclick=()=>recoverLogin('/api/login/restart');
 async function connect(){await api('/api/session',{});csrf=(await api('/api/bootstrap')).csrf;await sync();}
 $('reconnect').onclick=async()=>{try{await api('/api/reconnect',{});await sync();}catch(e){message(e.message);}};
 $('begin').onclick=async()=>{$('begin').disabled=true;try{await connect();$('login').scrollIntoView({behavior:'smooth'});}catch(error){message(error.message);$('begin').disabled=false;}};

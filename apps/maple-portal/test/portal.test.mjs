@@ -8,6 +8,7 @@ import { PortalFlow, normalizeJobs } from '../src/portal-flow.mjs';
 import { PortalStore } from '../src/portal-store.mjs';
 import { PrototypeEngine, INTERVAL_MS } from '../src/domain.mjs';
 import { isLoginSurface, PortalBrowser } from '../src/portal-browser.mjs';
+import {isProfileChromium} from '../src/chromium-process.mjs';
 
 function browser(identity) {
   let ready=false, posts=0, fail=false;
@@ -15,7 +16,7 @@ function browser(identity) {
     async start(dir) { this.profile=dir; }, async close() {}, status:() => ({clientReady:ready}),
     loginState:() => ({origin:'https://nxlogin.nexon.com',width:1280,height:900}), frame:async () => Buffer.from('fixture-jpeg'),
     async input(value) { if (value.type==='text') assert.equal(typeof value.text,'string'); },
-    async reloadLogin() { ready=false; },
+    async reloadLogin() { ready=false; }, async restart(){ready=false;this.restarts=(this.restarts||0)+1;this.onChange();},
     scope() { const epoch=this.epoch; return { get connected() { return epoch===wire.epoch && wire.connected; }, request:c => wire.request(c) }; },
     async request(cmd) {
       const path=new URL(cmd.url).pathname; let data;
@@ -111,6 +112,9 @@ test('portal keeps two users and their job/results APIs isolated with CSRF and O
     const at=await token(a.cookie),bt=await token(b.cookie),post=(path,cookie,csrf,data={},origin=base)=>fetch(base+path,{method:'POST',headers:{cookie,origin,'x-portal-token':csrf,'content-type':'application/json'},body:JSON.stringify(data)});
     assert.equal((await fetch(base+'/api/state')).status,401);assert.equal((await post('/api/jobs',a.cookie,bt,{jobs:[config()]})).status,403);assert.equal((await post('/api/stop',a.cookie,at,{},'http://evil.test')).status,403);
     assert.equal((await fetch(base+'/api/login/frame',{headers:{cookie:a.cookie}})).status,403);assert.equal((await post('/api/login/reload',a.cookie,at)).status,200);
+    assert.equal((await post('/api/login/restart',a.cookie,bt)).status,403);
+    assert.equal((await post('/api/login/restart',a.cookie,at)).status,200);
+    assert.equal(wires[0].restarts,1);assert.equal(wires[1].restarts,undefined);
     wires[0].login();wires[1].login();await app.tick();assert.equal(wires[0].posts(),0);assert.equal(wires[1].posts(),0);
     assert.equal((await post('/api/character/select',a.cookie,at,{characterId:110})).status,200);
     assert.equal((await post('/api/character/select',b.cookie,bt,{characterId:120})).status,200);
@@ -121,6 +125,22 @@ test('portal keeps two users and their job/results APIs isolated with CSRF and O
     await post('/api/jobs/private-a-live/stop',a.cookie,at);clock.now+=INTERVAL_MS;await app.tick();assert.equal(wires[0].posts(),1);assert.equal(wires[1].posts(),2);
     for(const file of await readdir(join(dir,'state')))if(file.endsWith('.json')){const raw=await readFile(join(dir,'state',file),'utf8');assert.equal(raw.includes(a.cookie.split('=')[1]),false);assert.doesNotMatch(raw,/fixture-service-key/);}
   }finally{await app?.close();await rm(dir,{recursive:true,force:true});delete process.env.NEXON_DEVELOPER_KEY;}
+});
+test('browser recovery process selector requires the exact profile and Chromium root',()=>{
+ const profile='/data/profiles/owner-a';
+ assert.equal(isProfileChromium(['/usr/lib/chromium/chromium',`--user-data-dir=${profile}`],profile),true);
+ assert.equal(isProfileChromium(['/usr/lib/chromium/chromium','--user-data-dir=/data/profiles/owner-b'],profile),false);
+ assert.equal(isProfileChromium(['/usr/lib/chromium/chromium',`--user-data-dir=${profile}`,'--type=renderer'],profile),false);
+ assert.equal(isProfileChromium(['/usr/bin/other-app',`--user-data-dir=${profile}`],profile),false);
+});
+test('a frozen login browser is terminated by profile before one fresh launch',async()=>{
+ const operations=[],profile='/data/profiles/owner-a';
+ const browser=new PortalBrowser({closeTimeoutMs:5,terminateBrowser:async dir=>operations.push(['terminate',dir])});
+ browser.profileDir=profile;browser.context={close:()=>new Promise(()=>{})};
+ browser.start=async dir=>{operations.push(['start',dir]);browser.context={};};
+ await browser.restart();
+ assert.deepEqual(operations,[['terminate',profile],['start',profile]]);
+ assert.equal(browser.restarting,false);
 });
 test('session capacity reservation is atomic and destroying one engine keeps the shared service key',async () => {
   const dir=await mkdtemp(join(tmpdir(),'maple-store-test-'));

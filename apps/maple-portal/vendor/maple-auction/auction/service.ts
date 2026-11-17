@@ -1,6 +1,5 @@
 import { POTENTIAL_OPTION_LABELS } from './constants.js';
-import {SET_DB} from '../damage/setDb.js';
-import {normalizeSetName,setOfItem} from '../damage/setSimulation.js';
+import {setOfItem} from '../damage/setSimulation.js';
 import {
   buildCreateBody,
   parseItemId,
@@ -185,7 +184,6 @@ export class AuctionService {
             }
             const ignoredSkills = [...new Set([...beforeSkills.granted, ...afterSkills.granted])];
             if(slot==='무기'&&currentItem?.item_equipment_part&&!raw.toolTip?.categories?.includes(currentItem.item_equipment_part))throw new Error('무기 종류가 달라 무기 상수·숙련도·스킬 변화를 확인해야 합니다.');
-            if(Object.keys(character.stats.세트효과??{}).some(name=>!SET_DB[normalizeSetName(name)]))throw new Error('현재 장비의 미지원 세트 효과가 있어 정확하게 교체 계산할 수 없습니다.');
             if((raw.toolTip as any)?.setEffects?.length&&!setOfItem(item.name))throw new Error('새 장비의 세트 소속을 확인하지 못했습니다.');
             const changedStats = getStatsAfterEquipmentReplacement(character.stats, {slot,name:item.name,stat},character.setDefinitions);
             const context={...character,bossDefenseRate:this.damageBossDefense,statusDamageUptime:this.statusDamageUptime};
