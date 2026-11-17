@@ -79,7 +79,7 @@ export async function createPortal({ port = 8878, host = '127.0.0.1', origin, da
   const server = http.createServer(async (req,res) => {
     res.setHeader('Cache-Control','no-store'); res.setHeader('X-Content-Type-Options','nosniff');
     res.setHeader('Referrer-Policy','no-referrer');
-    res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' blob: https://avatar.maplestory.nexon.com https://mskr-web.dn.nexoncdn.co.kr; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
+    res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' blob: https://avatar.maplestory.nexon.com https://open.api.nexon.com https://mskr-web.dn.nexoncdn.co.kr; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
     const json = (status,value) => { res.writeHead(status,{ 'Content-Type':'application/json; charset=utf-8' }); res.end(JSON.stringify(value)); };
     try {
       const url = new URL(req.url,'http://localhost');
@@ -150,6 +150,12 @@ export async function createPortal({ port = 8878, host = '127.0.0.1', origin, da
         const loginAllowed = ['login','character-unavailable'].includes(s.flow.phase);
         if (url.pathname === '/api/state' && req.method === 'GET') return json(200,{ ...s.flow.state(), starting:s.starting, browserFailed:s.failed, serviceKeyStatus,
           connection:s.wire.status(), autoConnection:s.flow.auto.state(), login:loginAllowed ? s.wire.loginState() : null });
+        if(url.pathname==='/api/equipment'&&req.method==='GET'){
+          if(!same(req.headers['x-portal-token'],s.csrf))throw Object.assign(new Error(),{code:'FORBIDDEN',status:403});
+          if(s.engine.profile)return json(200,s.engine.profile);
+          if(s.flow.running)throw Object.assign(new Error(),{code:'BUSY',status:409});
+          return json(200,await s.engine.run(()=>s.engine.equipment()));
+        }
         if(url.pathname==='/api/character/select'&&req.method==='POST'){
           const data=await body(req);await s.flow.selectCharacter(data.characterId);await store.audit?.(record,'character_selected',{characterId:data.characterId});return json(200,{ok:true});
         }
@@ -204,7 +210,7 @@ export async function createPortal({ port = 8878, host = '127.0.0.1', origin, da
         if (url.pathname === '/api/retry' && req.method === 'POST') { await s.flow.retry(); return json(200,{ ok:true }); }
         throw Object.assign(new Error(),{ status:404 });
       }
-      const assets = { '/':['public/portal.html','text/html; charset=utf-8'], '/portal.js':['public/portal.js','text/javascript; charset=utf-8'], '/equipment-ui.js':['public/equipment-ui.js','text/javascript; charset=utf-8'], '/item-details.js':['public/item-details.js','text/javascript; charset=utf-8'], '/market-chart.js':['public/market-chart.js','text/javascript; charset=utf-8'], '/portal.css':['public/portal.css','text/css; charset=utf-8'] };
+      const assets = { '/':['public/portal.html','text/html; charset=utf-8'], '/portal.js':['public/portal.js','text/javascript; charset=utf-8'], '/target-slots.js':['public/target-slots.js','text/javascript; charset=utf-8'], '/equipment-ui.js':['public/equipment-ui.js','text/javascript; charset=utf-8'], '/item-details.js':['public/item-details.js','text/javascript; charset=utf-8'], '/market-chart.js':['public/market-chart.js','text/javascript; charset=utf-8'], '/portal.css':['public/portal.css','text/css; charset=utf-8'] };
       if (req.method === 'GET' && assets[url.pathname]) {
         const [file,type] = assets[url.pathname]; res.writeHead(200,{ 'Content-Type':type }); res.end(await readFile(resolve(root,file))); return;
       }

@@ -45,6 +45,29 @@ function engine(wire,clock) {
   });
 }
 const config=(extra={})=>({id:'glove',enabled:true,keyword:'가상 장갑',category:'ARMOR_ARMOR_GLOVE',budget:200,budgetMode:'range',starforceMin:17,potentialGrade:4,mode:'live',compare:true,watch:true,days:1,intervalMinutes:30,...extra});
+test('comparison jobs persist a valid replacement slot and require explicit ring or pendant selection',()=>{
+ assert.equal(normalizeJobs([config()])[0].targetSlot,'장갑');
+ assert.equal(normalizeJobs([config({category:'ARMOR_ACCESSORY_RING',targetSlot:'반지3'})])[0].targetSlot,'반지3');
+ assert.throws(()=>normalizeJobs([config({category:'ARMOR_ACCESSORY_RING'})]),/교체할 내 장비 칸/);
+ assert.throws(()=>normalizeJobs([config({category:'ARMOR_ACCESSORY_PENDANT'})]),/교체할 내 장비 칸/);
+ assert.throws(()=>normalizeJobs([config({targetSlot:'반지1'})]),/교체할 내 장비 칸/);
+ assert.equal(normalizeJobs([config({category:'ARMOR_ETC_DRAGON_CAP',compare:false})])[0].compare,false);
+});
+test('equipment picker endpoint requires the owner session and CSRF, and returns only that character gear',async()=>{
+ const dir=await mkdtemp(join(tmpdir(),'maple-equipment-picker-')),keyFile=join(dir,'service-key'),clock={now:1000000},wires=[];await writeFile(keyFile,'fixture-service-key');let app;
+ try{app=await createPortal({port:0,dataDir:dir,keyFile,timerMs:0,now:()=>clock.now,browserFactory:()=>{const w=browser(wires.length+11);wires.push(w);return w;},engineFactory:w=>engine(w,clock)});
+  const {port}=await app.listen(),base=`http://127.0.0.1:${port}`;
+  const create=async()=>{const r=await fetch(base+'/api/session',{method:'POST',headers:{origin:base,'content-type':'application/json'},body:'{}'}),cookie=r.headers.get('set-cookie').split(';')[0];return {cookie,csrf:(await(await fetch(base+'/api/bootstrap',{headers:{cookie}})).json()).csrf};};
+  const a=await create(),b=await create();wires.forEach(w=>w.login());await app.tick();
+  for(const [who,id] of [[a,110],[b,120]])assert.equal((await fetch(base+'/api/character/select',{method:'POST',headers:{origin:base,cookie:who.cookie,'x-portal-token':who.csrf,'content-type':'application/json'},body:JSON.stringify({characterId:id})})).status,200);
+  assert.equal((await fetch(base+'/api/equipment',{headers:{cookie:a.cookie}})).status,403);
+  const aGear=await(await fetch(base+'/api/equipment',{headers:{cookie:a.cookie,'x-portal-token':a.csrf}})).json();
+  const bGear=await(await fetch(base+'/api/equipment',{headers:{cookie:b.cookie,'x-portal-token':b.csrf}})).json();
+  assert.equal(aGear.character,'캐릭터11');assert.equal(bGear.character,'캐릭터12');
+  assert.equal(aGear.items[0].slot,'장갑');assert.equal(bGear.items[0].slot,'장갑');
+  assert.equal((await fetch(base+'/api/equipment',{headers:{cookie:a.cookie,'x-portal-token':b.csrf}})).status,403);
+ }finally{await app?.close();await rm(dir,{recursive:true,force:true});}
+});
 function connectChanges(e,w,flow){w.onChange=()=>{e.connectionChanged();flow.connectionChanged();};}
 async function ready(flow,w){w.login();await flow.tick();if(!flow.engine.character)await flow.selectCharacter(110);await flow.tick();}
 test('login offers owned characters and switching keeps each character workspace isolated',async()=>{

@@ -274,7 +274,7 @@ export function getFinalDamageChangeRate(
   character: CharacterDamageContext,
   changedStats: CharacterStats
 ): number {
-  if(['xenon','deven'].includes(JOB_STAT[character.job]))throw new Error('제논·데몬어벤져의 특수 스탯 환산은 현재 지원하지 않습니다.');
+  if(JOB_STAT[character.job]==='deven')throw new Error('데몬어벤져의 HP·블러드 컨트랙트 환산은 현재 지원하지 않습니다.');
   const before = (character.observedFinalStats?getAnchoredDamageBreakdown(character,character.stats):getDamageBreakdown(character, character.stats)).coefficient;
   if (!Number.isFinite(before) || before <= 0) {
     throw new Error('변경 전 데미지가 0 이하라 증감률을 계산할 수 없습니다.');
@@ -289,9 +289,10 @@ export function getFinalDamageChangeRate(
 }
 
 export function auditDamageBaseline(context: CharacterDamageContext) {
+  if(JOB_STAT[context.job]==='deven')return {verified:false,issues:['데몬어벤져 HP 환산 모델 미지원'],checks:[]};
   const model=getDamageBreakdown(context,context.stats);
   if(!context.observedFinalStats)return {verified:false,issues:['API 기준 스탯 없음'],checks:[]};
-  const relevant=JOB_STAT[context.job]==='INT'?['INT','LUK','마력']:JOB_STAT[context.job]==='STR'?['STR','DEX','공격력']:JOB_STAT[context.job]==='DEX'?['DEX','STR','공격력']:['LUK','DEX','공격력'];
+  const relevant=JOB_STAT[context.job]==='xenon'?['STR','DEX','LUK','공격력']:JOB_STAT[context.job]==='INT'?['INT','LUK','마력']:JOB_STAT[context.job]==='STR'?['STR','DEX','공격력']:JOB_STAT[context.job]==='DEX'?['DEX','STR','공격력']:['LUK','DEX','공격력'];
   const keys=[...relevant,'크리티컬 확률','크리티컬 데미지','데미지','보스 몬스터 데미지','방어율 무시','최종 데미지'];
   const checks=keys.map(key=>{const observed=context.observedFinalStats![key],modeled=model.finalStats[key],tolerance=['STR','DEX','INT','LUK','마력','공격력'].includes(key)?1:0.02;return {key,observed,modeled,ok:Number.isFinite(observed)&&Number.isFinite(modeled)&&Math.abs(observed-modeled)<=tolerance};});
   return {verified:checks.every(x=>x.ok),issues:checks.filter(x=>!x.ok).map(x=>x.key),checks};
@@ -300,7 +301,7 @@ export function auditDamageBaseline(context: CharacterDamageContext) {
 // API aggregate values anchor the baseline; only the equipment/set delta is applied.
 // Percent-free symbol/union stats remain outside percentage multiplication.
 export function getAnchoredDamageBreakdown(context: CharacterDamageContext, changed: CharacterStats) {
-  if(['xenon','deven'].includes(JOB_STAT[context.job]))throw new Error('제논·데몬어벤져의 특수 스탯 환산은 현재 지원하지 않습니다.');
+  if(JOB_STAT[context.job]==='deven')throw new Error('데몬어벤져의 HP·블러드 컨트랙트 환산은 현재 지원하지 않습니다.');
   const current=getDamageBreakdown(context,context.stats),after=getDamageBreakdown(context,changed);
   const observed=context.observedFinalStats;
   if(!observed)throw new Error('캐릭터 API 기준 스탯이 없습니다.');
@@ -314,7 +315,7 @@ export function getAnchoredDamageBreakdown(context: CharacterDamageContext, chan
     const base=(read(stat)-a.flatNoPercent[stat])/factor;
     result[stat]=boundedFloor((base+(b.flat[stat]+b.allStat-a.flat[stat]-a.allStat))*newFactor)+b.flatNoPercent[stat];
   }
-  const jobStat=JOB_STAT[context.job] as MainStat;if(!MAIN_STATS.includes(jobStat))throw new Error('지원하지 않는 직업입니다.');
+  const jobStat=JOB_STAT[context.job];if(!jobStat||jobStat!=='xenon'&&!MAIN_STATS.includes(jobStat as MainStat))throw new Error('지원하지 않는 직업입니다.');
   const magic=jobStat==='INT',attackKey=magic?'마력':'공격력',pct=magic?a.magicPercent:a.attackPercent,newPct=magic?b.magicPercent:b.attackPercent;
   if(pct<=-100||newPct<=-100)throw new Error('공격력 배율을 계산할 수 없습니다.');
   const attack=boundedFloor((read(attackKey)/(1+pct/100)+((magic?b.magic:b.attack)-(magic?a.magic:a.attack)))*(1+newPct/100));
@@ -328,6 +329,6 @@ export function getAnchoredDamageBreakdown(context: CharacterDamageContext, chan
   const iedRemain=beforeRemain===0?0:(1-read('방어율 무시')/100)*afterRemain/beforeRemain;
   const defense=Math.max(0,1-(context.bossDefenseRate??380)/100*iedRemain);
   const finalDamage=(1+read('최종 데미지')/100)*after.factors.finalDamage/current.factors.finalDamage;
-  const stat=4*result[jobStat]+result[SUB_STAT[jobStat]]+(DOUBLE_SUB_STAT_JOBS.has(context.job)?result.STR:0);
+  const stat=jobStat==='xenon'?4*(result.STR+result.DEX+result.LUK):4*result[jobStat as MainStat]+result[SUB_STAT[jobStat as MainStat]]+(DOUBLE_SUB_STAT_JOBS.has(context.job)?result.STR:0);
   return {coefficient:stat*attack*damage*critical*defense*finalDamage,factors:{stat,attack,damage,critical,defense,finalDamage},finalStats:{...result,[attackKey]:attack,'크리티컬 확률':critRate,'크리티컬 데미지':critDamage,'방어율 무시':100*(1-iedRemain)}};
 }

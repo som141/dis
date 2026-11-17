@@ -34,6 +34,7 @@ export interface CharacterSnapshot {
   observedFinalStats?: Record<string,number>;
   observedAt?: string | null;
   setDefinitions?: Record<string,Record<number,StatBlock>>;
+  setCounts?: Record<string,number>;
 }
 
 export type LoadCharacterSnapshot = (name: string) => Promise<CharacterSnapshot>;
@@ -82,6 +83,7 @@ async function fetchCharacterSnapshot(name: string, options?: NexonApiOptions): 
     observedFinalStats:Object.fromEntries(stat.final_stat.filter(x=>Number.isFinite(Number(x.stat_value))).map(x=>[x.stat_name,Number(x.stat_value)])),
     observedAt:stat.date,
     setDefinitions:Object.fromEntries(setEffect.set_effect.map(set=>[normalizeSetName(set.set_name),Object.fromEntries([...new Set(set.set_option_full.map(x=>x.set_count))].map(count=>[count,parseEffectLines(set.set_option_full.filter(x=>x.set_count===count).flatMap(x=>x.set_option.split(/\r?\n/)))]))])),
+    setCounts:Object.fromEntries(setEffect.set_effect.map(set=>[normalizeSetName(set.set_name),set.total_set_count])),
     stats: getCharacterStats({
       stat,
       basic,
