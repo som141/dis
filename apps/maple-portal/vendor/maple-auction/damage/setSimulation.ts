@@ -137,7 +137,7 @@ export function normalizeSetName(name: string): string {
   return name.replace(/\s*세트\s*(\([^)]*\))?\s*$/, '').trim();
 }
 
-export function setOfItem(itemName: string): string | null {
+export function setOfItem(itemName: string, extraSets: readonly string[] = []): string | null {
   if (!itemName) return null;
 
   if (
@@ -157,7 +157,8 @@ export function setOfItem(itemName: string): string | null {
     if (pattern.test(itemName)) return set;
   }
 
-  return INFERABLE_SETS.find((set) => itemName.includes(set)) ?? null;
+  return INFERABLE_SETS.find((set) => itemName.includes(set)) ??
+    [...extraSets].sort((a,b)=>b.length-a.length).find(set=>set.length>=2&&itemName.includes(set)) ?? null;
 }
 
 function luckyItem(names: string[]): { slot: string; priority: number } | null {
@@ -171,14 +172,17 @@ function luckyItem(names: string[]): { slot: string; priority: number } | null {
   }
   return best;
 }
+export function isLuckyItemName(name:string):boolean {
+  return LUCKY_ITEMS.some(item=>item.match.test(name));
+}
 
 export function countEquipmentSets(
-  itemNames: string[]
+  itemNames: string[],extraSets:readonly string[]=[]
 ): Record<string, number> {
   const counts: Record<string, number> = {};
 
   for (const itemName of itemNames) {
-    const set = setOfItem(itemName);
+    const set = setOfItem(itemName,extraSets);
     if (set) counts[set] = (counts[set] ?? 0) + 1;
   }
 

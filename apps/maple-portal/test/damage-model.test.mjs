@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {getDamageBreakdown,getAnchoredDamageBreakdown,getFinalDamageChangeRate,getStatsAfterEquipmentReplacement,auditDamageBaseline,responseCacheFresh,RESPONSE_CACHE_TTL_MS,readCachedResponse,writeCachedResponse} from '../dist/core.mjs';
+import {getDamageBreakdown,getAnchoredDamageBreakdown,getFinalDamageChangeRate,getStatsAfterEquipmentReplacement,auditDamageBaseline,responseCacheFresh,RESPONSE_CACHE_TTL_MS,readCachedResponse,writeCachedResponse,JOB_STAT} from '../dist/core.mjs';
 const close=(a,b)=>assert.ok(Math.abs(a-b)<1e-8,`${a} != ${b}`);
 const context=()=>({job:'에반',level:288,bossDefenseRate:380,stats:{기본:{마력:100,크확:100,크뎀:35,방무:[90]},AP:{INT:1000,LUK:100,STR:4,DEX:4},장비:{장갑:{name:'가상 장갑',stat:{INT:100,INT퍼:20,마력:10,마력퍼:10,크뎀:8}}},세트효과:{}},observedFinalStats:{STR:20,DEX:20,INT:5000,LUK:200,마력:1000,공격력:10,'크리티컬 확률':100,'크리티컬 데미지':60,'데미지':30,'보스 몬스터 데미지':200,'방어율 무시':95,'최종 데미지':10}});
 test('API-anchored baseline equals actual current stats despite missing non-equipment effects',()=>{
@@ -37,9 +37,59 @@ test('unchanged set counts preserve actual API effects instead of replacing them
  const changed=getStatsAfterEquipmentReplacement(c.stats,{slot:'장갑',name:'아케인셰이드 메이지글러브',stat:c.stats.장비.장갑.stat});
  assert.deepEqual(changed.세트효과,c.stats.세트효과);assert.equal(getFinalDamageChangeRate(c,changed),0);
 });
+test('an unrelated unknown active set does not block same-set shoulder replacement',()=>{
+ const c=context();c.stats.장비={어깨장식:{name:'아케인셰이드 시프숄더',stat:{LUK:100}},모자:{name:'기타 세트 모자',stat:{}}};
+ c.stats.세트효과={'아케인셰이드 세트(도적)':{공격력:30},'기타 세트':{LUK:50}};
+ const next=getStatsAfterEquipmentReplacement(c.stats,{slot:'어깨장식',name:'아케인셰이드 시프숄더',stat:{LUK:200}},
+   {아케인셰이드:{2:{공격력:30}}});
+ assert.deepEqual(next.세트효과,c.stats.세트효과);
+ assert.ok(getFinalDamageChangeRate({...c,job:'나이트로드'},next)>0);
+ assert.throws(()=>getStatsAfterEquipmentReplacement(c.stats,{slot:'모자',name:'다른 모자',stat:{LUK:100}}),/소속된 세트/);
+});
+test('all jobs retain unrelated observed set effects during same-name equipment upgrades',()=>{
+ for(const [job,main] of Object.entries(JOB_STAT)){
+   const attack=main==='INT'?'마력':'공격력';
+   const stats={기본:{[attack]:100,방무:[100]},AP:{STR:1000,DEX:1000,INT:1000,LUK:1000},
+     장비:{어깨장식:{name:'아케인셰이드 시프숄더',stat:{[attack]:10}}},세트효과:{'현재 다른 세트':{[attack]:20}}};
+   const changed=getStatsAfterEquipmentReplacement(stats,{slot:'어깨장식',name:'아케인셰이드 시프숄더',stat:{[attack]:20}});
+   assert.deepEqual(changed.세트효과,stats.세트효과,job);
+   if(main!=='deven')assert.ok(getFinalDamageChangeRate({job,level:280,stats},changed)>0,job);
+ }
+});
+test('official current set counts and full tiers apply when a formerly unknown set changes',()=>{
+ const stats={기본:{},AP:{},장비:{귀고리:{name:'마이스터 이어링',stat:{}},어깨장식:{name:'마이스터 숄더',stat:{}}},세트효과:{'마이스터 세트':{공격력:5}}};
+ const after=getStatsAfterEquipmentReplacement(stats,{slot:'반지1',name:'마이스터 링',stat:{}},{마이스터:{2:{공격력:5},3:{공격력:10}}},{마이스터:2});
+ assert.equal(after.세트효과.마이스터.공격력,15);
+ assert.equal(after.세트효과['마이스터 세트'],undefined);
+ const beyondLastTier=getStatsAfterEquipmentReplacement(after,{slot:'반지2',name:'마이스터 링',stat:{}},{마이스터:{2:{공격력:5},3:{공격력:10}}},{마이스터:3});
+ assert.equal(beyondLastTier.세트효과.마이스터.공격력,15);
+});
+test('ring target changes only the selected ring membership and set tier',()=>{
+ const current={기본:{},AP:{},장비:{귀고리:{name:'마이스터 이어링',stat:{}},어깨장식:{name:'마이스터 숄더',stat:{}},반지1:{name:'마이스터 링',stat:{}},반지2:{name:'다른 반지',stat:{}}},세트효과:{'마이스터 세트':{공격력:15}}};
+ const tiers={마이스터:{2:{공격력:5},3:{공격력:10}}},counts={마이스터:3};
+ const first=getStatsAfterEquipmentReplacement(current,{slot:'반지1',name:'새 반지',stat:{}},tiers,counts);
+ const second=getStatsAfterEquipmentReplacement(current,{slot:'반지2',name:'새 반지',stat:{}},tiers,counts);
+ assert.equal(first.세트효과.마이스터.공격력,5);
+ assert.deepEqual(second.세트효과,current.세트효과);
+});
+test('a lucky weapon automatically increases every eligible three-piece set',()=>{
+ const stats={기본:{},AP:{},장비:{모자:{name:'하이네스 워리어헬름',stat:{}},상의:{name:'이글아이 워리어아머',stat:{}},하의:{name:'트릭스터 워리어팬츠',stat:{}},신발:{name:'앱솔랩스 나이트슈즈',stat:{}},장갑:{name:'앱솔랩스 나이트글러브',stat:{}},망토:{name:'앱솔랩스 나이트케이프',stat:{}},무기:{name:'기존 무기',stat:{}}},세트효과:{루타비스:{공격력:50},앱솔랩스:{공격력:40}}};
+ const after=getStatsAfterEquipmentReplacement(stats,{slot:'무기',name:'제네시스 투핸드소드',stat:{}});
+ assert.equal(after.세트효과.루타비스.보공,30);
+ assert.equal(after.세트효과.앱솔랩스.공격력,65);
+ assert.deepEqual(after.세트효과.앱솔랩스.방무,[10]);
+});
+test('Xenon anchored equipment delta uses all three observed primary stats',()=>{
+ const c=context();c.job='제논';c.stats.장비.장갑.stat={STR:100,DEX:100,LUK:100,공격력:10};
+ c.observedFinalStats={...c.observedFinalStats,STR:5000,DEX:5000,LUK:5000,공격력:1000};
+ const changed=structuredClone(c.stats);changed.장비.장갑.stat.STR+=100;
+ assert.ok(getFinalDamageChangeRate(c,changed)>0);
+ const details=getAnchoredDamageBreakdown(c,changed);
+ assert.equal(details.factors.stat,4*(details.finalStats.STR+details.finalStats.DEX+details.finalStats.LUK));
+});
 test('missing/nonfinite baselines and special job formulae cannot produce plausible bogus numbers',()=>{
  const c=context();c.observedFinalStats.INT=NaN;assert.throws(()=>getAnchoredDamageBreakdown(c,c.stats));
- c.observedFinalStats.INT=5000;c.job='데몬어벤져';assert.throws(()=>getAnchoredDamageBreakdown(c,c.stats),/특수 스탯/);
+ c.observedFinalStats.INT=5000;c.job='데몬어벤져';assert.throws(()=>getAnchoredDamageBreakdown(c,c.stats),/블러드 컨트랙트/);
  c.job='에반';c.bossDefenseRate=-1;assert.throws(()=>getAnchoredDamageBreakdown(c,c.stats));
  c.bossDefenseRate=380;c.stats.기본.마력=Infinity;assert.throws(()=>getAnchoredDamageBreakdown(c,c.stats));
 });

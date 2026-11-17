@@ -14,6 +14,7 @@ for(const item of mitra.items)if(!catalogNames.has(item.name))catalog.items.push
 const secondaryRules=JSON.parse(await readFile(new URL('../vendor/maple-auction/damage/secondaryWeaponRules.json',import.meta.url),'utf8')).jobsByName;
 for(const item of catalog.items){
   if(Object.hasOwn(secondaryRules,item.name)&&['ARMOR_ARMOR_SHIELD','ARMOR_ACCESSORY_MEDAL'].includes(item.category))item.category='WEAPON_SUB';
+  if(item.level==null||!item.jobs?.length)item.metadataStatus='partial';
 }
 // The official autocomplete contains current names and icons, but no level,
 // job, cash status or tradability. Infer only the slot family from the item ID
@@ -31,6 +32,12 @@ for(const item of catalog.items){
 const categoryForId=id=>{
   if(!Number.isInteger(id)||id<1_000_000||id>=2_000_000)return null;
   const value=String(id);
+  // These official item-ID families are absent or mixed in the KMS 389 join.
+  // Keep them as name-only suggestions; the ID identifies a search family but
+  // does not establish level, job restriction or auction availability.
+  if(value.startsWith('1215'))return 'WEAPON_ONE_HANDED_LONG_SWORD';
+  if(value.startsWith('1216'))return 'WEAPON_ONE_HANDED_SCROLL';
+  if(value.startsWith('134')||value.startsWith('135'))return 'WEAPON_SUB';
   for(const prefix of [value.slice(0,4),value.slice(0,3)]){
     const vote=categoryVotes.get(prefix);
     if(vote?.size===1)return [...vote][0];
@@ -46,6 +53,18 @@ const nameOnly=officialNames.flatMap(row=>{
   return category?[{id:`official-name-${row.encryptedItemId}`,name,icon:row.thumbnail,category,level:null,jobs:[],itemId,metadataStatus:'name-only'}]:[];
 });
 const uniqueNameOnly=[...new Map(nameOnly.map(item=>[item.name,item])).values()];
+export function auditEquipmentCatalog(){
+  const searchable=new Set([...catalog.items,...uniqueNameOnly].map(item=>item.name));
+  const relevant=new Set(officialNames.flatMap(row=>categoryForId(officialItemIdFromIcon(row.thumbnail))?[row.nameOrigin]:[]));
+  return {
+    officialNames:officialNames.length,
+    classified:catalog.items.filter(item=>!item.metadataStatus).length,
+    partial:catalog.items.filter(item=>item.metadataStatus==='partial').length,
+    nameOnly:uniqueNameOnly.length,
+    officialEquipmentNames:relevant.size,
+    missing:[...relevant].filter(name=>!searchable.has(name)),
+  };
+}
 catalog.metadataVersion+=' + official Mitra emblems + current autocomplete names';
 catalog.notice='분류·레벨이 확인된 장비는 KMS 389과 공식 추가 자료 기준입니다. 이름 검색에 나오는 공식 최신 후보는 부위만 추정하며 직업·레벨·거래 가능 여부를 직접 확인해야 합니다.';
 const initials='ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
@@ -54,7 +73,7 @@ export function findEquipment({category='ALL',job='ALL',q='',offset=0}={}){
   const query=q.replace(/\s/g,'').toLowerCase();
   const matches=x=>(category==='ALL'||x.category===category||x.category.startsWith(category+'_'))&&(job==='ALL'||x.metadataStatus==='name-only'||x.jobs.includes('ALL')||x.jobs.includes(job))&&(!query||x.name.replace(/\s/g,'').toLowerCase().includes(query)||initial(x.name).includes(query));
   const rows=catalog.items.filter(matches);
-  if(query.length>=2)rows.push(...uniqueNameOnly.filter(matches));
+  if(query.length>=1)rows.push(...uniqueNameOnly.filter(matches));
   return {...catalog,items:rows.slice(Math.max(0,offset),Math.max(0,offset)+120),total:rows.length,nameOnlyCount:uniqueNameOnly.length};
 }
 const parts={WEAPON:1,WEAPON_SUB:3,ARMOR_ACCESSORY_EMBLEM:2,ARMOR_ARMOR_SHIELD:5,ARMOR_ARMOR_CAP:6,ARMOR_ARMOR_COAT:7,ARMOR_ARMOR_LONGCOAT:8,ARMOR_ARMOR_PANTS:9,ARMOR_ARMOR_SHOES:10,ARMOR_ARMOR_GLOVE:11,ARMOR_ARMOR_CAPE:12,ARMOR_ACCESSORY_BELT:13,ARMOR_ACCESSORY_SHOULDER:14,ARMOR_ACCESSORY_FACE:15,ARMOR_ACCESSORY_EYE:16,ARMOR_ACCESSORY_EAR:17,ARMOR_ACCESSORY_RING:18,ARMOR_ACCESSORY_PENDANT:19,ARMOR_ETC_MACHINE_HEART:20};

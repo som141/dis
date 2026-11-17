@@ -2,6 +2,7 @@ import { chromium } from 'playwright-core';
 import { mkdir, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { BrowserPageTransport, AUCTION_ORIGIN, browserProxy } from './browser-transport.mjs';
+import { terminateProfileChromium } from './chromium-process.mjs';
 
 export function isLoginSurface(url) {
   try {
@@ -14,8 +15,9 @@ export function isLoginSurface(url) {
   } catch { return false; }
 }
 export class PortalBrowser extends BrowserPageTransport {
-  constructor({ configureContext } = {}) { super(); this.configureContext = configureContext; this.authPage = null; this.dialog = null; this.inputBusy = false; this.width = 1280; this.height = 900; this.captures = new WeakMap(); }
+  constructor({ configureContext, terminateBrowser=terminateProfileChromium, closeTimeoutMs=5000 } = {}) { super(); this.configureContext = configureContext; this.terminateBrowser=terminateBrowser;this.closeTimeoutMs=closeTimeoutMs;this.authPage = null; this.dialog = null; this.inputBusy = false; this.width = 1280; this.height = 900; this.captures = new WeakMap(); }
   async start(profileDir) {
+    this.profileDir=profileDir;
     await mkdir(profileDir,{ recursive:true, mode:0o700 });
     // The portal container holds the exclusive volume flock before reaching here.
     for (const file of ['SingletonLock','SingletonSocket','SingletonCookie']) {
@@ -29,7 +31,7 @@ export class PortalBrowser extends BrowserPageTransport {
     });
     this.context = ctx;
     await this.configureContext?.(ctx);
-    ctx.on('close',() => { this.context = null; this.page = null; this.authPage = null; this.headers = {}; this.navigation = 'browser-closed'; this.invalidate(); });
+    ctx.on('close',() => { if(this.context!==ctx)return;this.context = null; this.page = null; this.authPage = null; this.headers = {}; this.navigation = 'browser-closed'; this.invalidate(); });
     const observe = page => {
       this.observe(page);
       // Popups first appear as about:blank. Do not replace the usable login
@@ -101,6 +103,26 @@ export class PortalBrowser extends BrowserPageTransport {
     } catch {
       throw Object.assign(new Error(),{ code:'LOGIN_SURFACE_UNAVAILABLE', status:503 });
     } finally { this.reloading = false; }
+  }
+  async restart(){
+    if(this.restarting||!this.profileDir)throw Object.assign(new Error(),{code:'BUSY',status:409});
+    this.restarting=true;
+    try{
+      const old=this.context;
+      this.invalidate();
+      if(old){
+        let timer;
+        try{
+          await Promise.race([old.close().catch(()=>{}),new Promise(resolve=>{timer=setTimeout(resolve,this.closeTimeoutMs);})]);
+        }finally{clearTimeout(timer);}
+      }
+      // close() can stall if Chromium is frozen. Terminate only this visitor's
+      // profile process before removing singleton files and launching again.
+      await this.terminateBrowser(this.profileDir);
+      this.context=null;this.page=null;this.authPage=null;this.dialog=null;
+      this.headers={};this.captures=new WeakMap();this.inputBusy=false;
+      await this.start(this.profileDir);
+    }finally{this.restarting=false;}
   }
   async input(input) {
     if (this.inputBusy) throw Object.assign(new Error(),{ code:'BUSY', status:409 });

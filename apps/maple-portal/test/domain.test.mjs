@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseQuery, rankItems, topTenChanges, PrototypeEngine, INTERVAL_MS } from '../src/domain.mjs';
 import { getFinalDamageChangeRate, getDamageBreakdown, compareRingActivation, JOB_STAT } from '../dist/core.mjs';
+import { targetSlotsForCategory } from '../public/target-slots.js';
 
 const query = { keyword:'아케인셰이드 메이지글러브', category:'ARMOR_ARMOR_GLOVE', budget:30 };
 function fixtureWire() {
@@ -147,6 +148,53 @@ test('auction tooltip → actual Evan equipment replacement → gain and efficie
     const withRing=await engine.search({...query,ringChoice:'critical',ringLevel:4,ringBaselineOff:true});
     assert.equal(withRing.items[0].comparison.details.ring,undefined,'retired ring controls must not affect new searches');
   } finally { engine.destroy(); }
+});
+test('four rings and two pendants replace the explicitly selected equipped item',async()=>{
+  assert.deepEqual(targetSlotsForCategory('ARMOR_ACCESSORY_RING'),['반지1','반지2','반지3','반지4']);
+  assert.deepEqual(targetSlotsForCategory('ARMOR_ACCESSORY_PENDANT'),['펜던트','펜던트2']);
+  const f=fixtureWire(),e=new PrototypeEngine(f.wire,{loadSnapshot:async()=>({name:'에반이였솜',job:'에반',level:280,
+    equipment:{item_equipment:[{item_equipment_slot:'반지1',item_name:'첫 번째 반지'},{item_equipment_slot:'반지2',item_name:'두 번째 반지'},{item_equipment_slot:'펜던트',item_name:'첫 번째 펜던트'},{item_equipment_slot:'펜던트2',item_name:'두 번째 펜던트'}]},
+    stats:{기본:{마력:100,방무:[100]},AP:{INT:1000,LUK:100},장비:{반지1:{name:'첫 번째 반지',stat:{마력:10}},반지2:{name:'두 번째 반지',stat:{마력:20}},펜던트:{name:'첫 번째 펜던트',stat:{마력:5}},펜던트2:{name:'두 번째 펜던트',stat:{마력:15}}},세트효과:{}}})});
+  e.setKey('fixture-only-test-key');
+  try{await e.connect();await e.selectCharacter(222);
+    f.setItems([{...item('ring'),itemName:'테스트 반지',toolTip:{categories:['장신구','반지'],reqJob:'전체',stat:{mad:21}}}]);
+    const ring={keyword:'테스트 반지',category:'ARMOR_ACCESSORY_RING',budget:30};
+    const first=await e.search({...ring,targetSlot:'반지1'}),second=await e.search({...ring,targetSlot:'반지2'});
+    assert.equal(first.items[0].comparison.slot,'반지1');assert.equal(first.items[0].comparison.currentEquipmentName,'첫 번째 반지');
+    assert.equal(second.items[0].comparison.slot,'반지2');assert.equal(second.items[0].comparison.currentEquipmentName,'두 번째 반지');
+    assert.ok(first.items[0].comparison.gainPercent>second.items[0].comparison.gainPercent);
+    f.setItems([{...item('pendant'),itemName:'테스트 펜던트',toolTip:{categories:['장신구','펜던트'],reqJob:'전체',stat:{mad:21}}}]);
+    const pendant=await e.search({keyword:'테스트 펜던트',category:'ARMOR_ACCESSORY_PENDANT',budget:30,targetSlot:'펜던트2'});
+    assert.equal(pendant.items[0].comparison.slot,'펜던트2');assert.equal(pendant.items[0].comparison.currentEquipmentName,'두 번째 펜던트');
+    assert.ok(pendant.items[0].comparison.gainPercent>0);
+  }finally{e.destroy();}
+});
+test('Arcane Shade shoulder listing compares despite an unrelated unsupported active set',async()=>{
+  const f=fixtureWire();
+  const e=new PrototypeEngine(f.wire,{loadSnapshot:async()=>({name:'도적캐릭터',job:'나이트로드',level:280,
+    equipment:{item_equipment:[{item_equipment_slot:'어깨장식',item_name:'아케인셰이드 시프숄더'}]},
+    stats:{기본:{공격력:100,방무:[100]},AP:{LUK:1000,DEX:100},장비:{어깨장식:{name:'아케인셰이드 시프숄더',stat:{LUK:100}},모자:{name:'기타 세트 모자',stat:{}}},세트효과:{'아케인셰이드 세트(도적)':{공격력:30},'기타 세트':{LUK:50}}},
+    setDefinitions:{아케인셰이드:{2:{공격력:30}}}})});
+  e.setKey('fixture-key');
+  try{
+    await e.connect();await e.selectCharacter(222);
+    f.setItems([{...item('shoulder'),itemName:'아케인셰이드 시프숄더',toolTip:{categories:['어깨장식'],reqJob:'도적',reqLevel:200,stat:{luk:200,pad:10}}}]);
+    const result=await e.search({...query,keyword:'아케인셰이드 시프숄더',category:'ARMOR_ACCESSORY_SHOULDER'});
+    assert.ok(result.items[0].comparison?.gainPercent>0,JSON.stringify(result.items[0].comparisonErrors));
+  }finally{e.destroy();}
+});
+test('an unlisted set item compares when the exact equipped name stays the same',async()=>{
+ const f=fixtureWire();
+ const e=new PrototypeEngine(f.wire,{loadSnapshot:async()=>({name:'테스트캐릭터',job:'나이트로드',level:280,
+   equipment:{item_equipment:[{item_equipment_slot:'어깨장식',item_name:'특별한 어깨장식'}]},
+   stats:{기본:{공격력:100,방무:[100]},AP:{LUK:1000,DEX:100},장비:{어깨장식:{name:'특별한 어깨장식',stat:{LUK:50}}},세트효과:{'특별한 세트':{공격력:20}}}})});
+ e.setKey('fixture-key');
+ try{
+   await e.connect();await e.selectCharacter(222);
+   f.setItems([{...item('same-special'),itemName:'특별한 어깨장식',toolTip:{categories:['어깨장식'],reqJob:'도적',reqLevel:200,stat:{luk:100,pad:10},setEffects:[{setName:'특별한 세트'}]}}]);
+   const result=await e.search({...query,keyword:'특별한 어깨장식',category:'ARMOR_ACCESSORY_SHOULDER'});
+   assert.ok(result.items[0].comparison?.gainPercent>0,JSON.stringify(result.items[0].comparisonErrors));
+ }finally{e.destroy();}
 });
 test('Evan document secondary equipment can be compared with an empty slot',async()=>{
   const f=fixtureWire();

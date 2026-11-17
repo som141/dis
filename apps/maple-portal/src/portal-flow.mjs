@@ -3,6 +3,7 @@ import { BrowserAutoConnect } from './auto-connect.mjs';
 import { PrototypeEngine, parseQuery, parseMaximums, CATEGORIES, AppError } from './domain.mjs';
 import { withoutFragmentWork } from './portal-store.mjs';
 import { catalog } from './equipment-data.mjs';
+import { targetSlotsForCategory, targetSlotAllowed } from '../public/target-slots.js';
 
 export const DEFAULT_PLAN=Object.freeze({budget:200,starforceMin:0,potentialGrade:0,days:0});
 const digest=value=>createHash('sha256').update(value).digest('hex');
@@ -21,12 +22,13 @@ export function normalizeJobs(rows) {
     const jobId=id+'-'+mode;
     if(ids.has(jobId)) throw new AppError('같은 조회 방식의 검색 항목이 중복되었습니다.');ids.add(jobId);
     const result={id,enabled:row.enabled!==false,keyword:String(row.keyword||'').trim(),category:row.category||'ALL',
-      targetStatus:true,bossDefenseRate:Number(row.bossDefenseRate??380),budget:Number(row.budget??0),budgetMode,budgetMin:row.budgetMin,budgetMax:row.budgetMax,budgetPercent:row.budgetPercent??30,jobClass:row.jobClass||'ALL',itemId:row.itemId||'',equipmentLevel:row.equipmentLevel??250,potentialNone:row.potentialNone===true,additionalNone:row.additionalNone===true,potentialOptions:row.potentialOptions,additionalPotentialOptions:row.additionalPotentialOptions,potentialMaximums:row.potentialMaximums,additionalPotentialMaximums:row.additionalPotentialMaximums,additionalOption:row.additionalOption||'',additionalMin:row.additionalMin??0,starforceMin:Number(row.starforceMin??0),starforceMax:row.starforceMax==null?'':row.starforceMax,potentialGrade:Number(row.potentialGrade??0),
+      targetStatus:true,bossDefenseRate:Number(row.bossDefenseRate??380),budget:Number(row.budget??0),budgetMode,budgetMin:row.budgetMin,budgetMax:row.budgetMax,budgetPercent:row.budgetPercent??30,jobClass:row.jobClass||'ALL',itemId:row.itemId||'',targetSlot:row.targetSlot||'',equipmentLevel:row.equipmentLevel??250,potentialNone:row.potentialNone===true,additionalNone:row.additionalNone===true,potentialOptions:row.potentialOptions,additionalPotentialOptions:row.additionalPotentialOptions,potentialMaximums:row.potentialMaximums,additionalPotentialMaximums:row.additionalPotentialMaximums,additionalOption:row.additionalOption||'',additionalMin:row.additionalMin??0,starforceMin:Number(row.starforceMin??0),starforceMax:row.starforceMax==null?'':row.starforceMax,potentialGrade:Number(row.potentialGrade??0),
       additionalGrade:Number(row.additionalGrade??0),option:row.option||'',optionMin:row.optionMin??0,
       exactMatch:row.exactMatch!==false,myWorldOnly:row.myWorldOnly!==false,mode,sold:mode==='sold',
       compare:mode!=='sold'&&row.compare===true,watch:mode!=='sold'&&row.watch===true,
       intervalMinutes:Number(row.intervalMinutes??30),days:Number(row.days??0),minGain:Number(row.minGain??0)};
     if(result.enabled){const q=parseQuery(result),maximums=parseMaximums(result);result.potentialOptions=q.potentialOptions||[];result.additionalPotentialOptions=q.additionalPotentialOptions||[];Object.assign(result,maximums);}
+    if(result.enabled&&result.compare){const slots=targetSlotsForCategory(result.category);if(!slots.length)throw new AppError('이 부위는 현재 장비 교체 성능 비교를 지원하지 않습니다. 비교를 끄고 매물을 조회하세요.');if(!result.targetSlot&&slots.length===1)result.targetSlot=slots[0];if(!targetSlotAllowed(result.category,result.targetSlot))throw new AppError('교체할 내 장비 칸을 선택하세요. 반지·펜던트는 각각의 칸을 지정해야 합니다.');}
     if(result.enabled&&(!Number.isInteger(result.intervalMinutes)||result.intervalMinutes<1||result.intervalMinutes>1440||!Number.isInteger(result.days)||result.days<0||result.days>365||!Number.isFinite(result.minGain)||result.minGain<0)) throw new AppError('감시 간격·기간·최소 개선율을 확인하세요.');
     if(result.enabled&&result.minGain>0&&!result.compare) throw new AppError('최소 개선율을 쓰려면 성능 비교를 선택하세요.');
     return result;
@@ -264,7 +266,7 @@ export class PortalFlow {
     const c=this.engine.character;
     return {phase:this.phase,error:this.error,busy:this.running,character:c?{id:c.characterId,name:c.name,world:c.worldName||c.world,level:c.level}:null,
       characters:this.engine.characters.map(c=>({id:c.characterId,name:c.name,world:c.worldName||c.world,level:c.level})),
-      equipment:this.engine.profile,equipmentAt:this.engine.profileAt,categories:CATEGORIES,configs:this.configs,
+      equipment:this.engine.profile?{...this.engine.profile,items:this.engine.profile.items?.map(withIcon)??[]}:null,equipmentAt:this.engine.profileAt,categories:CATEGORIES,configs:this.configs,
       jobs:this.jobs.map(({engine,stopRequested,watch,notices,archive,archiveScope,...job})=>({...job,result:engine?.result?metadata(engine.result):job.result,
         hasItems:!!engine?.result,progress:engine?.busy?engine.collection:null,
         watch:engine?.watch?engine.watchView():watch?{...watch,seen:undefined,input:undefined,seenCount:watch.seen?.length||0}:null,

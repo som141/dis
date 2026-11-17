@@ -8,6 +8,7 @@ import { PortalFlow, normalizeJobs } from '../src/portal-flow.mjs';
 import { PortalStore } from '../src/portal-store.mjs';
 import { PrototypeEngine, INTERVAL_MS } from '../src/domain.mjs';
 import { isLoginSurface, PortalBrowser } from '../src/portal-browser.mjs';
+import {isProfileChromium} from '../src/chromium-process.mjs';
 
 function browser(identity) {
   let ready=false, posts=0, fail=false;
@@ -15,7 +16,7 @@ function browser(identity) {
     async start(dir) { this.profile=dir; }, async close() {}, status:() => ({clientReady:ready}),
     loginState:() => ({origin:'https://nxlogin.nexon.com',width:1280,height:900}), frame:async () => Buffer.from('fixture-jpeg'),
     async input(value) { if (value.type==='text') assert.equal(typeof value.text,'string'); },
-    async reloadLogin() { ready=false; },
+    async reloadLogin() { ready=false; }, async restart(){ready=false;this.restarts=(this.restarts||0)+1;this.onChange();},
     scope() { const epoch=this.epoch; return { get connected() { return epoch===wire.epoch && wire.connected; }, request:c => wire.request(c) }; },
     async request(cmd) {
       const path=new URL(cmd.url).pathname; let data;
@@ -44,6 +45,29 @@ function engine(wire,clock) {
   });
 }
 const config=(extra={})=>({id:'glove',enabled:true,keyword:'가상 장갑',category:'ARMOR_ARMOR_GLOVE',budget:200,budgetMode:'range',starforceMin:17,potentialGrade:4,mode:'live',compare:true,watch:true,days:1,intervalMinutes:30,...extra});
+test('comparison jobs persist a valid replacement slot and require explicit ring or pendant selection',()=>{
+ assert.equal(normalizeJobs([config()])[0].targetSlot,'장갑');
+ assert.equal(normalizeJobs([config({category:'ARMOR_ACCESSORY_RING',targetSlot:'반지3'})])[0].targetSlot,'반지3');
+ assert.throws(()=>normalizeJobs([config({category:'ARMOR_ACCESSORY_RING'})]),/교체할 내 장비 칸/);
+ assert.throws(()=>normalizeJobs([config({category:'ARMOR_ACCESSORY_PENDANT'})]),/교체할 내 장비 칸/);
+ assert.throws(()=>normalizeJobs([config({targetSlot:'반지1'})]),/교체할 내 장비 칸/);
+ assert.equal(normalizeJobs([config({category:'ARMOR_ETC_DRAGON_CAP',compare:false})])[0].compare,false);
+});
+test('equipment picker endpoint requires the owner session and CSRF, and returns only that character gear',async()=>{
+ const dir=await mkdtemp(join(tmpdir(),'maple-equipment-picker-')),keyFile=join(dir,'service-key'),clock={now:1000000},wires=[];await writeFile(keyFile,'fixture-service-key');let app;
+ try{app=await createPortal({port:0,dataDir:dir,keyFile,timerMs:0,now:()=>clock.now,browserFactory:()=>{const w=browser(wires.length+11);wires.push(w);return w;},engineFactory:w=>engine(w,clock)});
+  const {port}=await app.listen(),base=`http://127.0.0.1:${port}`;
+  const create=async()=>{const r=await fetch(base+'/api/session',{method:'POST',headers:{origin:base,'content-type':'application/json'},body:'{}'}),cookie=r.headers.get('set-cookie').split(';')[0];return {cookie,csrf:(await(await fetch(base+'/api/bootstrap',{headers:{cookie}})).json()).csrf};};
+  const a=await create(),b=await create();wires.forEach(w=>w.login());await app.tick();
+  for(const [who,id] of [[a,110],[b,120]])assert.equal((await fetch(base+'/api/character/select',{method:'POST',headers:{origin:base,cookie:who.cookie,'x-portal-token':who.csrf,'content-type':'application/json'},body:JSON.stringify({characterId:id})})).status,200);
+  assert.equal((await fetch(base+'/api/equipment',{headers:{cookie:a.cookie}})).status,403);
+  const aGear=await(await fetch(base+'/api/equipment',{headers:{cookie:a.cookie,'x-portal-token':a.csrf}})).json();
+  const bGear=await(await fetch(base+'/api/equipment',{headers:{cookie:b.cookie,'x-portal-token':b.csrf}})).json();
+  assert.equal(aGear.character,'캐릭터11');assert.equal(bGear.character,'캐릭터12');
+  assert.equal(aGear.items[0].slot,'장갑');assert.equal(bGear.items[0].slot,'장갑');
+  assert.equal((await fetch(base+'/api/equipment',{headers:{cookie:a.cookie,'x-portal-token':b.csrf}})).status,403);
+ }finally{await app?.close();await rm(dir,{recursive:true,force:true});}
+});
 function connectChanges(e,w,flow){w.onChange=()=>{e.connectionChanged();flow.connectionChanged();};}
 async function ready(flow,w){w.login();await flow.tick();if(!flow.engine.character)await flow.selectCharacter(110);await flow.tick();}
 test('login offers owned characters and switching keeps each character workspace isolated',async()=>{
@@ -111,6 +135,9 @@ test('portal keeps two users and their job/results APIs isolated with CSRF and O
     const at=await token(a.cookie),bt=await token(b.cookie),post=(path,cookie,csrf,data={},origin=base)=>fetch(base+path,{method:'POST',headers:{cookie,origin,'x-portal-token':csrf,'content-type':'application/json'},body:JSON.stringify(data)});
     assert.equal((await fetch(base+'/api/state')).status,401);assert.equal((await post('/api/jobs',a.cookie,bt,{jobs:[config()]})).status,403);assert.equal((await post('/api/stop',a.cookie,at,{},'http://evil.test')).status,403);
     assert.equal((await fetch(base+'/api/login/frame',{headers:{cookie:a.cookie}})).status,403);assert.equal((await post('/api/login/reload',a.cookie,at)).status,200);
+    assert.equal((await post('/api/login/restart',a.cookie,bt)).status,403);
+    assert.equal((await post('/api/login/restart',a.cookie,at)).status,200);
+    assert.equal(wires[0].restarts,1);assert.equal(wires[1].restarts,undefined);
     wires[0].login();wires[1].login();await app.tick();assert.equal(wires[0].posts(),0);assert.equal(wires[1].posts(),0);
     assert.equal((await post('/api/character/select',a.cookie,at,{characterId:110})).status,200);
     assert.equal((await post('/api/character/select',b.cookie,bt,{characterId:120})).status,200);
@@ -121,6 +148,22 @@ test('portal keeps two users and their job/results APIs isolated with CSRF and O
     await post('/api/jobs/private-a-live/stop',a.cookie,at);clock.now+=INTERVAL_MS;await app.tick();assert.equal(wires[0].posts(),1);assert.equal(wires[1].posts(),2);
     for(const file of await readdir(join(dir,'state')))if(file.endsWith('.json')){const raw=await readFile(join(dir,'state',file),'utf8');assert.equal(raw.includes(a.cookie.split('=')[1]),false);assert.doesNotMatch(raw,/fixture-service-key/);}
   }finally{await app?.close();await rm(dir,{recursive:true,force:true});delete process.env.NEXON_DEVELOPER_KEY;}
+});
+test('browser recovery process selector requires the exact profile and Chromium root',()=>{
+ const profile='/data/profiles/owner-a';
+ assert.equal(isProfileChromium(['/usr/lib/chromium/chromium',`--user-data-dir=${profile}`],profile),true);
+ assert.equal(isProfileChromium(['/usr/lib/chromium/chromium','--user-data-dir=/data/profiles/owner-b'],profile),false);
+ assert.equal(isProfileChromium(['/usr/lib/chromium/chromium',`--user-data-dir=${profile}`,'--type=renderer'],profile),false);
+ assert.equal(isProfileChromium(['/usr/bin/other-app',`--user-data-dir=${profile}`],profile),false);
+});
+test('a frozen login browser is terminated by profile before one fresh launch',async()=>{
+ const operations=[],profile='/data/profiles/owner-a';
+ const browser=new PortalBrowser({closeTimeoutMs:5,terminateBrowser:async dir=>operations.push(['terminate',dir])});
+ browser.profileDir=profile;browser.context={close:()=>new Promise(()=>{})};
+ browser.start=async dir=>{operations.push(['start',dir]);browser.context={};};
+ await browser.restart();
+ assert.deepEqual(operations,[['terminate',profile],['start',profile]]);
+ assert.equal(browser.restarting,false);
 });
 test('session capacity reservation is atomic and destroying one engine keeps the shared service key',async () => {
   const dir=await mkdtemp(join(tmpdir(),'maple-store-test-'));

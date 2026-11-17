@@ -1,6 +1,5 @@
 import { POTENTIAL_OPTION_LABELS } from './constants.js';
-import {SET_DB} from '../damage/setDb.js';
-import {normalizeSetName,setOfItem} from '../damage/setSimulation.js';
+import {setOfItem} from '../damage/setSimulation.js';
 import {
   buildCreateBody,
   parseItemId,
@@ -110,7 +109,8 @@ export class AuctionService {
   private ringChoice: RingChoice='none';
   private ringLevel=4;
   private ringBaselineOff=false;
-  setComparisonContext({bossDefenseRate=380,statusDamageUptime=0,ringChoice='none',ringLevel=4,ringBaselineOff=false}:{bossDefenseRate?:number;statusDamageUptime?:number;ringChoice?:RingChoice;ringLevel?:number;ringBaselineOff?:boolean}={}) {this.damageBossDefense=bossDefenseRate;this.statusDamageUptime=statusDamageUptime;this.ringChoice=ringChoice;this.ringLevel=ringLevel;this.ringBaselineOff=ringBaselineOff;}
+  private comparisonSlot:EquipmentSlot|null=null;
+  setComparisonContext({bossDefenseRate=380,statusDamageUptime=0,ringChoice='none',ringLevel=4,ringBaselineOff=false,targetSlot=null}:{bossDefenseRate?:number;statusDamageUptime?:number;ringChoice?:RingChoice;ringLevel?:number;ringBaselineOff?:boolean;targetSlot?:EquipmentSlot|null}={}) {this.damageBossDefense=bossDefenseRate;this.statusDamageUptime=statusDamageUptime;this.ringChoice=ringChoice;this.ringLevel=ringLevel;this.ringBaselineOff=ringBaselineOff;this.comparisonSlot=targetSlot;}
   private identity: (Identity & { characterName?: string }) | null = null;
   private characters: CharacterInfo[] | null = null;
   private readonly bodyCache = new Map<string, { body: ReturnType<typeof buildCreateBody>; sold: boolean; category?: string }>();
@@ -153,6 +153,7 @@ export class AuctionService {
         try{
         const slots = slotsByItem[index];
         if (!slots?.length) return {...item,comparisonErrors:{item:'매물의 장비 부위를 식별하지 못해 비교할 수 없습니다.'}};
+        if(this.comparisonSlot&&!slots.includes(this.comparisonSlot))return {...item,comparisonErrors:{item:'선택한 교체 칸과 매물의 장비 부위가 다릅니다.'}};
         const raw = rawItems[index];
         // 못 입는 장비의 증감률은 의미가 없다 — 카데나에게 마법사 스태프가 +26%로 뜨던 버그.
         if(!raw)return {...item,comparisonErrors:{item:'매물 상세 정보가 없습니다.'}};
@@ -163,7 +164,7 @@ export class AuctionService {
         const stat = getAuctionItemStats(raw, character.level);
         const finalDamageChangeRate: Partial<Record<EquipmentSlot, number>> = {};
         const comparisonDetails:Record<string,unknown>={},comparisonErrors:Record<string,string>={};
-        for (const slot of slots) {
+        for (const slot of this.comparisonSlot?[this.comparisonSlot]:slots) {
           try{
             const old=character.stats.장비?.[slot];
             if((old?.stat.쿨감??0)!==(stat.쿨감??0))throw new Error('쿨감 변화는 스킬별 사용 주기를 계산해야 합니다.');
@@ -185,9 +186,8 @@ export class AuctionService {
             }
             const ignoredSkills = [...new Set([...beforeSkills.granted, ...afterSkills.granted])];
             if(slot==='무기'&&currentItem?.item_equipment_part&&!raw.toolTip?.categories?.includes(currentItem.item_equipment_part))throw new Error('무기 종류가 달라 무기 상수·숙련도·스킬 변화를 확인해야 합니다.');
-            if(Object.keys(character.stats.세트효과??{}).some(name=>!SET_DB[normalizeSetName(name)]))throw new Error('현재 장비의 미지원 세트 효과가 있어 정확하게 교체 계산할 수 없습니다.');
-            if((raw.toolTip as any)?.setEffects?.length&&!setOfItem(item.name))throw new Error('새 장비의 세트 소속을 확인하지 못했습니다.');
-            const changedStats = getStatsAfterEquipmentReplacement(character.stats, {slot,name:item.name,stat},character.setDefinitions);
+            if((raw.toolTip as any)?.setEffects?.length&&!setOfItem(item.name,Object.keys(character.setDefinitions??{}))&&old?.name!==item.name)throw new Error('새 장비의 세트 소속을 확인하지 못했습니다.');
+            const changedStats = getStatsAfterEquipmentReplacement(character.stats, {slot,name:item.name,stat},character.setDefinitions,character.setCounts);
             const context={...character,bossDefenseRate:this.damageBossDefense,statusDamageUptime:this.statusDamageUptime};
             const detail=character.observedFinalStats?getAnchoredDamageBreakdown:getDamageBreakdown;
             const before=detail(context,character.stats),after=detail(context,changedStats);
@@ -200,7 +200,7 @@ export class AuctionService {
                 ring=compareRingActivation(character,changedStats,this.ringChoice,this.ringLevel,undefined,this.damageBossDefense,this.statusDamageUptime);
               } catch(error) { ring={error:(error as Error).message}; }
             }
-            comparisonDetails[slot]={ignoredSkills,ring,baseline:character.observedFinalStats?'API 총스탯 기준':'재구성 모델 기준 · API 대조 없음',bossDefenseRate:this.damageBossDefense,before:before.factors,after:after.factors,statChanges:after.finalStats,observedAt:character.observedAt??null,
+            comparisonDetails[slot]={currentEquipmentName:old?.name??null,ignoredSkills,ring,baseline:character.observedFinalStats?'API 총스탯 기준':'재구성 모델 기준 · API 대조 없음',bossDefenseRate:this.damageBossDefense,before:before.factors,after:after.factors,statChanges:after.finalStats,observedAt:character.observedAt??null,
               notes:['크리티컬 확률 100% 고정','동일 공격·대상·버프 조건의 기대 피해 계수','주스탯/공마 %와 적용 제외 스탯은 API 분해 자료 사용','쿨감·스킬 회전율·데미지 상한·속성/포스 차이 미반영',this.statusDamageUptime?'대상 상태이상 추가 데미지 적용':'대상 상태이상 추가 데미지 제외'],reconstructionAudit:auditDamageBaseline(context)};
           }catch(error){comparisonErrors[slot]=(error as Error).message;}
 
@@ -375,6 +375,7 @@ export class AuctionService {
       items: equips.map((e) => ({
         slot: getEquipmentSlot(e.item_equipment_slot) ?? e.item_equipment_slot,
         name: e.item_name,
+        icon: typeof e.item_icon==='string'&&/^https:\/\/(?:open\.api\.nexon\.com\/static\/maplestory\/ItemIcon|avatar\.maplestory\.nexon\.com\/ItemIcon)\//.test(e.item_icon)?e.item_icon:undefined,
         star: Number(e.starforce) || undefined,
         pot: (e.potential_option_grade as string) || undefined,
         add: (e.additional_potential_option_grade as string) || undefined,

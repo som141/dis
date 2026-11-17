@@ -5,6 +5,7 @@ import {
 } from '../dist/core.mjs';
 import { marketHistory, tradeTimestamp } from './market-stats.mjs';
 import { applyPotentialMaximums, MAXIMUM_OPTION_KEYS } from './potential-limits.mjs';
+import { targetSlotAllowed } from '../public/target-slots.js';
 
 export const INTERVAL_MS = 30 * 60 * 1000;
 export const DEFAULT_CHARACTER = '에반이였솜';
@@ -112,7 +113,7 @@ export function rankItems(items = []) {
     const best = comparisons.length ? comparisons.reduce((a, b) => b[1] > a[1] ? b : a) : null;
     const price = Number(item.price);
     return { ...item, comparison: best ? {
-      slot: best[0], gainPercent: best[1], score: 100 + best[1],
+      slot: best[0], currentEquipmentName:item.comparisonDetails?.[best[0]]?.currentEquipmentName??null, gainPercent: best[1], score: 100 + best[1],
       efficiency: price > 0 && Number.isFinite(price) ? best[1] / (price / 100_000_000) : null,
       model:'동일 조건의 장비 교체 기대 피해 계수',details:item.comparisonDetails?.[best[0]],
     } : null };
@@ -206,7 +207,7 @@ export class PrototypeEngine {
     const epoch = this.wire.epoch, svc = this.service, name = this.character.name;
     if (refresh) await this.refreshSnapshot(name);
     const result = requireObject(await svc.userEquip(name));
-    this.guard(epoch); this.profile = result; this.profileAt = new Date(this.now()).toISOString();
+    this.guard(epoch);if(this.character?.name!==name)throw new AppError('캐릭터가 변경되었습니다. 내 장비를 다시 불러와 주세요.',409,'CONNECTION_CHANGED');this.profile = result; this.profileAt = new Date(this.now()).toISOString();
     return { ...result, loadedAt: this.profileAt };
   }
   async quota() {
@@ -220,13 +221,13 @@ export class PrototypeEngine {
     if (!this.character) throw new AppError('연결 확인 후 본인 캐릭터를 선택하세요.');
     this.collection=null;this.cancelRequested=false;
     const query = parseQuery(input), maximums=parseMaximums(input),epoch = this.wire.epoch, svc = this.service;
+    const sold = input.sold === true, compare = input.compare !== false && !sold;
+    if(compare&&input.targetSlot&&!targetSlotAllowed(input.category||'ALL',input.targetSlot))throw new AppError('교체할 내 장비 칸과 검색 부위가 맞지 않습니다.');
     const quota = await this.quota(); this.guard(epoch);
     if(this.cancelRequested)throw new AppError('조회가 중지되었습니다.',409,'CANCELLED');
     if (quota.remaining <= 0) throw new AppError('오늘 검색 한도를 모두 사용했습니다. 초기화 후 다시 시도하세요.', 429, 'QUOTA_EXHAUSTED');
-    svc.setComparisonContext?.({bossDefenseRate:Number(input.bossDefenseRate??380),statusDamageUptime:1,ringChoice:'none'});
+    svc.setComparisonContext?.({bossDefenseRate:Number(input.bossDefenseRate??380),statusDamageUptime:1,ringChoice:'none',targetSlot:compare?input.targetSlot||null:null});
     svc.clearSearchCache(); // Fresh POST: never assume old handles include new listings.
-    const sold = input.sold === true;
-    const compare = input.compare !== false && !sold;
     let summary = requireObject(await svc.search(query,sold,{compare}));
     this.guard(epoch);
     if (!Array.isArray(summary.items) || !summary.searchKey || !Number.isSafeInteger(summary.total) || summary.total<0) throw new AppError('검색 결과 형식이 달라졌습니다.', 502, 'INVALID_RESPONSE');
