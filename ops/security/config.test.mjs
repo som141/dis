@@ -15,7 +15,7 @@ test('nested chunks and source maps are inspected without revealing matched secr
     mkdirSync(join(dir, 'assets/chunks'), { recursive: true });
     const secret = 'test-fixture-only-secret-123456789';
     writeFileSync(join(dir, 'assets/chunks/app.js.map'), JSON.stringify({ sourcesContent: [secret] }));
-    const candidates = secretCandidates({ FINNHUB_API_KEY: secret, WEBHOOK_URL: secret, DISCORD_TOKEN: 'replace-with-your-token' });
+    const candidates = secretCandidates({ FINNHUB_API_KEY: secret, WEBHOOK_URL: secret, DISCORD_TOKEN: 'replace-with-your-token', GRAFANA_ALERT_NOOP_WEBHOOK_URL: 'http://127.0.0.1:9/disabled' });
     assert.deepEqual(Object.keys(candidates).sort(), ['FINNHUB_API_KEY', 'WEBHOOK_URL']);
     const findings = scanExposure(candidates, collectTextFiles(dir));
     assert.equal(findings.length, 2);
@@ -50,6 +50,7 @@ test('production check rejects development passwords and missing config', () => 
   const findings = runPreflight({ repoRoot: root, envFile: join(root, '.env.example'), production: true });
   assert.ok(findings.some(f => f.priority === 'P0' && f.detail.includes('POSTGRES_PASSWORD')));
   assert.ok(findings.some(f => f.priority === 'P0' && f.detail.includes('GRAFANA_ADMIN_PASSWORD')));
+  assert.ok(!findings.some(f => f.name === '보유 비밀값 노출'), 'public example sentinels are not credentials');
   const missing = runPreflight({ repoRoot: root, envFile: join(root, 'not-a-real-env-file'), production: true });
   assert.ok(missing.some(f => f.priority === 'P0' && f.name === '설정 파일'));
 });

@@ -10,6 +10,7 @@ const placeholder = value => /^(?:replace[-_]|your[-_]|https:\/\/example\.invali
 export function secretCandidates(config) {
   return Object.fromEntries(Object.entries(config).filter(([name, value]) =>
     /TOKEN|SECRET|PASSWORD|(?:^|_)KEY(?:_|$)|WEBHOOK/.test(name) &&
+    !(name === 'GRAFANA_ALERT_NOOP_WEBHOOK_URL' && value === 'http://127.0.0.1:9/disabled') &&
     typeof value === 'string' && value.length >= 12 && !placeholder(value)));
 }
 
