@@ -6,17 +6,17 @@
 
 | 하고 싶은 일 | 먼저 읽을 문서 |
 | --- | --- |
-| 메이플 Discord 포털 사용·구현 | [메이플 포털](../apps/maple-portal/README.md) · [PostgreSQL 스키마](reference/MAPLE_PORTAL_SCHEMA.md) |
+| 메이플 Discord 포털 사용·구현 | [메이플 포털](../apps/maple-portal/README.md) · [인증·검색 아키텍처](reference/MAPLE_ARCHITECTURE.md) · [PostgreSQL 스키마](reference/MAPLE_PORTAL_SCHEMA.md) |
 | 로컬 실행·IntelliJ 설정·환경 변수 확인 | [로컬 개발 안내](operations/LOCAL_DEVELOPMENT.md) |
 | 기존 개인용 Chrome 확장 실행 기록 | [개인용 실행 안내](../apps/maple-portal/LOCAL_LEGACY.md) · 운영 포털과 별도 |
-| Linux 도커의 브라우저로 메이플 체험 | [메이플 도커 실행](../apps/maple-portal/DOCKER.md) · 원격 수동 로그인, 서버 검색·계산·30분 감시 |
+| Linux 도커의 브라우저로 메이플 체험 | [메이플 도커 실행](../apps/maple-portal/DOCKER.md) · 원격 수동 로그인, 서버 검색·계산·선택 감시 |
 | 앱과 저장소의 연결 이해 | [현재 아키텍처](reference/CURRENT_ARCHITECTURE.md) |
 | 수정할 모듈과 코드 진입점 찾기 | [모듈 구조](reference/MODULE_STRUCTURE.md), [앱 목록](../apps/README.md) |
 | 명령·결과 메시지와 큐 확인 | [이벤트 계약](reference/EVENT_CONTRACT.md) |
 | 모의투자 DB 구조 확인 | [PostgreSQL 스키마](reference/POSTGRESQL_STOCK_SCHEMA.md) |
 | 테스트 실행·검증 범위 확인 | [테스트 가이드](operations/CI_TESTING.md) |
 | 상태·로그·무음·시세 장애 점검 | [운영 런북](operations/OPERATIONS_RUNBOOK.md) |
-| GitHub Actions·서버 배포 설정 | [배포 가이드](operations/SERVER_DEPLOY_SCRIPT.md) |
+| GitHub Actions·서버 배포 설정 | [현재 아웃바운드 배포](operations/OUTBOUND_ONLY_DEPLOY.md) · [과거 SSH 방식](operations/SERVER_DEPLOY_SCRIPT.md) |
 | Grafana·Prometheus 설정 | [관측성 안내](../ops/observability/README.md) |
 | README나 상세 문서 수정 | [문서 작성 기준](DOCUMENTATION_GUIDE.md) |
 

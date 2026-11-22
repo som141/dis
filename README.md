@@ -6,7 +6,7 @@ DIS는 음성 채널에서 음악을 재생하고, 채팅에서 주식 모의투
 
 메이플 기능은 [포털 안내](apps/maple-portal/README.md)와 [운영 가이드](docs/operations/MAPLE_DISCORD_SETUP.md)를 따른다. 이전 로컬 인수인계 기록은 [문서 보관함](docs/archive/maple-local-handoff-2026-10/README.md)에 남겼다.
 
-DIS 봇과 메이플 경매장을 연결하는 선택 기능은 [Spring Gateway 기반 통합 계획](docs/internal/analysis/MAPLE_DISCORD_INTEGRATION_PLAN.md)과 [운영 가이드](docs/operations/MAPLE_DISCORD_SETUP.md)에 정리했다.
+메이플은 `maple` Compose 프로필로 켜는 선택 서비스다. 현재 인증·검색·알림 흐름은 [메이플 아키텍처](docs/reference/MAPLE_ARCHITECTURE.md)에, 과거 설계는 내부 기록에 구분했다.
 
 인바운드 연결이 막힌 Ubuntu 서버의 배포 절차는 [아웃바운드 전용 배포 안내](docs/operations/OUTBOUND_ONLY_DEPLOY.md)를 따른다.
 
@@ -102,23 +102,31 @@ flowchart LR
     G --> R[(Redis)]
     A --> R
     S --> R
-    S --> P[(PostgreSQL)]
+    S -->|stock tables| P[(PostgreSQL)]
+    U[웹 사용자] --> E[HTTPS / maple-edge]
+    E -->|OAuth callback| G
+    E --> M[Node maple-portal]
+    G <-->|내부 HTTP / 세션·발송함| M
+    M --> B[사용자별 Chromium]
+    B --> N[넥슨 로그인 / 경매장]
+    M -->|캐릭터 API| N
+    M -->|maple schema| P
     A --> Y[YouTube / 음원]
     A --> C[YouTube cipher]
     A -->|음성 전송| D
     S -->|주기적 시세 갱신| F[Finnhub]
 ```
 
-Gateway는 명령 수신·응답을, 각 worker는 도메인 처리를 담당한다. Redis에는 pending 응답·음악 상태·캐시를, PostgreSQL에는 모의투자 계좌·포지션·원장을 저장한다. [현재 아키텍처](docs/reference/CURRENT_ARCHITECTURE.md)에서 재생과 시세 갱신 흐름을 자세히 설명한다.
+Gateway는 명령 수신·응답을, 각 worker는 도메인 처리를 담당한다. Redis에는 pending 응답·음악 상태·캐시를, PostgreSQL에는 모의투자 계좌·포지션·원장과 별도 `maple` 스키마의 계정·검색·감시·발송함을 저장한다. 메이플은 RabbitMQ worker가 아닌 Node 포털이며, Spring Gateway와 내부 HTTP로 연결된다. [현재 아키텍처](docs/reference/CURRENT_ARCHITECTURE.md)에서 재생과 시세 갱신 흐름을 자세히 설명한다.
 
 | 디렉터리 | 역할 |
 | --- | --- |
-| [apps/](apps/README.md) | 실행 가능한 Gateway·음악·주식 앱과 코드 진입점 |
+| [apps/](apps/README.md) | Gateway·음악·주식·메이플 실행 앱과 코드 진입점 |
 | [modules/](modules/README.md) | 음악 공용 구현과 주식 메시지 계약 |
 | [ops/](ops/README.md) | 운영 점검, DLQ 재처리, cipher·관측성 설정 |
 | [docs/](docs/README.md) | 구조·계약·개발·운영 문서와 과거 작업 기록 |
 
-기술 구성은 Java 21, Spring Boot 3.5.5, JDA 6.3.1, LavaPlayer 2.2.4, youtube-source 1.18.2, Redis 7, RabbitMQ 3.13, PostgreSQL 16이다. 변경 시 [Gradle 설정](modules/common-core/build.gradle)과 [Compose](docker-compose.yml)를 함께 확인한다.
+기술 구성은 Java 21, Spring Boot 3.5.5, JDA 6.3.1, LavaPlayer 2.2.4, youtube-source 1.18.2, Redis 7, RabbitMQ 3.13, PostgreSQL 16이다. 메이플은 Node.js 22 이상과 Playwright/Chromium을 사용한다. 변경 시 [Gradle 설정](modules/common-core/build.gradle)과 [Compose](docker-compose.yml)를 함께 확인한다.
 
 YouTube 1.18.2 의존성은 Maven 공급 장애에 대응해 공식 GitHub release에서 받고 SHA-256을 검사한다. [Gradle 공급 안내](gradle/README.md)에 원본 metadata와 검증·갱신 절차를 기록했다.
 
@@ -128,7 +136,11 @@ YouTube 1.18.2 의존성은 Maven 공급 장애에 대응해 공식 GitHub relea
 # Gateway의 명령·응답과 음악 코어 테스트
 bash ./gradlew :apps:gateway-app:test :modules:common-core:test
 
-# CI와 같은 전체 테스트·패키징. Docker/Testcontainers 필요
+# 메이플 테스트: Node.js 22 이상 필요
+npm --prefix apps/maple-portal ci --ignore-scripts
+npm --prefix apps/maple-portal test
+
+# Java 전체 테스트·패키징. Docker/Testcontainers 필요
 bash ./gradlew clean test bootJarAll --no-daemon
 ```
 
@@ -142,7 +154,7 @@ Windows에서는 `bash ./gradlew`를 `.\gradlew.bat`로 바꾼다. 테스트에�
 - 대시보드: Grafana `http://localhost:3000`, Prometheus `http://localhost:9090`
 - 앱 HTTP 포트: Gateway `8081`, audio `8082`, stock `8083`
 - 전체 포트와 설정: [로컬 개발 안내](docs/operations/LOCAL_DEVELOPMENT.md), [관측성 안내](ops/observability/README.md)
-- 배포: [Deploy Bot](.github/workflows/cicd-deploy.yml)이 **`main` push 또는 수동 실행 시 테스트·이미지 빌드·서버 배포**를 수행한다. [배포 가이드](docs/operations/SERVER_DEPLOY_SCRIPT.md)를 확인한다.
+- 배포: [Build Bot Release](.github/workflows/cicd-deploy.yml)가 `main` push 또는 수동 실행 시 테스트·이미지 빌드·체크섬 포함 릴리스를 만든다. 서버의 systemd timer가 아웃바운드로 릴리스를 받아 검증·백업·마이그레이션 후 Compose를 갱신한다. [현재 배포 가이드](docs/operations/OUTBOUND_ONLY_DEPLOY.md)를 확인한다.
 
 ## 문서 수정 기준
 

@@ -4,7 +4,7 @@
 
 ## 개요
 
-현재 배포는 [GitHub Actions Deploy Bot](../../.github/workflows/cicd-deploy.yml)과 서버의 [deploy.sh](../../deploy.sh)를 기준으로 동작한다. `main` push와 수동 `workflow_dispatch`는 모두 실제 배포를 포함한다. 로컬 실행은 [로컬 개발 안내](LOCAL_DEVELOPMENT.md), 배포 후 장애 대응은 [운영 런북](OPERATIONS_RUNBOOK.md)을 따른다.
+이하 SSH 업로드 절차는 과거 구성의 기록이며 현재 CI 실행 방법이 아니다. 현재 [Build Bot Release](../../.github/workflows/cicd-deploy.yml)는 릴리스를 게시하고 서버가 pull한다. 현재 설정·명령은 [아웃바운드 배포](OUTBOUND_ONLY_DEPLOY.md)를 따른다. 로컬 실행은 [로컬 개발 안내](LOCAL_DEVELOPMENT.md), 배포 후 장애 대응은 [운영 런북](OPERATIONS_RUNBOOK.md)을 따른다.
 
 ## 사전 조건
 

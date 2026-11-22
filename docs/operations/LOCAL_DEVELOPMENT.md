@@ -114,6 +114,10 @@ docker compose --env-file .env stop stock-node
 
 IDE에서 cipher까지 호출하려면 호스트에서 접근 가능한 `YOUTUBE_REMOTE_CIPHER_URL`이 필요하다. 기본 내부 주소는 호스트에서 접근할 수 없고 cipher 포트도 공개되지 않으므로, 호스트용 포트 매핑을 별도로 추가하거나 접근 가능한 cipher 주소를 지정한다.
 
+## 메이플 선택 서비스
+
+메이플은 Gradle 앱이 아닌 `apps/maple-portal`의 Node 앱이다. 운영과 같은 Discord 연동은 루트 Compose의 `maple` 프로필과 [메이플 설정](MAPLE_DISCORD_SETUP.md)을 사용한다. npm 빌드·테스트와 단독 JSON 저장 모드의 차이는 [앱 안내](../../apps/maple-portal/README.md)를 따른다. 단독 로컬 모드의 성공을 Discord OAuth·PostgreSQL 운영 연결 성공으로 보지 않는다.
+
 ## 종료·검증·장애 대응
 
 ```bash

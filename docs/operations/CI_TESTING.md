@@ -32,11 +32,15 @@ PowerShell에서는 `bash ./gradlew` 대신 `.\gradlew.bat`를 사용한다. 일
 
 음악 앱의 주요 재생 로직은 common-core에 있어 해당 모듈 테스트를 함께 실행해야 한다. [StockCommandContractTest](../../apps/stock-node-app/src/test/java/discordgateway/stocknode/application/StockCommandContractTest.java)는 주식 계약을 확인한다. 계약 변경 시 Gateway 발행 코드와 worker 소비 코드도 같이 검토한다.
 
+## 메이플 검사
+
+`npm --prefix apps/maple-portal ci --ignore-scripts` 후 `npm --prefix apps/maple-portal test`를 실행한다. 장비·세트 계산, 사용자 격리, 검색 조건·상태, 복원, 브라우저 복구 경계를 검사한다. [PostgreSQL CI](../../.github/workflows/maple-postgres-test.yml)는 임시 PostgreSQL 16으로 Flyway·이전·복원을 검사한다. DB 없는 로컬의 skipped 검사는 성공으로 세지 않는다. 실제 넥슨 로그인·외부 경매장 요청·Discord DM 수신과 최대 처리량은 별도 검증이다.
+
 ## 결과 확인
 
 로컬 HTML 보고서는 테스트가 있는 모듈의 `build/reports/tests/test/index.html`, XML 결과는 `build/test-results/test/`에 생성된다.
 
-[Deploy Bot 워크플로우](../../.github/workflows/cicd-deploy.yml)는 `main` push 또는 수동 실행에서 전체 테스트·빌드를 먼저 수행한다. 성공 후 이미지 빌드·서버 배포가 이어진다. 테스트 보고서는 `if: always()`로 `gradle-test-reports-<git-sha>` artifact에 업로드한다. GitHub의 Actions → Deploy Bot → 해당 실행에서 내려받는다. 워크플로우 수동 실행도 배포를 포함하므로 단순 테스트 실행 버튼으로 취급하지 않는다.
+[Build Bot Release 워크플로우](../../.github/workflows/cicd-deploy.yml)는 `main` push 또는 수동 실행에서 전체 테스트·빌드를 먼저 수행한다. 성공 후 이미지와 체크섬을 릴리스에 게시한다. 서버 timer가 새 릴리스를 가져와 배포한다. 테스트 보고서는 `if: always()`로 `gradle-test-reports-<git-sha>` artifact에 업로드한다. GitHub의 Actions → Build Bot Release → 해당 실행에서 내려받는다. 워크플로우 수동 실행도 서버가 가져갈 릴리스를 게시하므로 단순 테스트 실행 버튼으로 취급하지 않는다.
 
 ## 실제 Discord에서 확인할 항목
 

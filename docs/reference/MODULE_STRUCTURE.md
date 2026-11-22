@@ -1,12 +1,13 @@
 # 모듈과 디렉터리 구조
 
-등록 기준은 [settings.gradle](../../settings.gradle)이다. 루트 Gradle 프로젝트 이름은 `TBot`이며 문서의 프로젝트명은 DIS다. 세 Spring Boot 앱과 두 Java 라이브러리로 구성한다.
+등록 기준은 [settings.gradle](../../settings.gradle)이다. 루트 Gradle 프로젝트 이름은 `TBot`이며 문서의 프로젝트명은 DIS다. Gradle은 세 Spring Boot 앱과 두 Java 라이브러리로 구성한다. Node 메이플 포털은 별도 npm 빌드이며 Gradle 모듈이 아니다.
 
 ```text
 apps/                   실행 앱과 앱별 README
   gateway-app/          Discord 진입·회신
   audio-node-app/       음악 worker 조립·복구·수명주기
   stock-node-app/       모의투자 worker·계좌·시세·영속화
+  maple-portal/         Node 포털·사용자별 Chromium·검색·계산·감시
 modules/                공용 라이브러리
   common-core/          음악 계약·재생 코어·공통 인프라
   stock-core/           주식 메시지 계약
@@ -40,6 +41,9 @@ stock 앱은 common-core나 JDA에 의존하지 않는다. common-core의 이름
 | 음성 복구·빈 채널 퇴장 | [audio-node-app](../../apps/audio-node-app/README.md) | Redis 상태와 lifecycle/recovery |
 | 주식 명령 메시지 | [stock-core](../../modules/stock-core/README.md) | Gateway 발행·stock 소비·계약 테스트 |
 | 거래·계좌·시즌·랭킹·시세 | [stock-node-app](../../apps/stock-node-app/README.md) | application·cache·quote·persistence |
+| 메이플 인증·DM | [Gateway maple](../../apps/gateway-app/src/main/java/discordgateway/gateway/maple) | Node 내부 API와 OAuth 계약 |
+| 메이플 검색·계산·브라우저 | [maple-portal](../../apps/maple-portal/README.md) | PORTAL·DAMAGE_MODEL·테스트 |
+| 메이플 DB | [maple migrations](../../ops/maple-db/migrations) | [스키마](MAPLE_PORTAL_SCHEMA.md)·JSON 이전·복원 |
 | DB 구조 | [Flyway migrations](../../apps/stock-node-app/src/main/resources/db/migration) | entity·repository·[스키마 문서](POSTGRESQL_STOCK_SCHEMA.md) |
 | 컨테이너·관측성·배포 | [ops/](../../ops/README.md) | Compose·워크플로우·운영 문서 |
 
@@ -52,6 +56,8 @@ bash ./gradlew bootJarAll
 ```
 
 산출물은 `apps/gateway-app/build/libs/gateway-app.jar`, `apps/audio-node-app/build/libs/audio-node-app.jar`, `apps/stock-node-app/build/libs/stock-node-app.jar`다. 각 Dockerfile이 해당 JAR를 복사한다. 공용 모듈은 독립 서비스나 Boot JAR를 만들지 않는다.
+
+메이플 번들은 `npm --prefix apps/maple-portal run build`로 생성한다. 포털 Dockerfile은 별도 Node/Chromium 이미지를 만든다.
 
 IDE 실행·설정은 [로컬 개발 안내](../operations/LOCAL_DEVELOPMENT.md), 테스트 명령은 [테스트 가이드](../operations/CI_TESTING.md)를 본다.
 

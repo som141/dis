@@ -13,7 +13,7 @@
 | `MAPLE_DISCORD_REDIRECT_URI=https://<도메인>/maple/oauth/callback` | Discord에 등록한 URI와 정확히 일치 |
 | `MAPLE_DISCORD_CLIENT_ID`, `MAPLE_DISCORD_CLIENT_SECRET` | 해당 Discord 애플리케이션의 OAuth2 값 |
 | `MAPLE_LINK_SIGNING_KEY`, `MAPLE_DISCORD_INTERNAL_KEY` | 각각 독립적인 임의 문자열, 32자 이상 |
-| `MAPLE_PORTAL_USERS` | 저장 가능한 사용자 수. 기본 2 |
+| `MAPLE_PORTAL_USERS` | 저장 가능한 사용자 수. DIS Compose·`.env.example` 기본 4 (운영값은 `.env` 확인) |
 | `MAPLE_POSTGRES_PASSWORD` | 기존 PostgreSQL 인스턴스의 메이플 전용 `maple_app` 역할 비밀번호. 비어 있으면 운영 포털 시작 불가 |
 | `INFRA_BIND=127.0.0.1` | PostgreSQL·Redis·RabbitMQ와 앱 관리 포트를 호스트 로컬로 제한 |
 
@@ -54,7 +54,7 @@ docker compose --profile maple ps
 
 ## 운영 경계
 
-- 기본 2명 상한은 총 사용자 기록 수다. 상한 증가는 포털 메모리/CPU 조정과 함께 한다. 현재 구성은 자동 사용자 삭제를 하지 않는다.
+- 사용자 상한은 총 사용자 기록 수다. Compose 기본은 4이며 서버 설정값은 별도로 확인한다. 100으로 설정해도 동시 브라우저 100개 처리 능력을 검증한 것은 아니다. 상한 증가는 포털 메모리/CPU 조정과 함께 한다. 현재 구성은 자동 사용자 삭제를 하지 않는다.
 - 포털/게이트웨이를 각각 여러 복제본으로 늘리지 않는다. 계정 예약과 알림 발송 상태는 단일 인스턴스 전제다.
 - Discord DM을 막아 둔 사용자는 알림을 받지 못하며, 웹의 작업 기록을 확인할 수 있다.
 - 포털 볼륨 `maple-portal-data`에는 사용자별 Chromium 프로필과 이전 JSON 체크포인트가 남는다. 현재 작업 상태·쿠키 해시·알림은 PostgreSQL `maple` 스키마가 기준이다. 둘 다 접근 제한과 백업이 필요하다.

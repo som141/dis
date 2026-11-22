@@ -4,6 +4,7 @@
 
 | 기록 | 읽는 목적 |
 | --- | --- |
+| [2026-11-22 문서 대조](DOCUMENTATION_AUDIT_2026-11-22.md) | 구현 근거, 수정 범위, 포트폴리오 주장·검증 경계 |
 | [analysis/](analysis/README.md) | 과거 코드 분석, Codex 작업 로그, 협업 방식의 맥락 |
 | [stock-history/](stock-history/README.md) | 모의투자 기능의 단계별 계획·구현·검증 기록 |
 
