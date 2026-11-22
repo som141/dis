@@ -6,6 +6,7 @@ const root=resolve(fileURLToPath(new URL('../../',import.meta.url)));
 const archive=join(root,'docs/archive/maple-local-handoff-2026-10');
 const files=[
   'README.md','docs/README.md','docs/operations/MAPLE_DISCORD_SETUP.md',
+  'docs/operations/SECURITY.md','docs/diagrams/README.md','ops/observability/README.md',
   'docs/reference/MAPLE_ARCHITECTURE.md','docs/reference/CURRENT_ARCHITECTURE.md',
   'docs/reference/README.md','docs/reference/MODULE_STRUCTURE.md','docs/reference/EVENT_CONTRACT.md',
   'docs/operations/README.md','docs/operations/CI_TESTING.md','docs/operations/LOCAL_DEVELOPMENT.md',

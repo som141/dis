@@ -15,9 +15,10 @@
 | `MAPLE_LINK_SIGNING_KEY`, `MAPLE_DISCORD_INTERNAL_KEY` | 각각 독립적인 임의 문자열, 32자 이상 |
 | `MAPLE_PORTAL_USERS` | 저장 가능한 사용자 수. DIS Compose·`.env.example` 기본 4 (운영값은 `.env` 확인) |
 | `MAPLE_POSTGRES_PASSWORD` | 기존 PostgreSQL 인스턴스의 메이플 전용 `maple_app` 역할 비밀번호. 비어 있으면 운영 포털 시작 불가 |
+| `OBSERVABILITY_BIND=127.0.0.1` | 지표·로그·대시보드·exporter 포트를 호스트 로컬로 제한 |
 | `INFRA_BIND=127.0.0.1` | PostgreSQL·Redis·RabbitMQ와 앱 관리 포트를 호스트 로컬로 제한 |
 
-로컬 시험은 `http://127.0.0.1:18877`과 같은 주소를 사용할 수 있지만 다른 사람의 PC에서는 열 수 없다. 공개 서버는 외부 HTTPS 프록시를 `maple-edge:80`으로 연결하고 `MAPLE_EDGE_BIND=127.0.0.1`을 유지해 내부 HTTP 포트를 직접 노출하지 않는다. 외부 프록시가 원래 Host를 전달해야 한다.
+로컬 시험은 `http://127.0.0.1:18877`과 같은 주소를 사용할 수 있지만 다른 사람의 PC에서는 열 수 없다. 공개 서버는 호스트에서 실행하는 터널이면 `127.0.0.1:18877`, 같은 Docker 네트워크의 프록시면 `maple-edge:80`으로 연결하고 `MAPLE_EDGE_BIND=127.0.0.1`을 유지해 내부 HTTP 포트를 직접 노출하지 않는다. 외부 프록시가 원래 Host를 전달해야 한다.
 
 넥슨 서비스 API 키는 기존 포털 비밀 파일 `apps/maple-portal/.docker-secrets/nexon-service-key`에 둔다. 파일 내용은 Git에 올리지 않는다. OAuth2 Client Secret과 두 서명/내부 키도 `.env`에만 둔다.
 

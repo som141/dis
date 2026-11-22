@@ -1,6 +1,6 @@
 # 운영 런북
 
-컨테이너·로그·메시지 큐·시세·음악 재생 문제를 순서대로 확인한다. 설정과 포트는 [로컬 개발 안내](LOCAL_DEVELOPMENT.md), 새 버전 반영은 [배포 가이드](SERVER_DEPLOY_SCRIPT.md)를 따른다.
+컨테이너·로그·메시지 큐·시세·음악 재생 문제를 순서대로 확인한다. 설정과 포트는 [로컬 개발 안내](LOCAL_DEVELOPMENT.md), 새 버전 반영은 [현재 배포 가이드](OUTBOUND_ONLY_DEPLOY.md)를 따른다.
 
 ## 1. 작업 위치와 상태
 
@@ -48,7 +48,7 @@ OAuth 상태는 컨테이너 이름을 확인한 뒤 아래처럼 상태 문구�
 docker logs --tail=10000 discord-bot-audio-node-1 2>&1 | grep -oE 'YouTube access token refreshed successfully|YouTube OAuth enabled with refresh token\.|YouTube OAuth disabled\. No YOUTUBE_REFRESH_TOKEN found\.|Refreshing YouTube access token failed|Refreshing access token returned error [a-z_]+' | tail -n 20
 ```
 
-토큰 설정 여부만으로 갱신 성공을 판단하지 않는다. cipher는 서명 해독 서비스여서 로그인 요구·bot 확인·SABR·음원 403을 모두 해결하지 않는다. 음악은 접수 후 실패하면 원래 interaction을 수정하며 유효 기간 15분을 넘긴 곡은 로그로 확인한다. 자세한 인증·클라이언트 대응은 [배포 가이드](SERVER_DEPLOY_SCRIPT.md)에 있다. 로그를 공유할 때 토큰·Authorization·서명된 음원 URL을 제외한다.
+토큰 설정 여부만으로 갱신 성공을 판단하지 않는다. cipher는 서명 해독 서비스여서 로그인 요구·bot 확인·SABR·음원 403을 모두 해결하지 않는다. 음악은 접수 후 실패하면 원래 interaction을 수정하며 유효 기간 15분을 넘긴 곡은 로그로 확인한다. 인증 설정은 [로컬 개발 안내](LOCAL_DEVELOPMENT.md)를 따른다. 로그를 공유할 때 토큰·Authorization·서명된 음원 URL을 제외한다.
 
 ## 4. 주식 시세·거래 실패
 

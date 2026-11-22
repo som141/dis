@@ -34,6 +34,8 @@ PowerShell에서는 `bash ./gradlew` 대신 `.\gradlew.bat`를 사용한다. 일
 
 ## 메이플 검사
 
+문서·안전 기본값은 [별도 CI](../../.github/workflows/docs-security-check.yml)에서 `node --test ops/security/config.test.mjs`, 문서 링크, SVG 생성 일치·Mermaid 렌더를 검사한다. 실제 환경의 시크릿이 없는 CI preflight에는 SKIP이 있을 수 있으며 보안 통과로 집계하지 않는다. 이 검사는 앱의 업무 테스트·운영 보안 점검을 대체하지 않는다.
+
 `npm --prefix apps/maple-portal ci --ignore-scripts` 후 `npm --prefix apps/maple-portal test`를 실행한다. 장비·세트 계산, 사용자 격리, 검색 조건·상태, 복원, 브라우저 복구 경계를 검사한다. [PostgreSQL CI](../../.github/workflows/maple-postgres-test.yml)는 임시 PostgreSQL 16으로 Flyway·이전·복원을 검사한다. DB 없는 로컬의 skipped 검사는 성공으로 세지 않는다. 실제 넥슨 로그인·외부 경매장 요청·Discord DM 수신과 최대 처리량은 별도 검증이다.
 
 ## 결과 확인

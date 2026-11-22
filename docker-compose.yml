@@ -298,7 +298,7 @@ services:
       - ./ops/observability/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
       - prometheus-data:/prometheus
     ports:
-      - "9090:9090"
+      - "${OBSERVABILITY_BIND:-127.0.0.1}:9090:9090"
     depends_on:
       gateway:
         condition: service_started
@@ -323,7 +323,7 @@ services:
       - ./ops/observability/loki/loki-config.yml:/etc/loki/config.yml:ro
       - loki-data:/loki
     ports:
-      - "3100:3100"
+      - "${OBSERVABILITY_BIND:-127.0.0.1}:3100:3100"
     restart: unless-stopped
 
   alloy:
@@ -339,7 +339,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - alloy-data:/var/lib/alloy/data
     ports:
-      - "12345:12345"
+      - "${OBSERVABILITY_BIND:-127.0.0.1}:12345:12345"
     depends_on:
       loki:
         condition: service_started
@@ -351,7 +351,7 @@ services:
     environment:
       REDIS_ADDR: redis://redis:6379
     ports:
-      - "9121:9121"
+      - "${OBSERVABILITY_BIND:-127.0.0.1}:9121:9121"
     depends_on:
       redis:
         condition: service_healthy
@@ -363,7 +363,7 @@ services:
     environment:
       DATA_SOURCE_NAME: postgresql://${POSTGRES_USER:-stock}:${POSTGRES_PASSWORD:-stock}@postgres:5432/${POSTGRES_DB:-stock}?sslmode=disable
     ports:
-      - "9187:9187"
+      - "${OBSERVABILITY_BIND:-127.0.0.1}:9187:9187"
     depends_on:
       postgres:
         condition: service_healthy
@@ -386,7 +386,7 @@ services:
       - ./ops/observability/grafana/dashboards:/etc/grafana/dashboards:ro
       - grafana-data:/var/lib/grafana
     ports:
-      - "3000:3000"
+      - "${OBSERVABILITY_BIND:-127.0.0.1}:3000:3000"
     depends_on:
       prometheus:
         condition: service_started

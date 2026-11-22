@@ -25,9 +25,15 @@ curl -fsS http://localhost:3000/api/health
 
 Prometheus는 `gateway`, `audio-node`, `stock-node`, `redis-exporter`, `postgres-exporter`, `rabbitmq`, `prometheus`, `loki`, `alloy`를 15초 간격으로 scrape한다. RabbitMQ 메트릭은 내부 `rabbitmq:15692`에서 가져온다.
 
+## 접근 경계
+
+호스트 포트 6개는 `OBSERVABILITY_BIND=127.0.0.1`이 기본이다. 컨테이너 내부 scrape에는 서비스 이름을 사용하므로 이 제한의 영향을 받지 않는다. 원격 운영은 인증된 SSH 포트 전달 등을 사용하고 Grafana·Loki·Prometheus를 공개 ngrok 경로에 연결하지 않는다. `0.0.0.0`으로 변경하면 이 보호가 사라진다.
+
+Alloy는 Docker 로그 탐색을 위해 Docker socket에 접근한다. 이는 호스트의 높은 권한을 제공할 수 있으며 포트 제한으로 socket 권한까지 격리되는 것은 아니다. 관리자만 설정·컨테이너에 접근하고, 더 강한 격리는 socket proxy 또는 별도 수집 계층 설계가 필요하다. 자세한 점검은 [보안 운영](../../docs/operations/SECURITY.md)을 따른다.
+
 ## Grafana와 알림
 
-계정은 `.env`의 `GRAFANA_ADMIN_USER`, `GRAFANA_ADMIN_PASSWORD`를 사용한다. 기본 예제 값은 `admin`/`admin`이다. 최초 `grafana-data` volume 초기화 뒤에는 환경 변수 변경만으로 기존 계정 비밀번호가 바뀌지 않을 수 있다.
+계정은 `.env`의 `GRAFANA_ADMIN_USER`, `GRAFANA_ADMIN_PASSWORD`를 사용한다. 기본 예제 `admin`/`admin`은 개발용이다. 운영에서는 서로 다른 임의 비밀번호를 사용하고 익명 접근을 끈다. 최초 `grafana-data` volume 초기화 뒤에는 환경 변수 변경만으로 기존 계정 비밀번호가 바뀌지 않을 수 있다.
 
 Datasource는 Prometheus·Loki, 대시보드는 [이 목록](grafana/dashboards/README.md)의 네 개가 file provisioning으로 등록된다. 앱·인프라·stock·PostgreSQL 대시보드에서 지표와 로그를 함께 확인한다.
 

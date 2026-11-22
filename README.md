@@ -2,13 +2,52 @@
 
 DIS는 음성 채널에서 음악을 재생하고, 채팅에서 주식 모의투자와 메이플 경매장 검색을 이용할 수 있는 봇이다. Discord 명령을 받는 Gateway와 음악·주식 worker, 사용자별 브라우저로 경매장을 조회하는 메이플 포털을 분리했다.
 
-[빠른 시작](#빠른-시작) · [명령어](#주요-명령어) · [아키텍처](#아키텍처) · [테스트](#테스트와-검증-범위) · [전체 문서](docs/README.md)
+[아키텍처](#아키텍처) · [사용자 흐름](#사용자가-보는-흐름) · [보안](#보안-경계) · [빠른 시작](#빠른-시작) · [명령어](#주요-명령어) · [테스트](#테스트와-검증-범위) · [전체 문서](docs/README.md)
 
 메이플 기능은 [포털 안내](apps/maple-portal/README.md)와 [운영 가이드](docs/operations/MAPLE_DISCORD_SETUP.md)를 따른다. 이전 로컬 인수인계 기록은 [문서 보관함](docs/archive/maple-local-handoff-2026-10/README.md)에 남겼다.
 
 메이플은 `maple` Compose 프로필로 켜는 선택 서비스다. 현재 인증·검색·알림 흐름은 [메이플 아키텍처](docs/reference/MAPLE_ARCHITECTURE.md)에, 과거 설계는 내부 기록에 구분했다.
 
 인바운드 연결이 막힌 Ubuntu 서버의 배포 절차는 [아웃바운드 전용 배포 안내](docs/operations/OUTBOUND_ONLY_DEPLOY.md)를 따른다.
+
+## 아키텍처
+
+![DIS 전체 시스템 구조: 공개 웹 진입점, Spring 앱, Node 메이플 포털, 내부 데이터](docs/diagrams/system-overview.svg)
+
+[확대해서 보기](docs/diagrams/system-overview.svg) · [수정 가능한 Mermaid 원본](docs/diagrams/system-overview.mmd) · [상세 아키텍처](docs/reference/CURRENT_ARCHITECTURE.md)
+
+| 실행 경계 | 담당 | 연결 방식 |
+| --- | --- | --- |
+| Spring Gateway | Discord 명령·응답, 메이플 Discord OAuth·개인 DM | 음악·주식은 RabbitMQ, 메이플은 내부 HTTP |
+| Spring Audio Node | 길드별 재생 큐·음성 연결·후속 재생 실패 | RabbitMQ·Redis·YouTube/cipher·Discord Voice |
+| Spring Stock Node | 시세·가상 계좌·거래·시즌·랭킹 | RabbitMQ·Redis·PostgreSQL·Finnhub |
+| Node Maple Portal | 사용자별 Chromium, 캐릭터 선택, 검색·장비 비교·감시 | Gateway 내부 HTTP·넥슨·PostgreSQL |
+| maple-edge | 메이플 공개 웹 요청의 단일 라우팅 지점 | TLS는 신뢰한 외부 프록시/터널에서 종료. 내부 API 공개 차단 |
+
+**상태 저장:** Redis는 응답 대기·음악 상태·주식 캐시를 보관한다. 기존 PostgreSQL의 `public`에는 주식 데이터, 별도 `maple` 스키마에는 계정·캐릭터별 검색·작업·감시·발송함을 저장한다. 넥슨 로그인 쿠키는 사용자별 Chromium 프로필 볼륨에 남는다. [주식 스키마](docs/reference/POSTGRESQL_STOCK_SCHEMA.md) · [메이플 스키마](docs/reference/MAPLE_PORTAL_SCHEMA.md)
+
+음악·주식 메시지 흐름과 메이플 HTTP 흐름은 다르다. 메이플 검색을 Spring/RabbitMQ worker가 처리한다고 설명하지 않는다. 세 앱의 Java 실행 모듈과 별도 npm 포털은 [모듈 구조](docs/reference/MODULE_STRUCTURE.md)를 따른다.
+
+## 사용자가 보는 흐름
+
+| 기능 | 입력에서 결과까지 |
+| --- | --- |
+| 음악 | 음성 채널 입장 → `/play` → 요청 접수 → 검색·재생 → 실패 시 원 응답 수정. 접수 성공과 실제 청취는 별도 |
+| 주식 | `/stock` → 시세 freshness·계좌 검증 → 잔고·보유 종목·거래 내역을 DB transaction으로 반영 → Discord 응답 |
+| 메이플 | `/maple connect` → Discord OAuth → 포털 → 공식 넥슨 로그인 → 캐릭터·교체 장비·조건 선택 → 조회/감시 → 상위 10위 변화 개인 DM |
+
+메이플은 감시를 끄면 한 번만 조회한다. 잠재·에디 조건은 여러 최소치를 함께 지정하고, 옵션 상한·최대 스타포스는 수집 후 로컬 필터로 적용한다. 반지 4칸·펜던트 2칸 중 교체 대상을 선택하며 확인 가능한 일반·럭키 세트 변화를 반영한다. 로그인만으로 검색을 시작하지 않는다.
+
+**계산·운영 한계:** 기대 피해 계수 증가율과 경매장 전투력 참고값은 다르다. 전 직업·전 장비의 환산 점수나 실전 DPM을 보장하지 않으며 미지원 조건은 사유로 표시한다. 외부 검색 quota는 유지되고 등록 사용자 한도는 동시 처리량 지표가 아니다. [사용법](apps/maple-portal/PORTAL.md) · [계산 명세](apps/maple-portal/DAMAGE_MODEL.md)
+
+## 보안 경계
+
+- 공개 HTTPS는 메이플 edge에만 연결한다. DB·Redis·RabbitMQ·Actuator·Grafana·로그·exporter 포트는 기본 호스트 loopback이며 공개 터널로 전달하지 않는다.
+- Discord 연결 티켓의 서명·만료·사용자 일치, 포털 쿠키, 변경 요청의 Origin·CSRF·소유권을 검사한다. Discord 인증과 넥슨 인증은 별개다.
+- 실제 키·비밀번호·세션 URL·브라우저 프로필·DB 덤프·HAR는 커밋하거나 이슈에 첨부하지 않는다. `.env.example`은 개발용이며 운영 비밀번호로 사용할 수 없다.
+- 코드의 검사 존재와 운영 검증 완료를 구분한다. 프록시 error log·터널 트래픽 캡처, Docker socket 권한, 기존 계정 비밀번호와 API 권한은 운영에서 확인해야 한다.
+
+[공개/내부 경계와 보안 운영](docs/operations/SECURITY.md) · [메이플 배포 전 12항목](docs/operations/MAPLE_SECURITY_PREFLIGHT.md)
 
 ## 주요 명령어
 
@@ -48,10 +87,13 @@ Windows PowerShell에서는 `Copy-Item .env.example .env`를 사용한다. `.env
 | `DISCORD_TOKEN` | Discord Developer Portal의 봇 토큰으로 교체 |
 | `DISCORD_DEV_GUILD_ID` | 개발 서버에 명령을 등록하려면 해당 서버 ID 지정. 비우면 전역 등록 |
 | `RABBITMQ_USERNAME`, `RABBITMQ_PASSWORD` | RabbitMQ와 앱이 함께 사용할 계정 |
-| `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | 로컬 기본값 제공. 앱과 DB에 같은 값 적용 |
+| `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | 개발 기본값만 제공. 운영은 별도 임의 비밀번호와 기존 DB 계정 설정 확인 |
+| `INFRA_BIND`, `OBSERVABILITY_BIND`, `MAPLE_EDGE_BIND` | 기본 `127.0.0.1` 유지. 공개 웹은 edge에 연결한 HTTPS 프록시 사용 |
 | `STOCK_QUOTE_PROVIDER` | 첫 실행은 `mock`. 실시간 시세는 `finnhub`와 `FINNHUB_API_KEY` 설정 |
 
 봇을 서버에 초대할 때 `bot`, `applications.commands` scope와 텍스트 응답·음성 채널 연결·말하기 권한이 필요하다. 토큰은 `.env`에만 두고 커밋하지 않는다. YouTube 인증·cipher와 전체 설정은 [로컬 개발 안내](docs/operations/LOCAL_DEVELOPMENT.md)에 있다.
+
+개발용 `.env.example`을 그대로 운영에 쓰지 않는다. 운영 설정 검사는 `node ops/security/preflight.mjs --production --env-file <환경파일>`로 실행하며 비밀값 자체는 출력하지 않는다. 이미 생성된 PostgreSQL·RabbitMQ·Grafana 계정은 환경 파일 수정만으로 비밀번호가 변경되지 않는다.
 
 ### 2. JAR 빌드와 컨테이너 시작
 
@@ -87,54 +129,15 @@ PowerShell에서는 HTTP 확인에 `curl.exe`를 사용할 수 있다. health �
 
 종료는 `docker compose --env-file .env down`이다. 기본 명령은 데이터 volume을 보존한다. 상세 장애 대응은 [운영 런북](docs/operations/OPERATIONS_RUNBOOK.md)을 본다.
 
-## 아키텍처
-
-```mermaid
-flowchart LR
-    D[Discord] --> G[gateway-app]
-    G -->|명령| Q[(RabbitMQ)]
-    Q --> A[audio-node-app]
-    Q --> S[stock-node-app]
-    A -->|결과| Q
-    S -->|결과| Q
-    Q -->|응답 편집| G
-    G --> D
-    G --> R[(Redis)]
-    A --> R
-    S --> R
-    S -->|stock tables| P[(PostgreSQL)]
-    U[웹 사용자] --> E[HTTPS / maple-edge]
-    E -->|OAuth callback| G
-    E --> M[Node maple-portal]
-    G <-->|내부 HTTP / 세션·발송함| M
-    M --> B[사용자별 Chromium]
-    B --> N[넥슨 로그인 / 경매장]
-    M -->|캐릭터 API| N
-    M -->|maple schema| P
-    A --> Y[YouTube / 음원]
-    A --> C[YouTube cipher]
-    A -->|음성 전송| D
-    S -->|주기적 시세 갱신| F[Finnhub]
-```
-
-Gateway는 명령 수신·응답을, 각 worker는 도메인 처리를 담당한다. Redis에는 pending 응답·음악 상태·캐시를, PostgreSQL에는 모의투자 계좌·포지션·원장과 별도 `maple` 스키마의 계정·검색·감시·발송함을 저장한다. 메이플은 RabbitMQ worker가 아닌 Node 포털이며, Spring Gateway와 내부 HTTP로 연결된다. [현재 아키텍처](docs/reference/CURRENT_ARCHITECTURE.md)에서 재생과 시세 갱신 흐름을 자세히 설명한다.
-
-| 디렉터리 | 역할 |
-| --- | --- |
-| [apps/](apps/README.md) | Gateway·음악·주식·메이플 실행 앱과 코드 진입점 |
-| [modules/](modules/README.md) | 음악 공용 구현과 주식 메시지 계약 |
-| [ops/](ops/README.md) | 운영 점검, DLQ 재처리, cipher·관측성 설정 |
-| [docs/](docs/README.md) | 구조·계약·개발·운영 문서와 과거 작업 기록 |
-
-기술 구성은 Java 21, Spring Boot 3.5.5, JDA 6.3.1, LavaPlayer 2.2.4, youtube-source 1.18.2, Redis 7, RabbitMQ 3.13, PostgreSQL 16이다. 메이플은 Node.js 22 이상과 Playwright/Chromium을 사용한다. 변경 시 [Gradle 설정](modules/common-core/build.gradle)과 [Compose](docker-compose.yml)를 함께 확인한다.
-
-YouTube 1.18.2 의존성은 Maven 공급 장애에 대응해 공식 GitHub release에서 받고 SHA-256을 검사한다. [Gradle 공급 안내](gradle/README.md)에 원본 metadata와 검증·갱신 절차를 기록했다.
-
 ## 테스트와 검증 범위
 
 ```bash
 # Gateway의 명령·응답과 음악 코어 테스트
 bash ./gradlew :apps:gateway-app:test :modules:common-core:test
+
+# 설정·시크릿 검사 회귀 테스트: Docker Compose CLI 필요, daemon 불필요
+node --test ops/security/config.test.mjs
+node ops/maple-db/check-doc-links.mjs
 
 # 메이플 테스트: Node.js 22 이상 필요
 npm --prefix apps/maple-portal ci --ignore-scripts
@@ -155,6 +158,15 @@ Windows에서는 `bash ./gradlew`를 `.\gradlew.bat`로 바꾼다. 테스트에�
 - 앱 HTTP 포트: Gateway `8081`, audio `8082`, stock `8083`
 - 전체 포트와 설정: [로컬 개발 안내](docs/operations/LOCAL_DEVELOPMENT.md), [관측성 안내](ops/observability/README.md)
 - 배포: [Build Bot Release](.github/workflows/cicd-deploy.yml)가 `main` push 또는 수동 실행 시 테스트·이미지 빌드·체크섬 포함 릴리스를 만든다. 서버의 systemd timer가 아웃바운드로 릴리스를 받아 검증·백업·마이그레이션 후 Compose를 갱신한다. [현재 배포 가이드](docs/operations/OUTBOUND_ONLY_DEPLOY.md)를 확인한다.
+
+## 코드·문서 탐색
+
+- [apps](apps/README.md): Gateway·음악·주식·메이플 앱
+- [modules](modules/README.md): Java 공용 음악 구현·주식 메시지 계약
+- [ops](ops/README.md): 릴리스 배포·관측성·DB·보안 점검
+- [docs](docs/README.md): 현재 구조·운영 절차와 과거 기록
+
+Java 21, Spring Boot 3.5.5, JDA 6.3.1, Node.js 22 이상, Playwright/Chromium, Redis 7, RabbitMQ 3.13, PostgreSQL 16을 사용한다. 정확한 버전은 [Gradle](modules/common-core/build.gradle), [npm](apps/maple-portal/package.json), [Compose](docker-compose.yml)가 기준이다. YouTube 의존성의 공식 릴리스·해시 검증은 [공급 안내](gradle/README.md)에 기록했다.
 
 ## 문서 수정 기준
 

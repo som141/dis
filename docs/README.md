@@ -6,6 +6,7 @@
 
 | 하고 싶은 일 | 먼저 읽을 문서 |
 | --- | --- |
+| 공개/내부 경계와 보안 점검 | [보안 운영](operations/SECURITY.md) · [메이플 12항목](operations/MAPLE_SECURITY_PREFLIGHT.md) |
 | 메이플 Discord 포털 사용·구현 | [메이플 포털](../apps/maple-portal/README.md) · [인증·검색 아키텍처](reference/MAPLE_ARCHITECTURE.md) · [PostgreSQL 스키마](reference/MAPLE_PORTAL_SCHEMA.md) |
 | 로컬 실행·IntelliJ 설정·환경 변수 확인 | [로컬 개발 안내](operations/LOCAL_DEVELOPMENT.md) |
 | 기존 개인용 Chrome 확장 실행 기록 | [개인용 실행 안내](../apps/maple-portal/LOCAL_LEGACY.md) · 운영 포털과 별도 |

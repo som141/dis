@@ -1,6 +1,6 @@
 # 로컬 개발과 환경 설정
 
-[프로젝트 README](../../README.md)의 빠른 시작을 보완한다. 아래 명령의 작업 위치는 **저장소 루트**다. 서버 release 경로에서의 점검·배포는 [운영 런북](OPERATIONS_RUNBOOK.md), [배포 가이드](SERVER_DEPLOY_SCRIPT.md)를 따른다.
+[프로젝트 README](../../README.md)의 빠른 시작을 보완한다. 아래 명령의 작업 위치는 **저장소 루트**다. 서버 release 경로에서의 점검·배포는 [운영 런북](OPERATIONS_RUNBOOK.md), [현재 배포 가이드](OUTBOUND_ONLY_DEPLOY.md)를 따른다.
 
 ## 실행 전 준비
 
@@ -38,6 +38,7 @@ Dockerfile은 각 앱의 `build/libs/*.jar`를 복사한다. `COPY ...jar: not f
 | `YOUTUBE_REMOTE_CIPHER_URL` | 기본 `http://youtube-cipher:8001`. Compose 네트워크 내부 주소 |
 | `YOUTUBE_REMOTE_CIPHER_PASSWORD` | 내부 cipher API와 앱이 공유하는 선택 인증 값 |
 | `YOUTUBE_PO_TOKEN`, `YOUTUBE_VISITOR_DATA` | 선택 설정. 모든 곡의 재생을 보장하는 값은 아님 |
+| `INFRA_BIND`, `OBSERVABILITY_BIND` | 기본 `127.0.0.1`. DB·관리·관측성 호스트 포트에 적용 |
 | `COMPOSE_PROJECT_NAME` | 예제 `.env`는 `discord-bot`. 컨테이너·volume 이름에 반영 |
 
 전체 값은 [.env.example](../../.env.example), [Compose](../../docker-compose.yml), [공통 설정](../../modules/common-core/src/main/resources/application-common.yml), [주식 앱 설정](../../apps/stock-node-app/src/main/resources/application.yml)을 기준으로 한다. RabbitMQ·PostgreSQL의 초기 계정 설정은 기존 데이터 volume의 계정을 자동 변경하지 않는다.

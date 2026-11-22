@@ -4,34 +4,9 @@ DIS는 세 Spring Boot 앱(Gateway·음악·주식)과 선택 기능인 Node 메
 
 ## 서비스 연결
 
-```mermaid
-flowchart LR
-    U[사용자] --> D[Discord]
-    D --> G[gateway-app]
-    G -->|명령| Q[(RabbitMQ)]
-    Q --> A[audio-node-app]
-    Q --> S[stock-node-app]
-    A -->|결과| Q
-    S -->|결과| Q
-    Q --> G
-    G -->|응답 편집| D
-    G --> R[(Redis)]
-    A --> R
-    S --> R
-    S -->|stock tables| P[(PostgreSQL)]
-    U[웹 사용자] --> E[HTTPS / maple-edge]
-    E -->|OAuth callback| G
-    E --> M[Node maple-portal]
-    G <-->|내부 HTTP / 세션·발송함| M
-    M --> B[사용자별 Chromium]
-    B --> N[넥슨 로그인 / 경매장]
-    M -->|캐릭터 API| N
-    M -->|maple schema| P
-    A --> C[YouTube cipher]
-    A --> Y[음원 서버]
-    A -->|음성 전송| D
-    S -->|주기적 갱신| F[Finnhub]
-```
+![전체 구조](../diagrams/system-overview.svg)
+
+[Mermaid 원본](../diagrams/system-overview.mmd) · [공개/내부 경계](../operations/SECURITY.md)
 
 Gateway도 음악 autocomplete·음원 조회용 PlayerManager와 cipher 설정을 사용한다. stock은 Discord/JDA에 접속하지 않는다. Gateway와 audio는 같은 봇 계정의 서로 다른 JDA 프로세스다.
 

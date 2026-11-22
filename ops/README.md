@@ -4,6 +4,8 @@
 
 | 파일 / 디렉터리 | 목적 | 실행 효과 |
 | --- | --- | --- |
+| [security/](security/preflight.mjs) | 값 출력 없는 비밀 노출·운영 설정 검사 | 읽기 전용. 검사 누락은 SKIP, 문제는 실패 코드 |
+| [docs/](docs/render-diagrams.py) | 고정 배치 아키텍처 SVG 생성·일치 검사 | 문서 그림만 갱신. `--check`는 읽기 전용 |
 | [pull-deploy.sh](pull-deploy.sh) · [timer](dis-pull-deploy.timer) | GitHub 릴리스 확인·체크섬 검사·서버 배포 | 새 릴리스 다운로드·Compose 갱신 |
 | [smoke-check.sh](smoke-check.sh) | 배포 release의 앱 health·stock metrics 확인 | 상태 조회. Discord 재생·거래를 직접 실행하지 않음 |
 | [replay-command-dlq.sh](replay-command-dlq.sh) | 음악 command DLQ 재처리 | 최대 건수만큼 명령을 다시 발행·처리 |
