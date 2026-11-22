@@ -5,6 +5,8 @@
 | 문서 | 답하는 내용 | 함께 볼 코드 |
 | --- | --- | --- |
 | [현재 아키텍처](CURRENT_ARCHITECTURE.md) | Discord 명령·음악 재생·시세 갱신은 어떻게 연결되는가 | [앱 목록](../../apps/README.md), [Compose](../../docker-compose.yml) |
+| [메이플 아키텍처](MAPLE_ARCHITECTURE.md) | 인증·검색·감시·계산·복원 경계 | Gateway maple·Node portal |
+| [메이플 스키마](MAPLE_PORTAL_SCHEMA.md) | 계정·캐릭터·검색·발송함 소유권 | maple Flyway migration |
 | [모듈 구조](MODULE_STRUCTURE.md) | 기능을 어느 앱·모듈에서 수정하는가 | [settings.gradle](../../settings.gradle), [모듈 목록](../../modules/README.md) |
 | [이벤트 계약](EVENT_CONTRACT.md) | command/result·pending·큐·실패 처리는 어떻게 연결되는가 | common-core·stock-core의 메시지 타입 |
 | [PostgreSQL 스키마](POSTGRESQL_STOCK_SCHEMA.md) | 계좌·포지션·시즌·원장은 어떻게 저장되는가 | stock 앱의 Flyway migration |

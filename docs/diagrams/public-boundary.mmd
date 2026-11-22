@@ -1,0 +1,16 @@
+flowchart LR
+    USER["웹 사용자"] -->|"HTTPS"| TLS["TLS 종료<br/>신뢰한 터널 / 역방향 프록시"]
+    TLS -->|"호스트 loopback 또는 내부 네트워크"| E["maple-edge"]
+    E -->|"/maple/connect<br/>/maple/oauth/callback"| G["Gateway<br/>Discord 신원 확인"]
+    E -->|"포털 화면·API"| M["Maple Portal<br/>세션·Origin·CSRF·소유권 검사"]
+    E -->|"/internal/"| DENY["404 거절"]
+    G <-->|"내부 키 인증"| M
+    M --> P[("PostgreSQL maple")]
+    M --> V[("개인 Chromium 프로필")]
+    ADMIN["운영자 SSH / VPN<br/>인증된 터널"] -.-> OBS["관리 포트 · DB · 지표 · 로그<br/>기본 호스트 loopback"]
+    classDef public fill:#eeeafa,stroke:#7963ac,color:#382960
+    classDef internal fill:#edf4ff,stroke:#4776a7,color:#142b43
+    classDef deny fill:#fff0ec,stroke:#bc5a42,color:#612d20
+    class TLS,E public
+    class G,M,P,V,OBS internal
+    class DENY deny

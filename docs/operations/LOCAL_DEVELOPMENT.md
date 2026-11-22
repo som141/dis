@@ -1,6 +1,6 @@
 # 로컬 개발과 환경 설정
 
-[프로젝트 README](../../README.md)의 빠른 시작을 보완한다. 아래 명령의 작업 위치는 **저장소 루트**다. 서버 release 경로에서의 점검·배포는 [운영 런북](OPERATIONS_RUNBOOK.md), [배포 가이드](SERVER_DEPLOY_SCRIPT.md)를 따른다.
+[프로젝트 README](../../README.md)의 빠른 시작을 보완한다. 아래 명령의 작업 위치는 **저장소 루트**다. 서버 release 경로에서의 점검·배포는 [운영 런북](OPERATIONS_RUNBOOK.md), [현재 배포 가이드](OUTBOUND_ONLY_DEPLOY.md)를 따른다.
 
 ## 실행 전 준비
 
@@ -38,6 +38,7 @@ Dockerfile은 각 앱의 `build/libs/*.jar`를 복사한다. `COPY ...jar: not f
 | `YOUTUBE_REMOTE_CIPHER_URL` | 기본 `http://youtube-cipher:8001`. Compose 네트워크 내부 주소 |
 | `YOUTUBE_REMOTE_CIPHER_PASSWORD` | 내부 cipher API와 앱이 공유하는 선택 인증 값 |
 | `YOUTUBE_PO_TOKEN`, `YOUTUBE_VISITOR_DATA` | 선택 설정. 모든 곡의 재생을 보장하는 값은 아님 |
+| `INFRA_BIND`, `OBSERVABILITY_BIND` | 기본 `127.0.0.1`. DB·관리·관측성 호스트 포트에 적용 |
 | `COMPOSE_PROJECT_NAME` | 예제 `.env`는 `discord-bot`. 컨테이너·volume 이름에 반영 |
 
 전체 값은 [.env.example](../../.env.example), [Compose](../../docker-compose.yml), [공통 설정](../../modules/common-core/src/main/resources/application-common.yml), [주식 앱 설정](../../apps/stock-node-app/src/main/resources/application.yml)을 기준으로 한다. RabbitMQ·PostgreSQL의 초기 계정 설정은 기존 데이터 volume의 계정을 자동 변경하지 않는다.
@@ -113,6 +114,10 @@ docker compose --env-file .env stop stock-node
 [GatewayApplication](../../apps/gateway-app/src/main/java/discordgateway/gateway/GatewayApplication.java), [AudioNodeApplication](../../apps/audio-node-app/src/main/java/discordgateway/audionode/AudioNodeApplication.java)도 개별 실행할 수 있으나, 각각 Discord 토큰과 서로 다른 `HEALTH_PORT`·`APP_NODE_NAME`이 필요하다. 음악 연결은 DAVE native 의존성도 사용한다. 현재 [common-core 의존성](../../modules/common-core/build.gradle)에 포함된 native는 Windows x86-64와 Linux musl x86-64다. 다른 호스트 플랫폼의 음성 실행은 의존성 확인이 필요하며, 전체 Docker 실행이 기준 경로다.
 
 IDE에서 cipher까지 호출하려면 호스트에서 접근 가능한 `YOUTUBE_REMOTE_CIPHER_URL`이 필요하다. 기본 내부 주소는 호스트에서 접근할 수 없고 cipher 포트도 공개되지 않으므로, 호스트용 포트 매핑을 별도로 추가하거나 접근 가능한 cipher 주소를 지정한다.
+
+## 메이플 선택 서비스
+
+메이플은 Gradle 앱이 아닌 `apps/maple-portal`의 Node 앱이다. 운영과 같은 Discord 연동은 루트 Compose의 `maple` 프로필과 [메이플 설정](MAPLE_DISCORD_SETUP.md)을 사용한다. npm 빌드·테스트와 단독 JSON 저장 모드의 차이는 [앱 안내](../../apps/maple-portal/README.md)를 따른다. 단독 로컬 모드의 성공을 Discord OAuth·PostgreSQL 운영 연결 성공으로 보지 않는다.
 
 ## 종료·검증·장애 대응
 

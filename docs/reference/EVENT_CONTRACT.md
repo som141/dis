@@ -4,6 +4,8 @@ Gateway와 worker는 JSON 메시지를 RabbitMQ로 주고받는다. 음악과 �
 
 ## 타입과 메타데이터
 
+이 문서는 음악·주식 RabbitMQ 계약을 설명한다. 메이플 세션·작업·DM 발송함은 Gateway ↔ Node 내부 HTTP 계약이며 [메이플 아키텍처](MAPLE_ARCHITECTURE.md)를 따른다.
+
 | 계약 | 본문과 메타데이터 | 소스 |
 | --- | --- | --- |
 | 음악 명령 | `MusicCommandEnvelope` 안의 `message`에 commandId·schemaVersion·sentAtEpochMs·producer·command. envelope에는 responseTargetNode·responseMode | [common/command/](../../modules/common-core/src/main/java/discordgateway/common/command) |

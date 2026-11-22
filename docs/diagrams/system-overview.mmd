@@ -1,0 +1,60 @@
+flowchart TB
+    subgraph outside["사용자 · 외부 서비스"]
+        direction LR
+        DU["Discord 사용자"]
+        WEB["메이플 웹 사용자"]
+        DISCORD["Discord API · Voice · OAuth"]
+        YT["YouTube"]
+        FIN["Finnhub"]
+        NEXON["넥슨 로그인 · 경매장 · 캐릭터 API"]
+    end
+
+    subgraph server["서버 · Docker Compose 네트워크"]
+        direction TB
+        EDGE["HTTPS 터널 / 프록시 → maple-edge<br/>공개 웹 진입점"]
+        G["Spring Gateway<br/>명령 · OAuth · DM"]
+        MQ["RabbitMQ<br/>음악·주식 command / result"]
+        A["Spring Audio Node<br/>길드별 재생 · 음성 전송"]
+        S["Spring Stock Node<br/>시세 · 모의매매 · 시즌"]
+        M["Node Maple Portal<br/>계정·캐릭터별 검색 · 비교 · 감시"]
+        B["사용자별 Chromium<br/>공식 로그인 · 경매장 요청"]
+        C["YouTube cipher<br/>서명 해독"]
+        subgraph state["내부 데이터 · 공개 프록시에 연결하지 않음"]
+            R[("Redis<br/>pending · 음악 상태 · 주식 캐시")]
+            P[("PostgreSQL<br/>public: 주식 / maple: 포털")]
+            V[("사용자별 프로필 볼륨<br/>넥슨 쿠키 · 브라우저 상태")]
+        end
+    end
+
+    DU <--> DISCORD
+    DISCORD <--> G
+    WEB -->|"HTTPS"| EDGE
+    EDGE -->|"OAuth 연결·callback"| G
+    EDGE -->|"웹·사용자 API"| M
+    G <-->|"내부 HTTP: 세션·작업·발송함"| M
+    G <--> MQ
+    MQ <--> A
+    MQ <--> S
+    A -->|"음성"| DISCORD
+    A --> YT
+    A --> C
+    G -.->|"음원 조회"| C
+    S --> FIN
+    M --> B
+    B --> NEXON
+    M -->|"서비스 키: 캐릭터 스탯"| NEXON
+    G --> R
+    A --> R
+    S --> R
+    S --> P
+    M --> P
+    B --> V
+
+    classDef app fill:#edf4ff,stroke:#4776a7,color:#142b43
+    classDef maple fill:#fff3de,stroke:#b87a27,color:#533811
+    classDef data fill:#edf6ee,stroke:#538662,color:#1c4026
+    classDef entry fill:#eeeafa,stroke:#7963ac,color:#382960
+    class G,A,S app
+    class M,B maple
+    class R,P,V data
+    class EDGE entry

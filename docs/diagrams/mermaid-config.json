@@ -1,0 +1,15 @@
+{
+  "theme": "base",
+  "securityLevel": "strict",
+  "themeVariables": {
+    "fontFamily": "Malgun Gothic, Noto Sans CJK KR, Arial, sans-serif",
+    "fontSize": "18px",
+    "primaryColor": "#f5f7fa",
+    "primaryTextColor": "#202c39",
+    "primaryBorderColor": "#70869a",
+    "lineColor": "#6b7e90",
+    "clusterBkg": "#fafbfd",
+    "clusterBorder": "#aab9c7"
+  },
+  "flowchart": { "curve": "linear", "htmlLabels": false, "nodeSpacing": 28, "rankSpacing": 55, "padding": 16 }
+}

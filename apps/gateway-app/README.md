@@ -13,6 +13,10 @@ Gateway는 slash command를 명령 메시지로 바꿔 RabbitMQ에 보내고, wo
 
 음악의 재생 접수 후 `PLAYBACK_FAILED`가 오면 같은 원래 응답을 실패 안내로 바꾼다. 성공한 `/play`·`/sfx`의 pending은 후속 실패를 위해 남기고, terminal failure는 소비한다. interaction 유효 기간은 15분이다.
 
+## 메이플 연결
+
+[maple 패키지](src/main/java/discordgateway/gateway/maple)는 `/maple connect/status/stop`, 5분 서명 티켓과 OAuth `identify` 검증, HttpOnly 세션 쿠키 발급을 담당한다. `MapleNotificationScheduler`가 Node 발송함을 읽고 개인 DM 결과를 ack한다. 경매장 검색·계산은 Node 포털 책임이며 RabbitMQ로 보내지 않는다. [상세 구조](../../docs/reference/MAPLE_ARCHITECTURE.md)를 참고한다.
+
 ## 실행과 의존성
 
 - Compose 서비스: `gateway`, 호스트 HTTP `8081` → 컨테이너 `8080`.
@@ -26,7 +30,7 @@ Gateway는 slash command를 명령 메시지로 바꿔 RabbitMQ에 보내고, wo
 
 | 명령 | 공개 범위 |
 | --- | --- |
-| `/man`, 음악·효과음, 주식 조회 | 본인에게만 표시 |
+| `/man`, 음악·효과음, 주식 조회, `/maple` | 본인에게만 표시 |
 | `/stock buy`, `/stock sell`, `/stock rank`, `/pizza` | 채널에 공개 |
 
 ## 테스트와 점검

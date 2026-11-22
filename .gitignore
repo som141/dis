@@ -36,8 +36,21 @@ bin/
 
 # Local runtime secrets
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+*.env
+!*.env.example
+.docker-secrets/
+.secrets/
+secrets/
+*.pem
+*.key
+*.p12
+*.pfx
+*.dump
+*.sql.gz
+*.har
+*-browser-profile/
 
 ### Mac OS ###
 .DS_Store

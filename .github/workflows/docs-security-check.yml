@@ -1,0 +1,34 @@
+name: Check docs and safe defaults
+on:
+  pull_request:
+    paths: ['README.md', '.env.example', '.gitignore', 'docs/**', 'ops/docs/**', 'ops/security/**', 'ops/maple-db/**', 'ops/observability/**', 'docker-compose.yml', '.github/workflows/docs-security-check.yml']
+  push:
+    branches: [main]
+    paths: ['README.md', '.env.example', '.gitignore', 'docs/**', 'ops/docs/**', 'ops/security/**', 'ops/maple-db/**', 'ops/observability/**', 'docker-compose.yml', '.github/workflows/docs-security-check.yml']
+permissions:
+  contents: read
+jobs:
+  docs-security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node --test ops/security/config.test.mjs
+      - run: node ops/maple-db/check-doc-links.mjs
+      - run: python ops/docs/render-diagrams.py --check
+      - name: Preflight without deployment secrets
+        run: node ops/security/preflight.mjs --env-file .env.example
+      - name: Render diagrams
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: 'true'
+          PUPPETEER_EXECUTABLE_PATH: /usr/bin/google-chrome
+        run: |
+          printf '%s\n' '{"args":["--no-sandbox"]}' > "$RUNNER_TEMP/puppeteer.json"
+          for diagram in system-overview public-boundary; do
+            npx --yes @mermaid-js/mermaid-cli@12.2.0 -i "docs/diagrams/$diagram.mmd" -o "$RUNNER_TEMP/$diagram.svg" -c docs/diagrams/mermaid-config.json -p "$RUNNER_TEMP/puppeteer.json" -b white
+          done

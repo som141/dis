@@ -1,29 +1,12 @@
 # 현재 아키텍처
 
-DIS는 Discord 음악 봇과 주식 모의투자를 세 앱으로 나눠 실행한다. 명령 수신·응답은 Gateway, 실제 재생·계산은 각 worker가 맡는다. 구성 기준은 [Compose](../../docker-compose.yml), 앱 진입점은 [apps/](../../apps/README.md)에 있다.
+DIS는 세 Spring Boot 앱(Gateway·음악·주식)과 선택 기능인 Node 메이플 포털을 분리해 실행한다. 명령 수신·응답은 Gateway, 실제 재생·계산은 각 worker가 맡는다. 구성 기준은 [Compose](../../docker-compose.yml), 앱 진입점은 [apps/](../../apps/README.md)에 있다.
 
 ## 서비스 연결
 
-```mermaid
-flowchart LR
-    U[사용자] --> D[Discord]
-    D --> G[gateway-app]
-    G -->|명령| Q[(RabbitMQ)]
-    Q --> A[audio-node-app]
-    Q --> S[stock-node-app]
-    A -->|결과| Q
-    S -->|결과| Q
-    Q --> G
-    G -->|응답 편집| D
-    G --> R[(Redis)]
-    A --> R
-    S --> R
-    S --> P[(PostgreSQL)]
-    A --> C[YouTube cipher]
-    A --> Y[음원 서버]
-    A -->|음성 전송| D
-    S -->|주기적 갱신| F[Finnhub]
-```
+![전체 구조](../diagrams/system-overview.svg)
+
+[Mermaid 원본](../diagrams/system-overview.mmd) · [공개/내부 경계](../operations/SECURITY.md)
 
 Gateway도 음악 autocomplete·음원 조회용 PlayerManager와 cipher 설정을 사용한다. stock은 Discord/JDA에 접속하지 않는다. Gateway와 audio는 같은 봇 계정의 서로 다른 JDA 프로세스다.
 
@@ -34,7 +17,9 @@ Gateway도 음악 autocomplete·음원 조회용 PlayerManager와 cipher 설정�
 | stock | 계좌·거래·조회·랭킹, 시세 갱신, 청산 검사 |
 | RabbitMQ | 음악·주식 command/result 전달 |
 | Redis | pending 응답, 음악 상태·재생 대기열·잠금·중복 처리, 주식 시세·랭킹 캐시·제한 상태 |
-| PostgreSQL | 계좌, 포지션, 거래·지급 원장, snapshot, watchlist |
+| PostgreSQL | stock 계좌·포지션·원장과 별도 `maple` 스키마의 계정·작업·발송함 |
+| maple-portal | 사용자별 Chromium, 캐릭터 선택, 경매장 검색·계산·감시. Gateway와 내부 HTTP 통신 |
+| maple-edge | 공개 HTTPS 터널의 HTTP 진입점. OAuth는 Gateway, 포털 요청은 Node로 전달 |
 | YouTube cipher | player script 서명·URL 해독. 인증·음원 전송은 담당하지 않음 |
 
 ## 명령과 결과
@@ -83,9 +68,15 @@ flowchart LR
 
 데이터 모델은 [PostgreSQL 스키마](POSTGRESQL_STOCK_SCHEMA.md), 설정은 [로컬 개발 안내](../operations/LOCAL_DEVELOPMENT.md)를 본다.
 
+## 메이플 인증·검색·알림
+
+Discord OAuth와 넥슨 로그인을 분리한다. Spring은 연결 티켓·Discord 신원 확인과 DM 전달을, Node는 사용자별 브라우저와 캐릭터 작업 공간·검색 큐를 담당한다. Node 발송함을 Spring scheduler가 기본 30초 fixed delay로 읽는다. 음악·주식 RabbitMQ 경로를 거치지 않는다.
+
+[메이플 상세 아키텍처](MAPLE_ARCHITECTURE.md)에 사용자 흐름, 보안 경계, 복원 범위, 계산 제한을 정리했다. 테이블은 [메이플 스키마](MAPLE_PORTAL_SCHEMA.md)를 따른다.
+
 ## 관측과 검증
 
-앱은 `/actuator/health`, `/actuator/info`, `/actuator/prometheus`를 제공한다. [관측성 profile](../../ops/observability/README.md)은 메트릭을 Prometheus로, Docker 로그를 Alloy·Loki로 수집하고 Grafana에서 보여 준다. 전체 분산 trace는 현재 확장 후보이며 구현됐다고 가정하지 않는다.
+세 Spring 앱은 `/actuator/health`, `/actuator/info`, `/actuator/prometheus`를 제공한다. [관측성 profile](../../ops/observability/README.md)은 메트릭을 Prometheus로, Docker 로그를 Alloy·Loki로 수집하고 Grafana에서 보여 준다. 전체 분산 trace는 현재 확장 후보이며 구현됐다고 가정하지 않는다.
 
 컨테이너 준비 상태·명령 결과·실제 음질은 서로 다른 확인 항목이다. [테스트 가이드](../operations/CI_TESTING.md)와 [운영 런북](../operations/OPERATIONS_RUNBOOK.md)에서 각각 검증한다.
 
